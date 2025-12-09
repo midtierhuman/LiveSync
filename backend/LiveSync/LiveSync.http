@@ -1,0 +1,6 @@
+@LiveSync_HostAddress = http://localhost:5125
+
+GET {{LiveSync_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
