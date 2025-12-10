@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
-import { BehaviorSubject } from 'rxjs';
+import { signal } from '@angular/core';
 
 @Injectable({
   providedIn: 'root',
@@ -8,11 +8,11 @@ import { BehaviorSubject } from 'rxjs';
 export class SignalRService implements OnDestroy {
   private hubConnection: signalR.HubConnection;
 
-  // RxJS Subject to stream content updates to components
-  public contentUpdate$ = new BehaviorSubject<string>('');
-  public connectionState$ = new BehaviorSubject<string>('disconnected');
-  public userJoined$ = new BehaviorSubject<string>('');
-  public userLeft$ = new BehaviorSubject<string>('');
+  // Replace BehaviorSubject with signal
+  public contentUpdate = signal<string>('');
+  public connectionState = signal<string>('disconnected');
+  public userJoined = signal<string>('');
+  public userLeft = signal<string>('');
 
   private currentDocumentId: string | null = null;
 
@@ -24,27 +24,31 @@ export class SignalRService implements OnDestroy {
 
     // Track connection state changes
     this.hubConnection.onreconnecting(() => {
-      this.connectionState$.next('reconnecting');
+      this.connectionState.set('reconnecting');
     });
 
     this.hubConnection.onreconnected(() => {
-      this.connectionState$.next('connected');
+      this.connectionState.set('connected');
     });
 
     this.hubConnection.onclose(() => {
-      this.connectionState$.next('disconnected');
+      this.connectionState.set('disconnected');
     });
+  }
+
+  ngOnInit() {
+    // This is no longer needed - moved to constructor
   }
 
   public startConnection = () => {
     this.hubConnection
       .start()
       .then(() => {
-        this.connectionState$.next('connected');
+        this.connectionState.set('connected');
         console.log('Connection started');
       })
       .catch((err: string) => {
-        this.connectionState$.next('error');
+        this.connectionState.set('error');
         console.log('Error while starting connection: ' + err);
       });
   };
@@ -65,19 +69,19 @@ export class SignalRService implements OnDestroy {
 
   public addContentUpdateListener = () => {
     this.hubConnection.on('ReceiveContentUpdate', (content: string) => {
-      this.contentUpdate$.next(content);
+      this.contentUpdate.set(content); // <-- Use signal.set()
     });
   };
 
   public addUserJoinedListener = () => {
     this.hubConnection.on('UserJoined', (connectionId: string) => {
-      this.userJoined$.next(connectionId);
+      this.userJoined.set(connectionId);
     });
   };
 
   public addUserLeftListener = () => {
     this.hubConnection.on('UserLeft', (connectionId: string) => {
-      this.userLeft$.next(connectionId);
+      this.userLeft.set(connectionId);
     });
   };
 

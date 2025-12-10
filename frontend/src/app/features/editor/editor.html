@@ -1,12 +1,50 @@
-<div class="editor-container">
-  <h3>Collaborative Editor (Room: {{ docId }})</h3>
-  <div class="connection-status" [ngClass]="connectionState$ | async">
-    Status: {{ connectionState$ | async }}
+<div class="editor-wrapper">
+  <!-- Toolbar -->
+  <mat-toolbar color="primary" class="editor-toolbar">
+    <div class="toolbar-content">
+      <div class="toolbar-left">
+        <span class="document-title">{{ docId }}</span>
+        <div class="connection-badge" [ngClass]="signalRService.connectionState()">
+          <mat-icon class="status-icon">{{
+            signalRService.connectionState() === 'connected'
+              ? 'check_circle'
+              : 'radio_button_unchecked'
+          }}</mat-icon>
+          <span>{{ signalRService.connectionState() }}</span>
+        </div>
+      </div>
+
+      <div class="toolbar-center">
+        <mat-form-field class="language-select">
+          <mat-label>Language</mat-label>
+          <mat-select [value]="language()" (selectionChange)="onLanguageChange($event.value)">
+            <mat-option *ngFor="let lang of languages" [value]="lang.value">
+              {{ lang.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="toolbar-right">
+        <button mat-icon-button (click)="toggleTheme()" matTooltip="Toggle Theme">
+          <mat-icon>{{ isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+        <button mat-icon-button (click)="copyCode()" matTooltip="Copy Code">
+          <mat-icon>content_copy</mat-icon>
+        </button>
+        <button mat-icon-button (click)="clearCode()" matTooltip="Clear Code">
+          <mat-icon>clear</mat-icon>
+        </button>
+      </div>
+    </div>
+  </mat-toolbar>
+
+  <!-- Editor -->
+  <div class="editor-container">
+    <ngx-monaco-editor
+      [(ngModel)]="code"
+      [options]="editorOptions"
+      class="monaco-editor"
+    ></ngx-monaco-editor>
   </div>
-  <textarea
-    [(ngModel)]="content"
-    (ngModelChange)="onContentChange($event)"
-    rows="20"
-    cols="80"
-  ></textarea>
 </div>

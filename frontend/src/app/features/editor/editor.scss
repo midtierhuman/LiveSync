@@ -1,27 +1,175 @@
-.connection-status {
-  padding: 8px 12px;
+.editor-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #1e1e1e;
+}
+
+.editor-toolbar {
+  padding: 0 16px !important;
+  height: 56px !important;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.toolbar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 16px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.document-title {
+  font-weight: 500;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.connection-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
   border-radius: 4px;
-  margin-bottom: 12px;
-  font-weight: bold;
   font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
 
   &.connected {
-    background-color: #d4edda;
-    color: #155724;
+    background-color: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
   }
 
   &.disconnected {
-    background-color: #f8d7da;
-    color: #721c24;
+    background-color: rgba(244, 67, 54, 0.2);
+    color: #f44336;
   }
 
   &.reconnecting {
-    background-color: #fff3cd;
-    color: #856404;
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
   }
 
   &.error {
-    background-color: #f8d7da;
-    color: #721c24;
+    background-color: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+  }
+
+  .status-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.toolbar-center {
+  flex: 0 1 auto;
+  display: flex;
+  justify-content: center;
+}
+
+.language-select {
+  width: 140px;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-end;
+
+  button {
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: scale(1.1);
+    }
+  }
+}
+
+.editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #1e1e1e;
+}
+
+.monaco-editor {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+// Theme support
+:host ::ng-deep {
+  .ngx-monaco-editor-container {
+    height: 100%;
+    font-family: 'Fira Code', 'Courier New', monospace !important;
+  }
+
+  .monaco-editor {
+    background-color: #1e1e1e !important;
+
+    .codicon {
+      font-family: codicon !important;
+    }
+  }
+}
+
+// Material overrides
+::ng-deep {
+  .mat-mdc-form-field {
+    .mdc-text-field {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .mat-mdc-form-field-label {
+      color: rgba(255, 255, 255, 0.7) !important;
+    }
+  }
+
+  .mat-mdc-select-trigger {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .toolbar-content {
+    flex-wrap: wrap;
+  }
+
+  .toolbar-center {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .language-select {
+    width: 100%;
+  }
+
+  .toolbar-right {
+    flex-basis: auto;
+    order: 2;
+  }
+
+  .editor-wrapper {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .editor-container {
+    min-height: 400px;
   }
 }
