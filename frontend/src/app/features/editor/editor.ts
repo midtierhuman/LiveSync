@@ -1,4 +1,4 @@
-import { Component, OnInit, effect, ViewChild, signal } from '@angular/core';
+import { Component, OnInit, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -8,7 +8,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
 import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
-import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { SignalRService } from '../../services/signalr.service';
 
 @Component({
@@ -23,14 +22,11 @@ import { SignalRService } from '../../services/signalr.service';
     MatIconModule,
     MatTooltipModule,
     MatCardModule,
-    MonacoEditorModule,
   ],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
 export class Editor implements OnInit {
-  @ViewChild('monacoEditor') monacoEditor: any;
-
   docId = 'doc-123';
   code = '// Start typing to collaborate...\n';
   language = signal<string>('typescript');
@@ -39,17 +35,6 @@ export class Editor implements OnInit {
 
   // Subject to handle debouncing (prevent sending every single keystroke)
   private codeUpdateSubject = new Subject<string>();
-
-  editorOptions = {
-    theme: 'vs-dark',
-    language: 'typescript',
-    automaticLayout: true,
-    minimap: { enabled: true },
-    fontSize: 14,
-    fontFamily: 'Fira Code, Courier New',
-    wordWrap: 'on',
-    lineNumbers: 'on',
-  };
 
   languages = [
     { name: 'TypeScript', value: 'typescript' },
@@ -85,6 +70,15 @@ export class Editor implements OnInit {
         console.log('User left:', connectionId);
       }
     });
+  }
+
+  onLanguageChange(newLanguage: string) {
+    this.language.set(newLanguage);
+  }
+
+  onCodeChange() {
+    // Called when editor content changes via ngModel
+    this.codeUpdateSubject.next(this.code);
   }
 
   ngOnInit() {
@@ -127,32 +121,16 @@ export class Editor implements OnInit {
     });
   }
 
-  onEditorInit(editor: any) {
-    // Initialize editor instance for change tracking
-  }
-
-  onCodeChange(newValue: string) {
-    // Push to the subject, not the server directly
-    this.code = newValue;
-    this.codeUpdateSubject.next(newValue);
-  }
-
-  onLanguageChange(newLanguage: string) {
-    this.language.set(newLanguage);
-    this.editorOptions = {
-      ...this.editorOptions,
-      language: newLanguage,
-    };
-  }
-
   toggleTheme() {
     const newTheme = this.isDarkMode() ? 'vs' : 'vs-dark';
     this.theme.set(newTheme);
     this.isDarkMode.set(!this.isDarkMode());
-    this.editorOptions = {
-      ...this.editorOptions,
-      theme: newTheme,
-    };
+
+    // Update via Monaco API if available
+    const monaco = (window as any).monaco;
+    if (monaco) {
+      monaco.editor.setTheme(newTheme);
+    }
   }
 
   copyCode() {

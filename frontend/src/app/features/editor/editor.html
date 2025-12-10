@@ -41,10 +41,12 @@
 
   <!-- Editor -->
   <div class="editor-container">
-    <ngx-monaco-editor
+    <textarea
       [(ngModel)]="code"
-      [options]="editorOptions"
-      class="monaco-editor"
-    ></ngx-monaco-editor>
+      (ngModelChange)="onCodeChange()"
+      class="code-editor"
+      [class.dark-theme]="isDarkMode()"
+      spellcheck="false"
+    ></textarea>
   </div>
 </div>

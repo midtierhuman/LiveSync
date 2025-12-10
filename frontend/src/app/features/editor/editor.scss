@@ -145,6 +145,42 @@
 }
 
 // Responsive
+.editor-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.code-editor {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  resize: none;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #e0e0e0;
+  background-color: #1e1e1e;
+  outline: none;
+  tab-size: 2;
+  -moz-tab-size: 2;
+
+  &.dark-theme {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+  }
+
+  &:not(.dark-theme) {
+    background-color: #ffffff;
+    color: #333333;
+  }
+
+  // Selection styling
+  &::selection {
+    background-color: rgba(100, 149, 237, 0.5);
+  }
+}
+
 @media (max-width: 768px) {
   .toolbar-content {
     flex-wrap: wrap;
