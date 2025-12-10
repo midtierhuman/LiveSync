@@ -114,19 +114,90 @@ export class Editor {
       }
     });
 
-    // Keyboard shortcuts
+    // Keyboard shortcuts and code-friendly features
     textarea.addEventListener('keydown', (event: KeyboardEvent) => {
+      // Tab key - insert 2 spaces
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+
+        if (event.shiftKey) {
+          // Shift+Tab: Outdent
+          this.handleOutdent(textarea, start, end);
+        } else {
+          // Tab: Indent
+          this.handleIndent(textarea, start, end);
+        }
+        return;
+      }
+
+      // Enter key - auto-indent
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        this.handleEnter(textarea);
+        return;
+      }
+
+      // Auto-close brackets, quotes, etc.
+      const pairs: Record<string, string> = {
+        '(': ')',
+        '[': ']',
+        '{': '}',
+        '"': '"',
+        "'": "'",
+        '`': '`',
+      };
+
+      if (pairs[event.key] && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+
+        if (start !== end) {
+          // Wrap selection
+          event.preventDefault();
+          this.wrapSelection(textarea, event.key, pairs[event.key]);
+          return;
+        } else {
+          // Auto-close
+          event.preventDefault();
+          this.autoClose(textarea, event.key, pairs[event.key]);
+          return;
+        }
+      }
+
+      // Undo/Redo
       if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
         event.preventDefault();
         this.undo();
+        return;
       }
       if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
         event.preventDefault();
         this.redo();
+        return;
       }
+
+      // Save
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
         event.preventDefault();
         this.downloadCode();
+        return;
+      }
+
+      // Duplicate line (Ctrl/Cmd + D)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
+        event.preventDefault();
+        this.duplicateLine(textarea);
+        return;
+      }
+
+      // Comment/Uncomment (Ctrl/Cmd + /)
+      if ((event.ctrlKey || event.metaKey) && event.key === '/') {
+        event.preventDefault();
+        this.toggleComment(textarea);
+        return;
       }
     });
   }
@@ -278,5 +349,222 @@ export class Editor {
 
   getLineNumbers(): string {
     return this.lineNumbersArray().join('\n');
+  }
+
+  // Code-friendly editor features
+  private handleIndent(textarea: HTMLTextAreaElement, start: number, end: number) {
+    const value = textarea.value;
+
+    if (start === end) {
+      // Insert 2 spaces at cursor
+      const newValue = value.substring(0, start) + '  ' + value.substring(end);
+      textarea.value = newValue;
+      textarea.selectionStart = textarea.selectionEnd = start + 2;
+    } else {
+      // Indent selected lines
+      const lines = value.split('\n');
+      let currentPos = 0;
+      let startLine = 0;
+      let endLine = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        const lineEnd = currentPos + lines[i].length;
+        if (currentPos <= start && start <= lineEnd) startLine = i;
+        if (currentPos <= end && end <= lineEnd) endLine = i;
+        currentPos = lineEnd + 1;
+      }
+
+      for (let i = startLine; i <= endLine; i++) {
+        lines[i] = '  ' + lines[i];
+      }
+
+      textarea.value = lines.join('\n');
+      textarea.selectionStart = start + 2;
+      textarea.selectionEnd = end + (endLine - startLine + 1) * 2;
+    }
+
+    this.updateFromTextarea(textarea);
+  }
+
+  private handleOutdent(textarea: HTMLTextAreaElement, start: number, end: number) {
+    const value = textarea.value;
+    const lines = value.split('\n');
+    let currentPos = 0;
+    let startLine = 0;
+    let endLine = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineEnd = currentPos + lines[i].length;
+      if (currentPos <= start && start <= lineEnd) startLine = i;
+      if (currentPos <= end && end <= lineEnd) endLine = i;
+      currentPos = lineEnd + 1;
+    }
+
+    let removed = 0;
+    for (let i = startLine; i <= endLine; i++) {
+      if (lines[i].startsWith('  ')) {
+        lines[i] = lines[i].substring(2);
+        removed += 2;
+      } else if (lines[i].startsWith(' ')) {
+        lines[i] = lines[i].substring(1);
+        removed += 1;
+      }
+    }
+
+    textarea.value = lines.join('\n');
+    textarea.selectionStart = Math.max(0, start - 2);
+    textarea.selectionEnd = Math.max(0, end - removed);
+
+    this.updateFromTextarea(textarea);
+  }
+
+  private handleEnter(textarea: HTMLTextAreaElement) {
+    const start = textarea.selectionStart;
+    const value = textarea.value;
+    const beforeCursor = value.substring(0, start);
+    const afterCursor = value.substring(start);
+
+    // Get current line
+    const lines = beforeCursor.split('\n');
+    const currentLine = lines[lines.length - 1];
+
+    // Calculate indentation
+    const indent = currentLine.match(/^\s*/)?.[0] || '';
+
+    // Check if current line ends with opening bracket
+    const endsWithOpening = /[{[(]\s*$/.test(currentLine);
+    const startsWithClosing = /^\s*[}\])]/.test(afterCursor);
+
+    let newValue: string;
+    let newCursorPos: number;
+
+    if (endsWithOpening && startsWithClosing) {
+      // Add extra line with indent between brackets
+      newValue = beforeCursor + '\n' + indent + '  ' + '\n' + indent + afterCursor;
+      newCursorPos = start + indent.length + 3;
+    } else if (endsWithOpening) {
+      // Increase indent
+      newValue = beforeCursor + '\n' + indent + '  ' + afterCursor;
+      newCursorPos = start + indent.length + 3;
+    } else {
+      // Keep same indent
+      newValue = beforeCursor + '\n' + indent + afterCursor;
+      newCursorPos = start + indent.length + 1;
+    }
+
+    textarea.value = newValue;
+    textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+
+    this.updateFromTextarea(textarea);
+  }
+
+  private autoClose(textarea: HTMLTextAreaElement, open: string, close: string) {
+    const start = textarea.selectionStart;
+    const value = textarea.value;
+
+    // For quotes, only auto-close if not already followed by the same quote
+    if (open === close) {
+      const nextChar = value[start];
+      if (nextChar === open) {
+        // Move cursor past the existing quote
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+        return;
+      }
+    }
+
+    const newValue = value.substring(0, start) + open + close + value.substring(start);
+    textarea.value = newValue;
+    textarea.selectionStart = textarea.selectionEnd = start + 1;
+
+    this.updateFromTextarea(textarea);
+  }
+
+  private wrapSelection(textarea: HTMLTextAreaElement, open: string, close: string) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+    const selection = value.substring(start, end);
+
+    const newValue = value.substring(0, start) + open + selection + close + value.substring(end);
+    textarea.value = newValue;
+    textarea.selectionStart = start + 1;
+    textarea.selectionEnd = end + 1;
+
+    this.updateFromTextarea(textarea);
+  }
+
+  private duplicateLine(textarea: HTMLTextAreaElement) {
+    const start = textarea.selectionStart;
+    const value = textarea.value;
+    const beforeCursor = value.substring(0, start);
+    const afterCursor = value.substring(start);
+
+    const lines = beforeCursor.split('\n');
+    const currentLine = lines[lines.length - 1];
+    const afterLines = afterCursor.split('\n');
+    const restOfLine = afterLines[0];
+    const fullLine = currentLine + restOfLine;
+
+    const newValue =
+      value.substring(0, start) +
+      restOfLine +
+      '\n' +
+      fullLine +
+      afterCursor.substring(restOfLine.length);
+    textarea.value = newValue;
+    textarea.selectionStart = textarea.selectionEnd = start + restOfLine.length + 1;
+
+    this.updateFromTextarea(textarea);
+  }
+
+  private toggleComment(textarea: HTMLTextAreaElement) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+    const lines = value.split('\n');
+
+    let currentPos = 0;
+    let startLine = 0;
+    let endLine = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineEnd = currentPos + lines[i].length;
+      if (currentPos <= start && start <= lineEnd) startLine = i;
+      if (currentPos <= end && end <= lineEnd) endLine = i;
+      currentPos = lineEnd + 1;
+    }
+
+    // Check if all lines are commented
+    let allCommented = true;
+    for (let i = startLine; i <= endLine; i++) {
+      if (!lines[i].trim().startsWith('//')) {
+        allCommented = false;
+        break;
+      }
+    }
+
+    if (allCommented) {
+      // Uncomment
+      for (let i = startLine; i <= endLine; i++) {
+        lines[i] = lines[i].replace(/^(\s*)\/\/\s?/, '$1');
+      }
+    } else {
+      // Comment
+      for (let i = startLine; i <= endLine; i++) {
+        const indent = lines[i].match(/^\s*/)?.[0] || '';
+        lines[i] = indent + '// ' + lines[i].substring(indent.length);
+      }
+    }
+
+    textarea.value = lines.join('\n');
+    this.updateFromTextarea(textarea);
+  }
+
+  private updateFromTextarea(textarea: HTMLTextAreaElement) {
+    const newValue = textarea.value;
+    this.pushToUndoStack(this.codeSignal());
+    this.codeSignal.set(newValue);
+    this.updateLineNumbers(newValue);
+    this.scheduleDebounce(newValue);
   }
 }
