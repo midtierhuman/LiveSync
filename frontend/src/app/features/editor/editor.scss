@@ -1,0 +1,27 @@
+.connection-status {
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-weight: bold;
+  font-size: 12px;
+
+  &.connected {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  &.disconnected {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  &.reconnecting {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  &.error {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+}

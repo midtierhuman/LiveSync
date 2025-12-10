@@ -1,5 +1,12 @@
 <div class="editor-container">
   <h3>Collaborative Editor (Room: {{ docId }})</h3>
-  <textarea [(ngModel)]="content" (ngModelChange)="onContentChange($event)" rows="20" cols="80">
-  </textarea>
+  <div class="connection-status" [ngClass]="connectionState$ | async">
+    Status: {{ connectionState$ | async }}
+  </div>
+  <textarea
+    [(ngModel)]="content"
+    (ngModelChange)="onContentChange($event)"
+    rows="20"
+    cols="80"
+  ></textarea>
 </div>
