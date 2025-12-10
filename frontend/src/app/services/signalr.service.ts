@@ -41,15 +41,21 @@ export class SignalRService implements OnDestroy {
   }
 
   public startConnection = () => {
-    this.hubConnection
+    if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
+      this.connectionState.set('connected');
+      console.log('Already connected');
+      return Promise.resolve();
+    }
+
+    return this.hubConnection
       .start()
       .then(() => {
         this.connectionState.set('connected');
-        console.log('Connection started');
+        console.log('SignalR Connection started successfully');
       })
-      .catch((err: string) => {
+      .catch((err: Error) => {
         this.connectionState.set('error');
-        console.log('Error while starting connection: ' + err);
+        console.error('Error while starting SignalR connection:', err);
       });
   };
 

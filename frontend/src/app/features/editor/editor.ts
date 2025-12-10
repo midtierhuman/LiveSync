@@ -88,24 +88,30 @@ export class Editor implements OnInit {
   }
 
   ngOnInit() {
-    this.signalRService.startConnection();
-
-    // Listen for updates and user presence events
+    // Set up listeners first before starting connection
     this.signalRService.addContentUpdateListener();
     this.signalRService.addUserJoinedListener();
     this.signalRService.addUserLeftListener();
 
-    // Wait for connection to be established before joining the document
-    const checkConnectionInterval = setInterval(() => {
-      if (this.signalRService.connectionState() === 'connected') {
-        clearInterval(checkConnectionInterval);
+    // Start connection and wait for it to complete
+    this.signalRService
+      .startConnection()
+      .then(() => {
+        // Only join document after connection is confirmed
         this.signalRService.joinDocument(this.docId);
-      }
-    }, 100);
+        console.log(`Joined document: ${this.docId}`);
+      })
+      .catch((err) => {
+        console.error('Failed to establish connection:', err);
+      });
 
     // Debounce logic: Wait 300ms after user stops typing to send to server
     this.codeUpdateSubject.pipe(debounceTime(300), distinctUntilChanged()).subscribe((value) => {
-      this.signalRService.sendUpdate(this.docId, value);
+      if (this.signalRService.connectionState() === 'connected') {
+        this.signalRService.sendUpdate(this.docId, value);
+      } else {
+        console.warn('Not connected, will retry when connection is established');
+      }
     });
   }
 

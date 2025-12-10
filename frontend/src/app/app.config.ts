@@ -15,6 +15,8 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideRouter(routes),
     provideClientHydration(withEventReplay()),
-    provideMonacoEditor(),
+    provideMonacoEditor({
+      baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/',
+    }),
   ],
 };
