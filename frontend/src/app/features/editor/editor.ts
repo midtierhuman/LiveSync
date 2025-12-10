@@ -10,34 +10,25 @@ import {
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatCardModule } from '@angular/material/card';
 import { SignalRService } from '../../services/signalr.service';
 
 @Component({
   selector: 'app-editor',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatToolbarModule,
-    MatButtonModule,
-    MatSelectModule,
-    MatIconModule,
-    MatTooltipModule,
-    MatCardModule,
-  ],
+  imports: [CommonModule, MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
 export class Editor implements OnInit, AfterViewInit {
   @ViewChild('codeTextarea') codeTextarea!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('lineNumbers') lineNumbers!: ElementRef<HTMLPreElement>;
 
   docId = 'doc-123';
+  lineNumbersArray = signal<number[]>([1]);
   codeSignal = signal<string>('// Start typing to collaborate...\n');
   pendingUpdateSignal = signal<string>('');
-  language = signal<string>('typescript');
   theme = signal<string>('vs-dark');
   isDarkMode = signal<boolean>(true);
 
@@ -46,18 +37,6 @@ export class Editor implements OnInit, AfterViewInit {
   private undoStack: string[] = [];
   private redoStack: string[] = [];
   private maxUndoSteps = 50;
-
-  languages = [
-    { name: 'TypeScript', value: 'typescript' },
-    { name: 'JavaScript', value: 'javascript' },
-    { name: 'Python', value: 'python' },
-    { name: 'Java', value: 'java' },
-    { name: 'C#', value: 'csharp' },
-    { name: 'HTML', value: 'html' },
-    { name: 'CSS', value: 'css' },
-    { name: 'SQL', value: 'sql' },
-    { name: 'JSON', value: 'json' },
-  ];
 
   constructor(public signalRService: SignalRService) {
     // Use effect to handle remote content updates - update textarea directly
@@ -73,6 +52,9 @@ export class Editor implements OnInit, AfterViewInit {
         if (this.codeTextarea?.nativeElement) {
           this.codeTextarea.nativeElement.value = newContent;
         }
+
+        // Update line numbers
+        this.updateLineNumbers(newContent);
 
         // Clear undo/redo stack when receiving initial content to avoid confusion
         this.undoStack = [];
@@ -97,14 +79,11 @@ export class Editor implements OnInit, AfterViewInit {
     });
   }
 
-  onLanguageChange(newLanguage: string) {
-    this.language.set(newLanguage);
-  }
-
   ngAfterViewInit() {
     // Set initial value
     if (this.codeTextarea?.nativeElement) {
       this.codeTextarea.nativeElement.value = this.codeSignal();
+      this.updateLineNumbers(this.codeSignal());
 
       // Listen to textarea input events directly - bypasses Angular change detection
       this.codeTextarea.nativeElement.addEventListener('input', (event: Event) => {
@@ -113,7 +92,16 @@ export class Editor implements OnInit, AfterViewInit {
           this.pushToUndoStack(this.codeSignal());
           this.codeSignal.set(newValue);
           this.pendingUpdateSignal.set(newValue);
+          this.updateLineNumbers(newValue);
           this.scheduleDebounce(newValue);
+        }
+      });
+
+      // Sync scroll between textarea and line numbers
+      this.codeTextarea.nativeElement.addEventListener('scroll', () => {
+        if (this.lineNumbers?.nativeElement) {
+          this.lineNumbers.nativeElement.scrollTop = this.codeTextarea.nativeElement.scrollTop;
+          this.lineNumbers.nativeElement.scrollLeft = 0; // Prevent horizontal scroll
         }
       });
 
@@ -156,6 +144,7 @@ export class Editor implements OnInit, AfterViewInit {
       if (this.codeTextarea?.nativeElement) {
         this.codeTextarea.nativeElement.value = previous;
       }
+      this.updateLineNumbers(previous);
       this.scheduleDebounce(previous);
       this.isUpdatingFromRemote = false;
     }
@@ -171,6 +160,7 @@ export class Editor implements OnInit, AfterViewInit {
       if (this.codeTextarea?.nativeElement) {
         this.codeTextarea.nativeElement.value = next;
       }
+      this.updateLineNumbers(next);
       this.scheduleDebounce(next);
       this.isUpdatingFromRemote = false;
     }
@@ -247,27 +237,11 @@ export class Editor implements OnInit, AfterViewInit {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const extension = this.getFileExtension(this.language());
-    a.download = `code-${Date.now()}.${extension}`;
+    a.download = `code-${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }
-
-  private getFileExtension(language: string): string {
-    const extensions: Record<string, string> = {
-      typescript: 'ts',
-      javascript: 'js',
-      python: 'py',
-      java: 'java',
-      csharp: 'cs',
-      html: 'html',
-      css: 'css',
-      sql: 'sql',
-      json: 'json',
-    };
-    return extensions[language] || 'txt';
   }
 
   clearCode() {
@@ -275,6 +249,18 @@ export class Editor implements OnInit, AfterViewInit {
     if (this.codeTextarea?.nativeElement) {
       this.codeTextarea.nativeElement.value = '';
     }
+    this.updateLineNumbers('');
     this.scheduleDebounce('');
+  }
+
+  private updateLineNumbers(content: string) {
+    // Count lines based on newline characters
+    const lines = content.split('\n');
+    const lineCount = lines.length;
+    this.lineNumbersArray.set(Array.from({ length: lineCount }, (_, i) => i + 1));
+  }
+
+  getLineNumbers(): string {
+    return this.lineNumbersArray().join('\n');
   }
 }

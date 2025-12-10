@@ -90,16 +90,6 @@
   }
 }
 
-.toolbar-center {
-  flex: 0 1 auto;
-  display: flex;
-  justify-content: center;
-}
-
-.language-select {
-  width: 140px;
-}
-
 .toolbar-right {
   display: flex;
   gap: 8px;
@@ -115,69 +105,63 @@
   }
 }
 
+// Editor container - horizontal layout (row)
 .editor-container {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   overflow: hidden;
   background-color: #1e1e1e;
+  position: relative;
 }
 
-.monaco-editor {
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-}
-
-// Theme support
-:host ::ng-deep {
-  .ngx-monaco-editor-container {
-    height: 100%;
-    font-family: 'Fira Code', 'Courier New', monospace !important;
-  }
-
-  .monaco-editor {
-    background-color: #1e1e1e !important;
-
-    .codicon {
-      font-family: codicon !important;
-    }
-  }
-}
-
-// Material overrides
-::ng-deep {
-  .mat-mdc-form-field {
-    .mdc-text-field {
-      background-color: rgba(255, 255, 255, 0.05);
-    }
-
-    .mat-mdc-form-field-label {
-      color: rgba(255, 255, 255, 0.7) !important;
-    }
-  }
-
-  .mat-mdc-select-trigger {
-    color: rgba(255, 255, 255, 0.9);
-  }
-}
-
-// Responsive
-.editor-container {
-  flex: 1;
+.line-numbers-wrapper {
+  width: 60px;
+  background-color: #252526;
+  border-right: 1px solid #3e3e42;
   overflow: hidden;
-  display: flex;
+  flex-shrink: 0;
+
+  &.dark-theme {
+    background-color: #252526;
+    border-right: 1px solid #3e3e42;
+  }
+
+  &:not(.dark-theme) {
+    background-color: #f3f3f3;
+    border-right: 1px solid #e0e0e0;
+  }
+}
+
+.line-numbers {
+  margin: 0;
+  padding: 16px 12px 16px 0;
+  color: #858585;
+  text-align: right;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 15px;
+  line-height: 27px;
+  user-select: none;
+  white-space: pre;
+  overflow: hidden;
+
+  .dark-theme & {
+    color: #858585;
+  }
+
+  :not(.dark-theme) & {
+    color: #999999;
+  }
 }
 
 .code-editor {
   flex: 1;
   padding: 16px;
-  padding-left: 60px; // Space for line numbers
   border: none;
   resize: none;
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
   font-size: 15px;
-  line-height: 1.8;
+  line-height: 27px; // Match exact line height with line numbers (15px * 1.8 = 27px)
   letter-spacing: 0.5px;
   color: #e0e0e0;
   background-color: #1e1e1e;
@@ -209,22 +193,12 @@
     flex-wrap: wrap;
   }
 
-  .toolbar-center {
-    flex-basis: 100%;
-    order: 3;
-  }
-
-  .language-select {
-    width: 100%;
-  }
-
   .toolbar-right {
     flex-basis: auto;
     order: 2;
   }
 
   .editor-wrapper {
-    height: auto;
     min-height: 100vh;
   }
 
