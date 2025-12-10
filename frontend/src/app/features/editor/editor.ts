@@ -1,13 +1,12 @@
 import {
   Component,
-  OnInit,
   effect,
   signal,
-  ViewChild,
+  viewChild,
+  afterNextRender,
+  inject,
   ElementRef,
-  AfterViewInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,49 +15,51 @@ import { SignalRService } from '../../services/signalr.service';
 
 @Component({
   selector: 'app-editor',
-  standalone: true,
-  imports: [CommonModule, MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
-export class Editor implements OnInit, AfterViewInit {
-  @ViewChild('codeTextarea') codeTextarea!: ElementRef<HTMLTextAreaElement>;
-  @ViewChild('lineNumbers') lineNumbers!: ElementRef<HTMLPreElement>;
+export class Editor {
+  // Angular 20 signal-based queries
+  readonly codeTextarea = viewChild.required<ElementRef<HTMLTextAreaElement>>('codeTextarea');
+  readonly lineNumbers = viewChild.required<ElementRef<HTMLPreElement>>('lineNumbers');
 
-  docId = 'doc-123';
-  lineNumbersArray = signal<number[]>([1]);
-  codeSignal = signal<string>('// Start typing to collaborate...\n');
-  pendingUpdateSignal = signal<string>('');
-  theme = signal<string>('vs-dark');
-  isDarkMode = signal<boolean>(true);
+  // Inject service using Angular 20 inject() function
+  readonly signalRService = inject(SignalRService);
 
+  // Signals for reactive state
+  readonly docId = signal('doc-123');
+  readonly lineNumbersArray = signal<number[]>([1]);
+  readonly codeSignal = signal('// Start typing to collaborate...\n');
+  readonly theme = signal('vs-dark');
+  readonly isDarkMode = signal(true);
+
+  // Private state
   private isUpdatingFromRemote = false;
-  private debounceTimer: any = null;
-  private undoStack: string[] = [];
-  private redoStack: string[] = [];
-  private maxUndoSteps = 50;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly undoStack = signal<string[]>([]);
+  private readonly redoStack = signal<string[]>([]);
+  private readonly maxUndoSteps = 50;
 
-  constructor(public signalRService: SignalRService) {
-    // Use effect to handle remote content updates - update textarea directly
+  constructor() {
+    // Effects for SignalR events
     effect(() => {
       const newContent = this.signalRService.contentUpdate();
-      // Update whenever contentUpdate signal changes, regardless of value
-      // This ensures empty strings and deletions are properly sync'd
       if (newContent !== undefined && newContent !== null) {
         this.isUpdatingFromRemote = true;
         this.codeSignal.set(newContent);
 
-        // Update textarea directly, not through Angular
-        if (this.codeTextarea?.nativeElement) {
-          this.codeTextarea.nativeElement.value = newContent;
+        // Update textarea using signal query
+        const textarea = this.codeTextarea()?.nativeElement;
+        if (textarea) {
+          textarea.value = newContent;
         }
 
-        // Update line numbers
         this.updateLineNumbers(newContent);
 
-        // Clear undo/redo stack when receiving initial content to avoid confusion
-        this.undoStack = [];
-        this.redoStack = [];
+        // Clear undo/redo stacks
+        this.undoStack.set([]);
+        this.redoStack.set([]);
 
         this.isUpdatingFromRemote = false;
       }
@@ -77,72 +78,83 @@ export class Editor implements OnInit, AfterViewInit {
         console.log('User left:', connectionId);
       }
     });
+
+    // Initialize view after render
+    afterNextRender(() => {
+      this.initializeEditor();
+      this.setupSignalR();
+    });
   }
 
-  ngAfterViewInit() {
-    // Set initial value
-    if (this.codeTextarea?.nativeElement) {
-      this.codeTextarea.nativeElement.value = this.codeSignal();
-      this.updateLineNumbers(this.codeSignal());
+  private initializeEditor() {
+    const textarea = this.codeTextarea()?.nativeElement;
+    const lineNumbersEl = this.lineNumbers()?.nativeElement;
 
-      // Listen to textarea input events directly - bypasses Angular change detection
-      this.codeTextarea.nativeElement.addEventListener('input', (event: Event) => {
-        if (!this.isUpdatingFromRemote) {
-          const newValue = (event.target as HTMLTextAreaElement).value;
-          this.pushToUndoStack(this.codeSignal());
-          this.codeSignal.set(newValue);
-          this.pendingUpdateSignal.set(newValue);
-          this.updateLineNumbers(newValue);
-          this.scheduleDebounce(newValue);
-        }
-      });
+    if (!textarea) return;
 
-      // Sync scroll between textarea and line numbers
-      this.codeTextarea.nativeElement.addEventListener('scroll', () => {
-        if (this.lineNumbers?.nativeElement) {
-          this.lineNumbers.nativeElement.scrollTop = this.codeTextarea.nativeElement.scrollTop;
-          this.lineNumbers.nativeElement.scrollLeft = 0; // Prevent horizontal scroll
-        }
-      });
+    textarea.value = this.codeSignal();
+    this.updateLineNumbers(this.codeSignal());
 
-      // Keyboard shortcuts
-      this.codeTextarea.nativeElement.addEventListener('keydown', (event: KeyboardEvent) => {
-        // Ctrl+Z or Cmd+Z for Undo
-        if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
-          event.preventDefault();
-          this.undo();
-        }
-        // Ctrl+Shift+Z or Cmd+Shift+Z for Redo
-        if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
-          event.preventDefault();
-          this.redo();
-        }
-        // Ctrl+S or Cmd+S to download
-        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-          event.preventDefault();
-          this.downloadCode();
-        }
-      });
-    }
+    // Input event listener
+    textarea.addEventListener('input', (event: Event) => {
+      if (!this.isUpdatingFromRemote) {
+        const newValue = (event.target as HTMLTextAreaElement).value;
+        this.pushToUndoStack(this.codeSignal());
+        this.codeSignal.set(newValue);
+        this.updateLineNumbers(newValue);
+        this.scheduleDebounce(newValue);
+      }
+    });
+
+    // Scroll sync
+    textarea.addEventListener('scroll', () => {
+      if (lineNumbersEl) {
+        lineNumbersEl.scrollTop = textarea.scrollTop;
+        lineNumbersEl.scrollLeft = 0;
+      }
+    });
+
+    // Keyboard shortcuts
+    textarea.addEventListener('keydown', (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        this.undo();
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
+        event.preventDefault();
+        this.redo();
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        this.downloadCode();
+      }
+    });
   }
 
   private pushToUndoStack(value: string) {
-    if (this.undoStack.length >= this.maxUndoSteps) {
-      this.undoStack.shift();
+    const stack = this.undoStack();
+    if (stack.length >= this.maxUndoSteps) {
+      stack.shift();
     }
-    this.undoStack.push(value);
-    this.redoStack = []; // Clear redo stack on new change
+    this.undoStack.set([...stack, value]);
+    this.redoStack.set([]);
   }
 
   private undo() {
-    if (this.undoStack.length > 0) {
+    const stack = this.undoStack();
+    if (stack.length > 0) {
       const current = this.codeSignal();
-      this.redoStack.push(current);
-      const previous = this.undoStack.pop()!;
+      this.redoStack.set([...this.redoStack(), current]);
+
+      const previous = stack[stack.length - 1];
+      this.undoStack.set(stack.slice(0, -1));
+
       this.isUpdatingFromRemote = true;
       this.codeSignal.set(previous);
-      if (this.codeTextarea?.nativeElement) {
-        this.codeTextarea.nativeElement.value = previous;
+
+      const textarea = this.codeTextarea()?.nativeElement;
+      if (textarea) {
+        textarea.value = previous;
       }
       this.updateLineNumbers(previous);
       this.scheduleDebounce(previous);
@@ -151,14 +163,20 @@ export class Editor implements OnInit, AfterViewInit {
   }
 
   private redo() {
-    if (this.redoStack.length > 0) {
+    const stack = this.redoStack();
+    if (stack.length > 0) {
       const current = this.codeSignal();
-      this.undoStack.push(current);
-      const next = this.redoStack.pop()!;
+      this.undoStack.set([...this.undoStack(), current]);
+
+      const next = stack[stack.length - 1];
+      this.redoStack.set(stack.slice(0, -1));
+
       this.isUpdatingFromRemote = true;
       this.codeSignal.set(next);
-      if (this.codeTextarea?.nativeElement) {
-        this.codeTextarea.nativeElement.value = next;
+
+      const textarea = this.codeTextarea()?.nativeElement;
+      if (textarea) {
+        textarea.value = next;
       }
       this.updateLineNumbers(next);
       this.scheduleDebounce(next);
@@ -175,7 +193,7 @@ export class Editor implements OnInit, AfterViewInit {
     // Set new timer for 300ms debounce
     this.debounceTimer = setTimeout(() => {
       if (this.signalRService.connectionState() === 'connected') {
-        this.signalRService.sendUpdate(this.docId, value);
+        this.signalRService.sendUpdate(this.docId(), value);
       } else {
         console.warn('Not connected, buffering update...');
       }
@@ -183,35 +201,32 @@ export class Editor implements OnInit, AfterViewInit {
     }, 300);
   }
 
-  ngOnInit() {
-    // Set up listeners first before starting connection
+  private async setupSignalR() {
+    // Set up listeners before connection
     this.signalRService.addContentUpdateListener();
     this.signalRService.addUserJoinedListener();
     this.signalRService.addUserLeftListener();
 
-    // Start connection and wait for it to complete
-    this.signalRService
-      .startConnection()
-      .then(() => {
-        // Add a small delay to ensure WebSocket is fully ready
-        setTimeout(() => {
-          if (this.signalRService.connectionState() === 'connected') {
-            this.signalRService.joinDocument(this.docId);
-            console.log(`Joined document: ${this.docId}`);
-          } else {
-            console.warn('Connection not fully established, will retry...');
-            // Retry after a longer delay
-            setTimeout(() => {
-              if (this.signalRService.connectionState() === 'connected') {
-                this.signalRService.joinDocument(this.docId);
-              }
-            }, 500);
-          }
-        }, 100);
-      })
-      .catch((err) => {
-        console.error('Failed to establish connection:', err);
-      });
+    try {
+      await this.signalRService.startConnection();
+
+      // Wait for connection to be ready
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      if (this.signalRService.connectionState() === 'connected') {
+        this.signalRService.joinDocument(this.docId());
+        console.log(`Joined document: ${this.docId()}`);
+      } else {
+        console.warn('Connection not fully established, retrying...');
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        if (this.signalRService.connectionState() === 'connected') {
+          this.signalRService.joinDocument(this.docId());
+        }
+      }
+    } catch (err) {
+      console.error('Failed to establish connection:', err);
+    }
   }
 
   toggleTheme() {
@@ -246,8 +261,9 @@ export class Editor implements OnInit, AfterViewInit {
 
   clearCode() {
     this.codeSignal.set('');
-    if (this.codeTextarea?.nativeElement) {
-      this.codeTextarea.nativeElement.value = '';
+    const textarea = this.codeTextarea()?.nativeElement;
+    if (textarea) {
+      textarea.value = '';
     }
     this.updateLineNumbers('');
     this.scheduleDebounce('');

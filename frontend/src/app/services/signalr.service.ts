@@ -1,26 +1,32 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable, signal, DestroyRef, inject } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
-import { signal } from '@angular/core';
 
 @Injectable({
   providedIn: 'root',
 })
-export class SignalRService implements OnDestroy {
+export class SignalRService {
+  private readonly destroyRef = inject(DestroyRef);
   private hubConnection: signalR.HubConnection;
   private isStarting = false;
 
-  // Replace BehaviorSubject with signal
-  public contentUpdate = signal<string>('');
-  public connectionState = signal<string>('disconnected');
-  public userJoined = signal<string>('');
-  public userLeft = signal<string>('');
-  public activeUserCount = signal<number>(0);
-  public cursorUpdate = signal<{ userId: string; position: number; color: string } | null>(null);
-  public activeUsers = signal<Array<{ id: string; color: string }>>([]);
+  // Signals for reactive state (no RxJS needed!)
+  readonly contentUpdate = signal<string>('');
+  readonly connectionState = signal<string>('disconnected');
+  readonly userJoined = signal<string>('');
+  readonly userLeft = signal<string>('');
+  readonly activeUserCount = signal<number>(0);
+  readonly cursorUpdate = signal<{ userId: string; position: number; color: string } | null>(null);
+  readonly activeUsers = signal<Array<{ id: string; color: string }>>([]);
 
   private currentDocumentId: string | null = null;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.currentDocumentId) {
+        this.leaveDocument(this.currentDocumentId);
+      }
+      this.hubConnection.stop();
+    });
     this.hubConnection = new signalR.HubConnectionBuilder()
       .withUrl('https://localhost:7153/hubs/editor') // .NET API URL
       .withAutomaticReconnect()
@@ -40,7 +46,7 @@ export class SignalRService implements OnDestroy {
     });
   }
 
-  public startConnection = async (): Promise<void> => {
+  async startConnection(): Promise<void> {
     // Prevent multiple simultaneous start attempts
     if (this.isStarting) {
       return;
@@ -76,61 +82,54 @@ export class SignalRService implements OnDestroy {
       console.error('Error while starting SignalR connection:', err);
       throw err;
     }
-  };
+  }
 
-  public joinDocument = (docId: string) => {
+  joinDocument(docId: string) {
     this.currentDocumentId = docId;
     this.hubConnection.invoke('JoinDocument', docId);
-  };
+  }
 
-  public leaveDocument = (docId: string) => {
+  leaveDocument(docId: string) {
     this.hubConnection.invoke('LeaveDocument', docId);
     this.currentDocumentId = null;
-  };
+  }
 
-  public sendUpdate = (docId: string, content: string) => {
+  sendUpdate(docId: string, content: string) {
     this.hubConnection.invoke('SendContentUpdate', docId, content);
-  };
+  }
 
-  public addContentUpdateListener = () => {
+  addContentUpdateListener() {
     this.hubConnection.on('ReceiveContentUpdate', (content: string) => {
-      this.contentUpdate.set(content); // <-- Use signal.set()
+      this.contentUpdate.set(content);
     });
-  };
+  }
 
-  public addUserJoinedListener = () => {
+  addUserJoinedListener() {
     this.hubConnection.on('UserJoined', (connectionId: string, count: number) => {
       this.userJoined.set(connectionId);
       this.activeUserCount.set(count);
       console.log(`User joined: ${connectionId}, Active users: ${count}`);
     });
-  };
+  }
 
-  public addUserLeftListener = () => {
+  addUserLeftListener() {
     this.hubConnection.on('UserLeft', (connectionId: string, count: number) => {
       this.userLeft.set(connectionId);
       this.activeUserCount.set(count);
       console.log(`User left: ${connectionId}, Active users: ${count}`);
     });
-  };
+  }
 
-  public sendCursorPosition = (docId: string, position: number) => {
+  sendCursorPosition(docId: string, position: number) {
     this.hubConnection.invoke('SendCursorPosition', docId, position);
-  };
+  }
 
-  public addCursorUpdateListener = () => {
+  addCursorUpdateListener() {
     this.hubConnection.on(
       'ReceiveCursorUpdate',
       (userId: string, position: number, color: string) => {
         this.cursorUpdate.set({ userId, position, color });
       }
     );
-  };
-
-  ngOnDestroy() {
-    if (this.currentDocumentId) {
-      this.leaveDocument(this.currentDocumentId);
-    }
-    this.hubConnection.stop();
   }
 }

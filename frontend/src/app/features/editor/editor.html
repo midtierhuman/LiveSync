@@ -3,19 +3,20 @@
   <mat-toolbar color="primary" class="editor-toolbar">
     <div class="toolbar-content">
       <div class="toolbar-left">
-        <span class="document-title">{{ docId }}</span>
-        <div class="connection-badge" [ngClass]="signalRService.connectionState()">
-          <mat-icon class="status-icon">{{
-            signalRService.connectionState() === 'connected'
-              ? 'check_circle'
-              : 'radio_button_unchecked'
-          }}</mat-icon>
+        <span class="document-title">{{ docId() }}</span>
+        <div class="connection-badge" [class]="signalRService.connectionState()">
+          <mat-icon class="status-icon">
+            @if (signalRService.connectionState() === 'connected') { check_circle } @else {
+            radio_button_unchecked }
+          </mat-icon>
           <span>{{ signalRService.connectionState() }}</span>
         </div>
-        <div class="active-users" *ngIf="signalRService.activeUserCount() > 0">
+        @if (signalRService.activeUserCount() > 0) {
+        <div class="active-users">
           <mat-icon>people</mat-icon>
           <span>{{ signalRService.activeUserCount() }} active</span>
         </div>
+        }
       </div>
 
       <div class="toolbar-right">
