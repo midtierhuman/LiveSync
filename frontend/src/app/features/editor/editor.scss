@@ -171,97 +171,36 @@
 
 .code-editor {
   flex: 1;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
+  padding: 16px;
+  padding-left: 60px; // Space for line numbers
+  border: none;
+  resize: none;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 15px;
+  line-height: 1.8;
+  letter-spacing: 0.5px;
+  color: #e0e0e0;
+  background-color: #1e1e1e;
+  outline: none;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
 
-// Global CodeMirror 6 styling
-::ng-deep {
-  .cm-editor {
-    height: 100%;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-    font-size: 15px;
-    line-height: 1.6;
-
-    &.cm-focused {
-      outline: none;
-    }
-
-    .cm-scroller {
-      font-family: inherit;
-      overflow: auto;
-    }
-
-    .cm-content {
-      padding: 16px 8px;
-    }
-
-    .cm-line {
-      padding-left: 8px;
-      padding-right: 8px;
-    }
-
-    .cm-gutters {
-      background-color: #1e1e1e;
-      border-right: 1px solid #333;
-      color: #858585;
-    }
-
-    .cm-lineNumbers .cm-gutterElement {
-      padding: 0 16px 0 8px;
-      min-width: 48px;
-      text-align: right;
-    }
-
-    .cm-activeLineGutter {
-      background-color: #2a2a2a;
-    }
-
-    .cm-activeLine {
-      background-color: #2a2a2a;
-    }
-
-    .cm-selectionBackground {
-      background-color: rgba(100, 149, 237, 0.3) !important;
-    }
-
-    .cm-cursor {
-      border-left-color: #fff;
-    }
-
-    .cm-foldGutter .cm-gutterElement {
-      padding: 0 4px;
-      cursor: pointer;
-    }
+  &.dark-theme {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
   }
 
-  // Light theme overrides
-  .cm-editor:not(.cm-theme-dark) {
+  &:not(.dark-theme) {
     background-color: #ffffff;
     color: #333333;
+  }
 
-    .cm-gutters {
-      background-color: #f5f5f5;
-      border-right: 1px solid #ddd;
-      color: #6e7781;
-    }
-
-    .cm-activeLineGutter {
-      background-color: #e8f0ff;
-    }
-
-    .cm-activeLine {
-      background-color: #f0f7ff;
-    }
-
-    .cm-cursor {
-      border-left-color: #000;
-    }
-
-    .cm-selectionBackground {
-      background-color: rgba(100, 149, 237, 0.2) !important;
-    }
+  // Selection styling
+  &::selection {
+    background-color: rgba(100, 149, 237, 0.5);
   }
 }
 

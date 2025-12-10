@@ -48,6 +48,11 @@
 
   <!-- Editor -->
   <div class="editor-container">
-    <div #editorContainer class="code-editor"></div>
+    <textarea
+      #codeTextarea
+      class="code-editor"
+      [class.dark-theme]="isDarkMode()"
+      spellcheck="false"
+    ></textarea>
   </div>
 </div>
