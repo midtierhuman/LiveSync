@@ -12,6 +12,10 @@
           }}</mat-icon>
           <span>{{ signalRService.connectionState() }}</span>
         </div>
+        <div class="active-users" *ngIf="signalRService.activeUserCount() > 0">
+          <mat-icon>people</mat-icon>
+          <span>{{ signalRService.activeUserCount() }} active</span>
+        </div>
       </div>
 
       <div class="toolbar-center">
@@ -26,6 +30,9 @@
       </div>
 
       <div class="toolbar-right">
+        <button mat-icon-button (click)="downloadCode()" matTooltip="Download">
+          <mat-icon>download</mat-icon>
+        </button>
         <button mat-icon-button (click)="toggleTheme()" matTooltip="Toggle Theme">
           <mat-icon>{{ isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
         </button>

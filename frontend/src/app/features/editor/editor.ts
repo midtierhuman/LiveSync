@@ -43,6 +43,9 @@ export class Editor implements OnInit, AfterViewInit {
 
   private isUpdatingFromRemote = false;
   private debounceTimer: any = null;
+  private undoStack: string[] = [];
+  private redoStack: string[] = [];
+  private maxUndoSteps = 50;
 
   languages = [
     { name: 'TypeScript', value: 'typescript' },
@@ -103,11 +106,69 @@ export class Editor implements OnInit, AfterViewInit {
       this.codeTextarea.nativeElement.addEventListener('input', (event: Event) => {
         if (!this.isUpdatingFromRemote) {
           const newValue = (event.target as HTMLTextAreaElement).value;
+          this.pushToUndoStack(this.codeSignal());
           this.codeSignal.set(newValue);
           this.pendingUpdateSignal.set(newValue);
           this.scheduleDebounce(newValue);
         }
       });
+
+      // Keyboard shortcuts
+      this.codeTextarea.nativeElement.addEventListener('keydown', (event: KeyboardEvent) => {
+        // Ctrl+Z or Cmd+Z for Undo
+        if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+          event.preventDefault();
+          this.undo();
+        }
+        // Ctrl+Shift+Z or Cmd+Shift+Z for Redo
+        if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
+          event.preventDefault();
+          this.redo();
+        }
+        // Ctrl+S or Cmd+S to download
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+          event.preventDefault();
+          this.downloadCode();
+        }
+      });
+    }
+  }
+
+  private pushToUndoStack(value: string) {
+    if (this.undoStack.length >= this.maxUndoSteps) {
+      this.undoStack.shift();
+    }
+    this.undoStack.push(value);
+    this.redoStack = []; // Clear redo stack on new change
+  }
+
+  private undo() {
+    if (this.undoStack.length > 0) {
+      const current = this.codeSignal();
+      this.redoStack.push(current);
+      const previous = this.undoStack.pop()!;
+      this.isUpdatingFromRemote = true;
+      this.codeSignal.set(previous);
+      if (this.codeTextarea?.nativeElement) {
+        this.codeTextarea.nativeElement.value = previous;
+      }
+      this.scheduleDebounce(previous);
+      this.isUpdatingFromRemote = false;
+    }
+  }
+
+  private redo() {
+    if (this.redoStack.length > 0) {
+      const current = this.codeSignal();
+      this.undoStack.push(current);
+      const next = this.redoStack.pop()!;
+      this.isUpdatingFromRemote = true;
+      this.codeSignal.set(next);
+      if (this.codeTextarea?.nativeElement) {
+        this.codeTextarea.nativeElement.value = next;
+      }
+      this.scheduleDebounce(next);
+      this.isUpdatingFromRemote = false;
     }
   }
 
@@ -175,6 +236,34 @@ export class Editor implements OnInit, AfterViewInit {
     navigator.clipboard.writeText(this.codeSignal()).then(() => {
       console.log('Code copied to clipboard!');
     });
+  }
+
+  downloadCode() {
+    const blob = new Blob([this.codeSignal()], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const extension = this.getFileExtension(this.language());
+    a.download = `code-${Date.now()}.${extension}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  private getFileExtension(language: string): string {
+    const extensions: Record<string, string> = {
+      typescript: 'ts',
+      javascript: 'js',
+      python: 'py',
+      java: 'java',
+      csharp: 'cs',
+      html: 'html',
+      css: 'css',
+      sql: 'sql',
+      json: 'json',
+    };
+    return extensions[language] || 'txt';
   }
 
   clearCode() {

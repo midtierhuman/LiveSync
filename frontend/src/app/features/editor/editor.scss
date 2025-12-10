@@ -72,6 +72,24 @@
   }
 }
 
+.active-users {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: rgba(33, 150, 243, 0.2);
+  color: #2196f3;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
 .toolbar-center {
   flex: 0 1 auto;
   display: flex;
@@ -154,16 +172,21 @@
 .code-editor {
   flex: 1;
   padding: 16px;
+  padding-left: 60px; // Space for line numbers
   border: none;
   resize: none;
-  font-family: 'Fira Code', 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.6;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 15px;
+  line-height: 1.8;
+  letter-spacing: 0.5px;
   color: #e0e0e0;
   background-color: #1e1e1e;
   outline: none;
   tab-size: 2;
   -moz-tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
 
   &.dark-theme {
     background-color: #1e1e1e;

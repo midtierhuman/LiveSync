@@ -14,6 +14,9 @@ export class SignalRService implements OnDestroy {
   public connectionState = signal<string>('disconnected');
   public userJoined = signal<string>('');
   public userLeft = signal<string>('');
+  public activeUserCount = signal<number>(0);
+  public cursorUpdate = signal<{ userId: string; position: number; color: string } | null>(null);
+  public activeUsers = signal<Array<{ id: string; color: string }>>([]);
 
   private currentDocumentId: string | null = null;
 
@@ -96,15 +99,32 @@ export class SignalRService implements OnDestroy {
   };
 
   public addUserJoinedListener = () => {
-    this.hubConnection.on('UserJoined', (connectionId: string) => {
+    this.hubConnection.on('UserJoined', (connectionId: string, count: number) => {
       this.userJoined.set(connectionId);
+      this.activeUserCount.set(count);
+      console.log(`User joined: ${connectionId}, Active users: ${count}`);
     });
   };
 
   public addUserLeftListener = () => {
-    this.hubConnection.on('UserLeft', (connectionId: string) => {
+    this.hubConnection.on('UserLeft', (connectionId: string, count: number) => {
       this.userLeft.set(connectionId);
+      this.activeUserCount.set(count);
+      console.log(`User left: ${connectionId}, Active users: ${count}`);
     });
+  };
+
+  public sendCursorPosition = (docId: string, position: number) => {
+    this.hubConnection.invoke('SendCursorPosition', docId, position);
+  };
+
+  public addCursorUpdateListener = () => {
+    this.hubConnection.on(
+      'ReceiveCursorUpdate',
+      (userId: string, position: number, color: string) => {
+        this.cursorUpdate.set({ userId, position, color });
+      }
+    );
   };
 
   ngOnDestroy() {
