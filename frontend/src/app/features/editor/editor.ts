@@ -1,13 +1,19 @@
-import { Component, OnInit, effect, signal } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  effect,
+  signal,
+  ViewChild,
+  ElementRef,
+  AfterViewInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
-import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { SignalRService } from '../../services/signalr.service';
 
 @Component({
@@ -15,7 +21,6 @@ import { SignalRService } from '../../services/signalr.service';
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     MatToolbarModule,
     MatButtonModule,
     MatSelectModule,
@@ -26,15 +31,18 @@ import { SignalRService } from '../../services/signalr.service';
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
-export class Editor implements OnInit {
+export class Editor implements OnInit, AfterViewInit {
+  @ViewChild('codeTextarea') codeTextarea!: ElementRef<HTMLTextAreaElement>;
+
   docId = 'doc-123';
-  code = '// Start typing to collaborate...\n';
+  codeSignal = signal<string>('// Start typing to collaborate...\n');
+  pendingUpdateSignal = signal<string>('');
   language = signal<string>('typescript');
   theme = signal<string>('vs-dark');
   isDarkMode = signal<boolean>(true);
 
-  // Subject to handle debouncing (prevent sending every single keystroke)
-  private codeUpdateSubject = new Subject<string>();
+  private isUpdatingFromRemote = false;
+  private debounceTimer: any = null;
 
   languages = [
     { name: 'TypeScript', value: 'typescript' },
@@ -49,11 +57,19 @@ export class Editor implements OnInit {
   ];
 
   constructor(public signalRService: SignalRService) {
-    // Use effect to handle signal changes (zoneless compatible)
+    // Use effect to handle remote content updates - update textarea directly
     effect(() => {
       const newContent = this.signalRService.contentUpdate();
-      if (newContent && newContent !== this.code) {
-        this.code = newContent;
+      if (newContent && newContent !== this.codeSignal()) {
+        this.isUpdatingFromRemote = true;
+        this.codeSignal.set(newContent);
+
+        // Update textarea directly, not through Angular
+        if (this.codeTextarea?.nativeElement) {
+          this.codeTextarea.nativeElement.value = newContent;
+        }
+
+        this.isUpdatingFromRemote = false;
       }
     });
 
@@ -76,9 +92,38 @@ export class Editor implements OnInit {
     this.language.set(newLanguage);
   }
 
-  onCodeChange() {
-    // Called when editor content changes via ngModel
-    this.codeUpdateSubject.next(this.code);
+  ngAfterViewInit() {
+    // Set initial value
+    if (this.codeTextarea?.nativeElement) {
+      this.codeTextarea.nativeElement.value = this.codeSignal();
+
+      // Listen to textarea input events directly - bypasses Angular change detection
+      this.codeTextarea.nativeElement.addEventListener('input', (event: Event) => {
+        if (!this.isUpdatingFromRemote) {
+          const newValue = (event.target as HTMLTextAreaElement).value;
+          this.codeSignal.set(newValue);
+          this.pendingUpdateSignal.set(newValue);
+          this.scheduleDebounce(newValue);
+        }
+      });
+    }
+  }
+
+  private scheduleDebounce(value: string) {
+    // Clear existing timer
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+
+    // Set new timer for 300ms debounce
+    this.debounceTimer = setTimeout(() => {
+      if (this.signalRService.connectionState() === 'connected') {
+        this.signalRService.sendUpdate(this.docId, value);
+      } else {
+        console.warn('Not connected, buffering update...');
+      }
+      this.debounceTimer = null;
+    }, 300);
   }
 
   ngOnInit() {
@@ -110,15 +155,6 @@ export class Editor implements OnInit {
       .catch((err) => {
         console.error('Failed to establish connection:', err);
       });
-
-    // Debounce logic: Wait 300ms after user stops typing to send to server
-    this.codeUpdateSubject.pipe(debounceTime(300), distinctUntilChanged()).subscribe((value) => {
-      if (this.signalRService.connectionState() === 'connected') {
-        this.signalRService.sendUpdate(this.docId, value);
-      } else {
-        console.warn('Not connected, buffering update...');
-      }
-    });
   }
 
   toggleTheme() {
@@ -134,13 +170,16 @@ export class Editor implements OnInit {
   }
 
   copyCode() {
-    navigator.clipboard.writeText(this.code).then(() => {
+    navigator.clipboard.writeText(this.codeSignal()).then(() => {
       console.log('Code copied to clipboard!');
     });
   }
 
   clearCode() {
-    this.code = '';
-    this.codeUpdateSubject.next('');
+    this.codeSignal.set('');
+    if (this.codeTextarea?.nativeElement) {
+      this.codeTextarea.nativeElement.value = '';
+    }
+    this.scheduleDebounce('');
   }
 }

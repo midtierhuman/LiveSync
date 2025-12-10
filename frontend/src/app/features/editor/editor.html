@@ -42,8 +42,7 @@
   <!-- Editor -->
   <div class="editor-container">
     <textarea
-      [(ngModel)]="code"
-      (ngModelChange)="onCodeChange()"
+      #codeTextarea
       class="code-editor"
       [class.dark-theme]="isDarkMode()"
       spellcheck="false"
