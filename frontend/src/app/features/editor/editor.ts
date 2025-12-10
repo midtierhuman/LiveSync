@@ -97,9 +97,21 @@ export class Editor implements OnInit {
     this.signalRService
       .startConnection()
       .then(() => {
-        // Only join document after connection is confirmed
-        this.signalRService.joinDocument(this.docId);
-        console.log(`Joined document: ${this.docId}`);
+        // Add a small delay to ensure WebSocket is fully ready
+        setTimeout(() => {
+          if (this.signalRService.connectionState() === 'connected') {
+            this.signalRService.joinDocument(this.docId);
+            console.log(`Joined document: ${this.docId}`);
+          } else {
+            console.warn('Connection not fully established, will retry...');
+            // Retry after a longer delay
+            setTimeout(() => {
+              if (this.signalRService.connectionState() === 'connected') {
+                this.signalRService.joinDocument(this.docId);
+              }
+            }, 500);
+          }
+        }, 100);
       })
       .catch((err) => {
         console.error('Failed to establish connection:', err);
@@ -110,7 +122,7 @@ export class Editor implements OnInit {
       if (this.signalRService.connectionState() === 'connected') {
         this.signalRService.sendUpdate(this.docId, value);
       } else {
-        console.warn('Not connected, will retry when connection is established');
+        console.warn('Not connected, buffering update...');
       }
     });
   }

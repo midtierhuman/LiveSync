@@ -7,6 +7,7 @@ import { signal } from '@angular/core';
 })
 export class SignalRService implements OnDestroy {
   private hubConnection: signalR.HubConnection;
+  private isStarting = false;
 
   // Replace BehaviorSubject with signal
   public contentUpdate = signal<string>('');
@@ -36,27 +37,42 @@ export class SignalRService implements OnDestroy {
     });
   }
 
-  ngOnInit() {
-    // This is no longer needed - moved to constructor
-  }
+  public startConnection = async (): Promise<void> => {
+    // Prevent multiple simultaneous start attempts
+    if (this.isStarting) {
+      return;
+    }
 
-  public startConnection = () => {
+    // If already connected, return immediately
     if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
       this.connectionState.set('connected');
       console.log('Already connected');
       return Promise.resolve();
     }
 
-    return this.hubConnection
-      .start()
-      .then(() => {
-        this.connectionState.set('connected');
-        console.log('SignalR Connection started successfully');
-      })
-      .catch((err: Error) => {
-        this.connectionState.set('error');
-        console.error('Error while starting SignalR connection:', err);
-      });
+    // If disconnected but was previously connected (e.g., after HMR), reset it
+    if (this.hubConnection.state !== signalR.HubConnectionState.Disconnected) {
+      console.log('Resetting connection state...');
+      try {
+        await this.hubConnection.stop();
+      } catch (err) {
+        console.warn('Error stopping connection:', err);
+      }
+    }
+
+    this.isStarting = true;
+
+    try {
+      await this.hubConnection.start();
+      this.connectionState.set('connected');
+      this.isStarting = false;
+      console.log('SignalR Connection started successfully');
+    } catch (err: unknown) {
+      this.connectionState.set('error');
+      this.isStarting = false;
+      console.error('Error while starting SignalR connection:', err);
+      throw err;
+    }
   };
 
   public joinDocument = (docId: string) => {
