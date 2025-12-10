@@ -74,6 +74,10 @@ export class Editor implements OnInit, AfterViewInit {
           this.codeTextarea.nativeElement.value = newContent;
         }
 
+        // Clear undo/redo stack when receiving initial content to avoid confusion
+        this.undoStack = [];
+        this.redoStack = [];
+
         this.isUpdatingFromRemote = false;
       }
     });

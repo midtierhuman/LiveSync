@@ -8,6 +8,9 @@ namespace LiveSync.Hubs
     {
         // Key: DocumentId, Value: List of ConnectionIds
         private static readonly ConcurrentDictionary<string, List<string>> _documentUsers = new();
+        private static readonly ConcurrentDictionary<string, string> _userColors = new();
+        // Store current document content
+        private static readonly ConcurrentDictionary<string, string> _documentContent = new();
 
         public async Task JoinDocument(string documentId)
         {
@@ -21,24 +24,38 @@ namespace LiveSync.Hubs
             // Get the current count
             var activeCount = _documentUsers[documentId].Count;
 
-            // Broadcast to ALL users in the group (including the one who just joined)
+            // Send the current document content to the joining user FIRST
+            if (_documentContent.TryGetValue(documentId, out var currentContent))
+            {
+                await Clients.Caller.SendAsync("ReceiveContentUpdate", currentContent);
+            }
+
+            // Then broadcast join event to all
             await Clients.Group(documentId).SendAsync("UserJoined", Context.ConnectionId, activeCount);
         }
 
         public async Task LeaveDocument(string documentId)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, documentId);
-            await Clients.Group(documentId).SendAsync("UserLeft", Context.ConnectionId);
+
+            if (_documentUsers.TryGetValue(documentId, out var users))
+            {
+                users.Remove(Context.ConnectionId);
+                var count = users.Count;
+                await Clients.Group(documentId).SendAsync("UserLeft", Context.ConnectionId, count);
+            }
         }
 
         // The critical method: Broadcasting changes
         public async Task SendContentUpdate(string documentId, string content)
         {
-            // EXCLUDE the sender! We don't want to overwrite their own screen while they type.
-            await Clients.GroupExcept(documentId, Context.ConnectionId)
+            // Store the latest content
+            _documentContent[documentId] = content;
+            
+            // Broadcast to others (excluding sender)
+            await Clients.OthersInGroup(documentId)
                          .SendAsync("ReceiveContentUpdate", content);
         }
-        private static readonly ConcurrentDictionary<string, string> _userColors = new();
 
         public override async Task OnConnectedAsync()
         {
