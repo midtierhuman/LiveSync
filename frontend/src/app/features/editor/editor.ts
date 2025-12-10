@@ -6,6 +6,7 @@ import {
   ViewChild,
   ElementRef,
   AfterViewInit,
+  OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -15,6 +16,35 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
 import { SignalRService } from '../../services/signalr.service';
+import {
+  EditorView,
+  keymap,
+  lineNumbers,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  drawSelection,
+  dropCursor,
+  rectangularSelection,
+  crosshairCursor,
+} from '@codemirror/view';
+import { EditorState, Compartment } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import {
+  syntaxHighlighting,
+  defaultHighlightStyle,
+  bracketMatching,
+  foldGutter,
+  indentOnInput,
+} from '@codemirror/language';
+import { javascript } from '@codemirror/lang-javascript';
+import { python } from '@codemirror/lang-python';
+import { java } from '@codemirror/lang-java';
+import { cpp } from '@codemirror/lang-cpp';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { sql } from '@codemirror/lang-sql';
+import { json } from '@codemirror/lang-json';
+import { oneDark } from '@codemirror/theme-one-dark';
 
 @Component({
   selector: 'app-editor',
@@ -31,8 +61,11 @@ import { SignalRService } from '../../services/signalr.service';
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
-export class Editor implements OnInit, AfterViewInit {
-  @ViewChild('codeTextarea') codeTextarea!: ElementRef<HTMLTextAreaElement>;
+export class Editor implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('editorContainer') editorContainer!: ElementRef<HTMLDivElement>;
+  private editorView?: EditorView;
+  private languageCompartment = new Compartment();
+  private themeCompartment = new Compartment();
 
   docId = 'doc-123';
   codeSignal = signal<string>('// Start typing to collaborate...\n');
@@ -43,9 +76,6 @@ export class Editor implements OnInit, AfterViewInit {
 
   private isUpdatingFromRemote = false;
   private debounceTimer: any = null;
-  private undoStack: string[] = [];
-  private redoStack: string[] = [];
-  private maxUndoSteps = 50;
 
   languages = [
     { name: 'TypeScript', value: 'typescript' },
@@ -60,7 +90,7 @@ export class Editor implements OnInit, AfterViewInit {
   ];
 
   constructor(public signalRService: SignalRService) {
-    // Use effect to handle remote content updates - update textarea directly
+    // Use effect to handle remote content updates - update CodeMirror directly
     effect(() => {
       const newContent = this.signalRService.contentUpdate();
       // Update whenever contentUpdate signal changes, regardless of value
@@ -69,14 +99,19 @@ export class Editor implements OnInit, AfterViewInit {
         this.isUpdatingFromRemote = true;
         this.codeSignal.set(newContent);
 
-        // Update textarea directly, not through Angular
-        if (this.codeTextarea?.nativeElement) {
-          this.codeTextarea.nativeElement.value = newContent;
+        // Update CodeMirror directly
+        if (this.editorView) {
+          const currentContent = this.editorView.state.doc.toString();
+          if (currentContent !== newContent) {
+            this.editorView.dispatch({
+              changes: {
+                from: 0,
+                to: this.editorView.state.doc.length,
+                insert: newContent,
+              },
+            });
+          }
         }
-
-        // Clear undo/redo stack when receiving initial content to avoid confusion
-        this.undoStack = [];
-        this.redoStack = [];
 
         this.isUpdatingFromRemote = false;
       }
@@ -99,80 +134,91 @@ export class Editor implements OnInit, AfterViewInit {
 
   onLanguageChange(newLanguage: string) {
     this.language.set(newLanguage);
+    if (this.editorView) {
+      this.editorView.dispatch({
+        effects: this.languageCompartment.reconfigure(this.getLanguageExtension(newLanguage)),
+      });
+    }
+  }
+
+  private getLanguageExtension(lang: string) {
+    switch (lang) {
+      case 'javascript':
+        return javascript();
+      case 'typescript':
+        return javascript({ typescript: true });
+      case 'python':
+        return python();
+      case 'java':
+        return java();
+      case 'csharp':
+        return cpp(); // Using cpp for C# as approximation
+      case 'html':
+        return html();
+      case 'css':
+        return css();
+      case 'sql':
+        return sql();
+      case 'json':
+        return json();
+      default:
+        return javascript();
+    }
   }
 
   ngAfterViewInit() {
-    // Set initial value
-    if (this.codeTextarea?.nativeElement) {
-      this.codeTextarea.nativeElement.value = this.codeSignal();
-
-      // Listen to textarea input events directly - bypasses Angular change detection
-      this.codeTextarea.nativeElement.addEventListener('input', (event: Event) => {
-        if (!this.isUpdatingFromRemote) {
-          const newValue = (event.target as HTMLTextAreaElement).value;
-          this.pushToUndoStack(this.codeSignal());
-          this.codeSignal.set(newValue);
-          this.pendingUpdateSignal.set(newValue);
-          this.scheduleDebounce(newValue);
-        }
+    // Initialize CodeMirror 6
+    if (this.editorContainer?.nativeElement) {
+      const startState = EditorState.create({
+        doc: this.codeSignal(),
+        extensions: [
+          lineNumbers(),
+          highlightActiveLineGutter(),
+          highlightActiveLine(),
+          drawSelection(),
+          dropCursor(),
+          rectangularSelection(),
+          crosshairCursor(),
+          bracketMatching(),
+          foldGutter(),
+          indentOnInput(),
+          syntaxHighlighting(defaultHighlightStyle),
+          this.languageCompartment.of(this.getLanguageExtension(this.language())),
+          this.themeCompartment.of(this.isDarkMode() ? oneDark : []),
+          history(),
+          keymap.of([
+            indentWithTab,
+            ...defaultKeymap,
+            ...historyKeymap,
+            {
+              key: 'Mod-s',
+              run: () => {
+                this.downloadCode();
+                return true;
+              },
+            },
+          ]),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged && !this.isUpdatingFromRemote) {
+              const newValue = update.state.doc.toString();
+              this.codeSignal.set(newValue);
+              this.pendingUpdateSignal.set(newValue);
+              this.scheduleDebounce(newValue);
+            }
+          }),
+        ],
       });
 
-      // Keyboard shortcuts
-      this.codeTextarea.nativeElement.addEventListener('keydown', (event: KeyboardEvent) => {
-        // Ctrl+Z or Cmd+Z for Undo
-        if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
-          event.preventDefault();
-          this.undo();
-        }
-        // Ctrl+Shift+Z or Cmd+Shift+Z for Redo
-        if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
-          event.preventDefault();
-          this.redo();
-        }
-        // Ctrl+S or Cmd+S to download
-        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-          event.preventDefault();
-          this.downloadCode();
-        }
+      this.editorView = new EditorView({
+        state: startState,
+        parent: this.editorContainer.nativeElement,
       });
     }
   }
 
-  private pushToUndoStack(value: string) {
-    if (this.undoStack.length >= this.maxUndoSteps) {
-      this.undoStack.shift();
-    }
-    this.undoStack.push(value);
-    this.redoStack = []; // Clear redo stack on new change
-  }
-
-  private undo() {
-    if (this.undoStack.length > 0) {
-      const current = this.codeSignal();
-      this.redoStack.push(current);
-      const previous = this.undoStack.pop()!;
-      this.isUpdatingFromRemote = true;
-      this.codeSignal.set(previous);
-      if (this.codeTextarea?.nativeElement) {
-        this.codeTextarea.nativeElement.value = previous;
-      }
-      this.scheduleDebounce(previous);
-      this.isUpdatingFromRemote = false;
-    }
-  }
-
-  private redo() {
-    if (this.redoStack.length > 0) {
-      const current = this.codeSignal();
-      this.undoStack.push(current);
-      const next = this.redoStack.pop()!;
-      this.isUpdatingFromRemote = true;
-      this.codeSignal.set(next);
-      if (this.codeTextarea?.nativeElement) {
-        this.codeTextarea.nativeElement.value = next;
-      }
-      this.scheduleDebounce(next);
-      this.isUpdatingFromRemote = false;
+  ngOnDestroy() {
+    if (this.editorView) {
+      this.editorView.destroy();
     }
   }
 
@@ -225,14 +271,13 @@ export class Editor implements OnInit, AfterViewInit {
   }
 
   toggleTheme() {
-    const newTheme = this.isDarkMode() ? 'vs' : 'vs-dark';
-    this.theme.set(newTheme);
-    this.isDarkMode.set(!this.isDarkMode());
+    const newDarkMode = !this.isDarkMode();
+    this.isDarkMode.set(newDarkMode);
 
-    // Update via Monaco API if available
-    const monaco = (window as any).monaco;
-    if (monaco) {
-      monaco.editor.setTheme(newTheme);
+    if (this.editorView) {
+      this.editorView.dispatch({
+        effects: this.themeCompartment.reconfigure(newDarkMode ? oneDark : []),
+      });
     }
   }
 
@@ -272,8 +317,14 @@ export class Editor implements OnInit, AfterViewInit {
 
   clearCode() {
     this.codeSignal.set('');
-    if (this.codeTextarea?.nativeElement) {
-      this.codeTextarea.nativeElement.value = '';
+    if (this.editorView) {
+      this.editorView.dispatch({
+        changes: {
+          from: 0,
+          to: this.editorView.state.doc.length,
+          insert: '',
+        },
+      });
     }
     this.scheduleDebounce('');
   }
