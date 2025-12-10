@@ -60,7 +60,9 @@ export class Editor implements OnInit, AfterViewInit {
     // Use effect to handle remote content updates - update textarea directly
     effect(() => {
       const newContent = this.signalRService.contentUpdate();
-      if (newContent && newContent !== this.codeSignal()) {
+      // Update whenever contentUpdate signal changes, regardless of value
+      // This ensures empty strings and deletions are properly sync'd
+      if (newContent !== undefined && newContent !== null) {
         this.isUpdatingFromRemote = true;
         this.codeSignal.set(newContent);
 
