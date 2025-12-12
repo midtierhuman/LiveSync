@@ -56,7 +56,6 @@ export class SignUp {
     }
 
     const success = await this.authService.signup(
-      this.username(),
       this.email(),
       this.password(),
       this.confirmPassword()
