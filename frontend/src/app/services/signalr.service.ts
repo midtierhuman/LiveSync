@@ -28,7 +28,7 @@ export class SignalRService {
       this.hubConnection.stop();
     });
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('https://localhost:7153/hubs/editor') // .NET API URL
+      .withUrl('https://localhost:7000/hubs/editor') // .NET API URL
       .withAutomaticReconnect()
       .build();
 
