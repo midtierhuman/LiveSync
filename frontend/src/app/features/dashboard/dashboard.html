@@ -163,4 +163,16 @@
     </div>
   </div>
   }
+
+  <!-- Editor Modal -->
+  @if (showEditorModal()) {
+  <div class="editor-modal-overlay">
+    <div class="editor-modal-container">
+      <button class="editor-close-btn" (click)="closeEditor()" mat-icon-button>
+        <mat-icon>close</mat-icon>
+      </button>
+      <app-editor [documentId]="selectedDocId()" [isModal]="true"></app-editor>
+    </div>
+  </div>
+  }
 </div>

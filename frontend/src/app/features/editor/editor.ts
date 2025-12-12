@@ -8,6 +8,7 @@ import {
   ElementRef,
   OnInit,
   DestroyRef,
+  input,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -25,6 +26,10 @@ import { DocumentDto, DocumentService } from '../../services/document.service';
   styleUrl: './editor.scss',
 })
 export class Editor implements OnInit {
+  // Input signals for modal mode
+  readonly documentId = input<string>('');
+  readonly isModal = input<boolean>(false);
+
   // Angular 20 signal-based queries
   readonly codeTextarea = viewChild.required<ElementRef<HTMLTextAreaElement>>('codeTextarea');
   readonly lineNumbers = viewChild.required<ElementRef<HTMLPreElement>>('lineNumbers');
@@ -50,26 +55,40 @@ export class Editor implements OnInit {
   // Private state
   private isUpdatingFromRemote = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly undoStack = signal<string[]>([]);
   private readonly redoStack = signal<string[]>([]);
   private readonly maxUndoSteps = 50;
+  readonly lastSaved = signal<Date | null>(null);
+  readonly isSaving = signal(false);
 
   ngOnInit() {
-    // Get document ID from route
-    const subscription = this.activatedRoute.params.subscribe(async (params) => {
-      const id = params['id'];
-      if (id) {
-        this.docId.set(id);
-        await this.loadDocument(id);
-      }
-    });
+    // Get document ID from input (modal mode) or route (standalone mode)
+    const inputDocId = this.documentId();
+    if (inputDocId) {
+      // Modal mode - use provided document ID
+      this.docId.set(inputDocId);
+      this.loadDocument(inputDocId);
+    } else {
+      // Standalone mode - get from route params
+      const subscription = this.activatedRoute.params.subscribe(async (params) => {
+        const id = params['id'];
+        if (id) {
+          this.docId.set(id);
+          await this.loadDocument(id);
+        }
+      });
 
-    // Cleanup subscription on destroy
-    this.destroyRef.onDestroy(() => {
-      subscription.unsubscribe();
+      this.destroyRef.onDestroy(() => {
+        subscription.unsubscribe();
+      });
+    }
+
+    // Cleanup on destroy
+    this.destroyRef.onDestroy(async () => {
       const docId = this.docId();
       if (docId) {
-        this.signalRService.leaveDocument(docId);
+        await this.signalRService.leaveDocument(docId);
       }
     });
   }
@@ -81,11 +100,13 @@ export class Editor implements OnInit {
       const doc = await this.documentService.getDocument(id);
       this.document.set(doc);
       this.docTitle.set(doc.title);
-      this.codeSignal.set(doc.content || '// Start typing to collaborate...\n');
+      const content = doc.content || '// Start typing to collaborate...\n';
+      console.log('Loading document content:', content);
+      this.codeSignal.set(content);
 
       // Join the document for real-time collaboration
       await this.signalRService.startConnection();
-      this.signalRService.joinDocument(id);
+      await this.signalRService.joinDocument(id);
     } catch (error) {
       console.error('Error loading document:', error);
       this.error.set('Failed to load document. Redirecting...');
@@ -132,6 +153,16 @@ export class Editor implements OnInit {
       const connectionId = this.signalRService.userLeft();
       if (connectionId) {
         console.log('User left:', connectionId);
+      }
+    });
+
+    // Effect to update textarea when code signal changes (from loadDocument)
+    effect(() => {
+      const code = this.codeSignal();
+      const textarea = this.codeTextarea()?.nativeElement;
+      if (textarea && !this.isUpdatingFromRemote && textarea.value !== code) {
+        textarea.value = code;
+        this.updateLineNumbers(code);
       }
     });
 
@@ -312,12 +343,12 @@ export class Editor implements OnInit {
   }
 
   private scheduleDebounce(value: string) {
-    // Clear existing timer
+    // Clear existing timer for SignalR real-time sync
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
 
-    // Set new timer for 300ms debounce
+    // Set new timer for 150ms debounce (real-time)
     this.debounceTimer = setTimeout(() => {
       if (this.signalRService.connectionState() === 'connected') {
         this.signalRService.sendUpdate(this.docId(), value);
@@ -326,6 +357,37 @@ export class Editor implements OnInit {
       }
       this.debounceTimer = null;
     }, 150);
+
+    // Clear existing save timer
+    if (this.saveDebounceTimer) {
+      clearTimeout(this.saveDebounceTimer);
+    }
+
+    // Set new timer for 300ms debounce (backend persistence)
+    this.saveDebounceTimer = setTimeout(async () => {
+      await this.saveToBackend(value);
+      this.saveDebounceTimer = null;
+    }, 300);
+  }
+
+  private async saveToBackend(content: string): Promise<void> {
+    const docId = this.docId();
+    if (!docId) return;
+
+    try {
+      this.isSaving.set(true);
+      await this.documentService.updateDocument(docId, {
+        content: content,
+        lastEditedBy:
+          this.signalRService.connectionState() === 'connected' ? 'Real-time user' : 'Offline user',
+      });
+      this.lastSaved.set(new Date());
+      console.log('Document saved to backend at', this.lastSaved());
+    } catch (error) {
+      console.error('Error saving document to backend:', error);
+    } finally {
+      this.isSaving.set(false);
+    }
   }
 
   private async setupSignalR() {

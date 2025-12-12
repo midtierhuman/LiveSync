@@ -21,6 +21,7 @@ export class SignalRService {
   readonly activeUsers = signal<Array<{ id: string; color: string }>>([]);
 
   private currentDocumentId: string | null = null;
+  private isJoined = false;
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -88,14 +89,35 @@ export class SignalRService {
     }
   }
 
-  joinDocument(docId: string) {
+  async joinDocument(docId: string): Promise<void> {
+    // If already joined to this document, don't join again
+    if (this.currentDocumentId === docId && this.isJoined) {
+      console.log('Already joined to document:', docId);
+      return;
+    }
+
+    // If joined to a different document, leave it first
+    if (this.currentDocumentId && this.isJoined && this.currentDocumentId !== docId) {
+      await this.leaveDocument(this.currentDocumentId);
+    }
+
     this.currentDocumentId = docId;
-    this.hubConnection.invoke('JoinDocument', docId);
+    this.isJoined = true;
+    await this.hubConnection.invoke('JoinDocument', docId);
+    console.log('Joined document:', docId);
   }
 
-  leaveDocument(docId: string) {
-    this.hubConnection.invoke('LeaveDocument', docId);
+  async leaveDocument(docId: string): Promise<void> {
+    if (!this.isJoined || this.currentDocumentId !== docId) {
+      console.log('Not joined to document:', docId);
+      return;
+    }
+
+    await this.hubConnection.invoke('LeaveDocument', docId);
     this.currentDocumentId = null;
+    this.isJoined = false;
+    this.activeUserCount.set(0);
+    console.log('Left document:', docId);
   }
 
   sendUpdate(docId: string, content: string) {

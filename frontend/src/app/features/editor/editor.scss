@@ -8,14 +8,20 @@
 }
 
 .editor-toolbar {
-  padding: 0 16px !important;
+  padding: 0 16px 0 60px !important;
   height: 56px !important;
   min-height: 56px !important;
   display: flex;
   align-items: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  z-index: 10;
+  z-index: 1002;
   flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    padding: 0 12px 0 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+  }
 }
 
 .toolbar-content {
@@ -25,6 +31,10 @@
   width: 100%;
   gap: 12px;
   flex-wrap: nowrap;
+
+  @media (max-width: 768px) {
+    gap: 8px;
+  }
 }
 
 .toolbar-left {
@@ -34,6 +44,10 @@
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+
+  @media (max-width: 768px) {
+    gap: 8px;
+  }
 }
 
 .document-title {
@@ -43,6 +57,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+    max-width: 120px;
+  }
 }
 
 .connection-badge {
@@ -54,6 +73,16 @@
   font-size: 12px;
   font-weight: 500;
   transition: all 0.3s ease;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    padding: 4px 8px;
+    gap: 4px;
+
+    span {
+      display: none;
+    }
+  }
 
   &.connected {
     background-color: rgba(76, 175, 80, 0.2);
@@ -92,6 +121,16 @@
   font-weight: 500;
   background-color: rgba(33, 150, 243, 0.2);
   color: #2196f3;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    padding: 4px 8px;
+    gap: 4px;
+
+    span {
+      display: none;
+    }
+  }
 
   mat-icon {
     font-size: 16px;
@@ -112,6 +151,18 @@
 
     &:hover {
       transform: scale(1.1);
+    }
+
+    @media (max-width: 768px) {
+      width: 36px;
+      height: 36px;
+      padding: 6px;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
     }
   }
 }

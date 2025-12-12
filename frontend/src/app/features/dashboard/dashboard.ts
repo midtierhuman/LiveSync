@@ -13,6 +13,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatListModule } from '@angular/material/list';
 import { AuthService } from '../../services/auth.service';
 import { DocumentService, DocumentDto, SharedDocumentDto } from '../../services/document.service';
+import { Editor } from '../editor/editor';
 
 @Component({
   selector: 'app-dashboard',
@@ -29,6 +30,7 @@ import { DocumentService, DocumentDto, SharedDocumentDto } from '../../services/
     MatInputModule,
     MatDialogModule,
     MatListModule,
+    Editor,
     DatePipe,
   ],
   templateUrl: './dashboard.html',
@@ -48,6 +50,8 @@ export class Dashboard implements OnInit {
   selectedDocForShare = signal<DocumentDto | null>(null);
   shareCode = signal('');
   showDeleteConfirm = signal(false);
+  showEditorModal = signal(false);
+  selectedDocId = signal<string>('');
   deleteDocId = signal('');
 
   async ngOnInit() {
@@ -82,9 +86,7 @@ export class Dashboard implements OnInit {
         title: this.newDocTitle(),
         content: '',
       });
-      this.myDocuments.update((docs) => [doc, ...docs]);
-      this.newDocTitle.set('');
-      this.router.navigate(['/editor', doc.id]);
+      this.openDocument(doc.id);
     } catch (error) {
       console.error('Error creating document:', error);
       alert('Failed to create document');
@@ -94,11 +96,20 @@ export class Dashboard implements OnInit {
   }
 
   openDocument(docId: string) {
-    this.router.navigate(['/editor', docId]);
+    this.selectedDocId.set(docId);
+    this.showEditorModal.set(true);
   }
 
   openSharedDoc(docId: string) {
-    this.router.navigate(['/editor', docId]);
+    this.selectedDocId.set(docId);
+    this.showEditorModal.set(true);
+  }
+
+  closeEditor() {
+    this.showEditorModal.set(false);
+    this.selectedDocId.set('');
+    // Reload documents to reflect any changes
+    this.loadDocuments();
   }
 
   async openShareModal(doc: DocumentDto) {
