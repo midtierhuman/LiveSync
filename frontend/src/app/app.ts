@@ -1,4 +1,4 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AuthService } from './services/auth.service';
 
@@ -11,5 +11,9 @@ import { AuthService } from './services/auth.service';
 export class App {
   protected readonly title = 'LiveSync';
   private readonly authService = inject(AuthService);
-  // AuthService initializes itself in its constructor, no need to call it again
+
+  constructor() {
+    // AuthService automatically initializes and checks for stored token
+    // Guards will wait for initialization before allowing navigation
+  }
 }

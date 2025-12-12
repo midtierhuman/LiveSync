@@ -28,7 +28,7 @@ export interface RegisterRequest {
 }
 
 export interface LoginRequest {
-  email: string;
+  emailOrUsername: string;
   password: string;
 }
 
@@ -47,14 +47,10 @@ export class AuthService {
   readonly user = signal<UserInfo | null>(null);
   readonly isAuthenticated = signal(false);
   readonly isLoading = signal(false);
+  readonly isInitialized = signal(false);
   readonly token = signal<string | null>(localStorage.getItem('auth_token'));
 
   private readonly apiUrl = 'https://localhost:7001/api/auth';
-
-  constructor() {
-    // Check if token exists in localStorage and validate it
-    this.initializeAuth();
-  }
 
   async initializeAuth(): Promise<void> {
     const token = localStorage.getItem('auth_token');
@@ -64,18 +60,23 @@ export class AuthService {
       try {
         await this.verifyToken();
       } catch (error) {
-        this.logout();
+        console.warn('Token verification failed, logging out');
+        this.clearAuth();
       }
     }
+    this.isInitialized.set(true);
+  }
+
+  private clearAuth(): void {
+    localStorage.removeItem('auth_token');
+    this.token.set(null);
+    this.user.set(null);
+    this.isAuthenticated.set(false);
   }
 
   async verifyToken(): Promise<void> {
     try {
-      const response = await firstValueFrom(
-        this.http.get<UserInfo>(`${this.apiUrl}/me`, {
-          headers: { Authorization: `Bearer ${this.token()}` },
-        })
-      );
+      const response = await firstValueFrom(this.http.get<UserInfo>(`${this.apiUrl}/me`));
 
       if (response) {
         this.user.set(response);
@@ -150,10 +151,7 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem('auth_token');
-    this.token.set(null);
-    this.user.set(null);
-    this.isAuthenticated.set(false);
+    this.clearAuth();
     this.router.navigate(['/']);
   }
 }
