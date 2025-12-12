@@ -57,7 +57,12 @@ export class SignUp {
       return;
     }
 
-    const success = await this.authService.signup(this.username(), this.email(), this.password());
+    const success = await this.authService.signup(
+      this.username(),
+      this.email(),
+      this.password(),
+      this.confirmPassword()
+    );
 
     if (success) {
       this.router.navigate(['/dashboard']);

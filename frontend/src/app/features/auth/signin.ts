@@ -31,7 +31,7 @@ export class SignIn {
   protected readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
-  email = signal('');
+  emailOrUsername = signal('');
   password = signal('');
   errorMessage = signal('');
   hidePassword = signal(true);
@@ -39,12 +39,12 @@ export class SignIn {
   async onSignIn(): Promise<void> {
     this.errorMessage.set('');
 
-    if (!this.email() || !this.password()) {
+    if (!this.emailOrUsername() || !this.password()) {
       this.errorMessage.set('Please fill in all fields');
       return;
     }
 
-    const success = await this.authService.signin(this.email(), this.password());
+    const success = await this.authService.signin(this.emailOrUsername(), this.password());
 
     if (success) {
       this.router.navigate(['/dashboard']);

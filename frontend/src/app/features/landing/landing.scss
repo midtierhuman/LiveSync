@@ -70,6 +70,8 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
     font-weight: bold;
+    line-height: 1.2;
+    padding: 0.2em 0;
 
     @media (max-width: 768px) {
       font-size: 2rem;
@@ -146,6 +148,8 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    line-height: 1.2;
+    padding: 0.2em 0;
   }
 
   .features-grid {
@@ -164,6 +168,7 @@
   padding: 2rem;
   text-align: center;
   transition: all 0.3s ease;
+  cursor: pointer;
 
   &:hover {
     background: rgba(0, 212, 255, 0.1);

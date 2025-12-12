@@ -12,10 +12,9 @@ export interface UserInfo {
 export interface AuthResponse {
   success: boolean;
   message: string;
-  data?: {
-    token: string;
-    user: UserInfo;
-  };
+  token: string;
+  expiration: string;
+  user: UserInfo;
 }
 
 export interface RegisterRequest {
@@ -46,7 +45,7 @@ export class AuthService {
   readonly isLoading = signal(false);
   readonly token = signal<string | null>(localStorage.getItem('auth_token'));
 
-  private readonly apiUrl = 'http://localhost:5000/api/auth';
+  private readonly apiUrl = 'https://localhost:7001/api/auth';
 
   constructor() {
     // Check if token exists in localStorage and validate it
@@ -85,20 +84,20 @@ export class AuthService {
     }
   }
 
-  async signin(email: string, password: string): Promise<boolean> {
+  async signin(emailOrUsername: string, password: string): Promise<boolean> {
     this.isLoading.set(true);
     try {
       const response = await firstValueFrom(
         this.http.post<AuthResponse>(`${this.apiUrl}/login`, {
-          email,
+          emailOrUsername,
           password,
         })
       );
 
-      if (response.success && response.data?.token && response.data?.user) {
-        localStorage.setItem('auth_token', response.data.token);
-        this.token.set(response.data.token);
-        this.user.set(response.data.user);
+      if (response.success && response.token && response.user) {
+        localStorage.setItem('auth_token', response.token);
+        this.token.set(response.token);
+        this.user.set(response.user);
         this.isAuthenticated.set(true);
         return true;
       }
@@ -111,7 +110,12 @@ export class AuthService {
     }
   }
 
-  async signup(username: string, email: string, password: string): Promise<boolean> {
+  async signup(
+    username: string,
+    email: string,
+    password: string,
+    confirmPassword: string
+  ): Promise<boolean> {
     this.isLoading.set(true);
     try {
       const response = await firstValueFrom(
@@ -119,13 +123,14 @@ export class AuthService {
           username,
           email,
           password,
+          confirmPassword,
         })
       );
 
-      if (response.success && response.data?.token && response.data?.user) {
-        localStorage.setItem('auth_token', response.data.token);
-        this.token.set(response.data.token);
-        this.user.set(response.data.user);
+      if (response.success && response.token && response.user) {
+        localStorage.setItem('auth_token', response.token);
+        this.token.set(response.token);
+        this.user.set(response.user);
         this.isAuthenticated.set(true);
         return true;
       }

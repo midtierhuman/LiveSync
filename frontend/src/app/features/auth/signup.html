@@ -65,9 +65,11 @@
           </button>
         </mat-form-field>
 
-        <div *ngIf="errorMessage()" class="error-message">
+        @if (errorMessage()) {
+        <div class="error-message">
           {{ errorMessage() }}
         </div>
+        }
 
         <button
           mat-raised-button
@@ -76,8 +78,11 @@
           class="full-width"
           [disabled]="authService.isLoading()"
         >
-          <mat-spinner *ngIf="authService.isLoading()" diameter="20"></mat-spinner>
-          <span *ngIf="!authService.isLoading()">Create Account</span>
+          @if (authService.isLoading()) {
+          <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+          <span>Create Account</span>
+          }
         </button>
       </form>
 
