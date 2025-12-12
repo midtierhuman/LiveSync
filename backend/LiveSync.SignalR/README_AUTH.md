@@ -1,24 +1,24 @@
-# LiveSync Authentication - MOVED TO LiveSync.AuthApi
+# LiveSync Authentication - MOVED TO LiveSync.Api
 
 ## ?? IMPORTANT: Authentication has been moved to a separate service
 
-The authentication functionality has been extracted into a separate microservice: **LiveSync.AuthApi**
+The authentication functionality has been extracted into a separate microservice: **LiveSync.Api**
 
-Please refer to the `LiveSync.AuthApi/README.md` file for complete authentication documentation.
+Please refer to the `LiveSync.Api/README.md` file for complete authentication documentation.
 
 ## Migration Summary
-All authentication-related code has been moved from `LiveSync.SignalR` to `LiveSync.AuthApi`:
-- Controllers/AuthController.cs ? LiveSync.AuthApi/Controllers/AuthController.cs
-- Services/AuthService.cs ? LiveSync.AuthApi/Services/AuthService.cs
-- Services/IAuthService.cs ? LiveSync.AuthApi/Services/IAuthService.cs
-- Models/ApplicationUser.cs ? LiveSync.AuthApi/Models/ApplicationUser.cs
-- Data/ApplicationDbContext.cs ? LiveSync.AuthApi/Data/ApplicationDbContext.cs
-- DTOs/AuthDTOs.cs ? LiveSync.AuthApi/DTOs/AuthDTOs.cs
+All authentication-related code has been moved from `LiveSync.SignalR` to `LiveSync.Api`:
+- Controllers/AuthController.cs ? LiveSync.Api/Controllers/AuthController.cs
+- Services/AuthService.cs ? LiveSync.Api/Services/AuthService.cs
+- Services/IAuthService.cs ? LiveSync.Api/Services/IAuthService.cs
+- Models/ApplicationUser.cs ? LiveSync.Api/Models/ApplicationUser.cs
+- Data/ApplicationDbContext.cs ? LiveSync.Api/Data/ApplicationDbContext.cs
+- DTOs/AuthDTOs.cs ? LiveSync.Api/DTOs/AuthDTOs.cs
 
 ## Architecture
 The LiveSync application now uses a microservices architecture:
 
-1. **LiveSync.AuthApi** (Port 7001) - Handles all authentication operations
+1. **LiveSync.Api** (Port 7001) - Handles all authentication operations
    - User registration
    - User login
    - JWT token generation
@@ -26,14 +26,14 @@ The LiveSync application now uses a microservices architecture:
 
 2. **LiveSync.SignalR** (Port 7000) - Handles real-time collaboration
    - SignalR hub for real-time editing
-   - JWT token validation (tokens from AuthApi)
+   - JWT token validation (tokens from Api)
    - Real-time synchronization
 
 ## Quick Start
 
 ### 1. Start the Authentication Service
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 ```
 

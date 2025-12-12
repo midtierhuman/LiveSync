@@ -15,7 +15,7 @@ Authentication: Windows (Integrated Security)
 
 ```bash
 # Navigate to project
-cd LiveSync.AuthApi
+cd LiveSync.Api
 
 # Create new migration
 dotnet ef migrations add MigrationName
@@ -134,7 +134,7 @@ services.msc
 
 ### Rebuild Database
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet ef database drop --force
 dotnet ef database update
 ```
@@ -187,7 +187,7 @@ dotnet ef migrations script
 **Quick Test:**
 ```bash
 # Start app
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 
 # Open Swagger

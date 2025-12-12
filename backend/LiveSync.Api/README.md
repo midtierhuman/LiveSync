@@ -1,4 +1,4 @@
-# LiveSync.AuthApi - Authentication Service
+# LiveSync.Api - Authentication Service
 
 ## Overview
 This is a standalone authentication API service for the LiveSync application. It provides JWT-based authentication with support for user registration, login, and OAuth integration (planned).
@@ -125,7 +125,7 @@ dotnet ef database update
 
 ### Development
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 ```
 
@@ -186,7 +186,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 ## Project Structure
 
 ```
-LiveSync.AuthApi/
+LiveSync.Api/
 ??? Controllers/
 ?   ??? AuthController.cs       # API endpoints
 ??? Services/

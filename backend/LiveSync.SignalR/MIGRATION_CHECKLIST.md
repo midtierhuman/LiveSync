@@ -2,23 +2,23 @@
 
 ## ? Completed Tasks
 
-### Phase 1: Create New AuthApi Project Structure
-- [x] Created `LiveSync.AuthApi/DTOs/AuthDTOs.cs`
-- [x] Created `LiveSync.AuthApi/Models/ApplicationUser.cs`
-- [x] Created `LiveSync.AuthApi/Data/ApplicationDbContext.cs`
-- [x] Created `LiveSync.AuthApi/Services/IAuthService.cs`
-- [x] Created `LiveSync.AuthApi/Services/AuthService.cs`
-- [x] Created `LiveSync.AuthApi/Controllers/AuthController.cs`
+### Phase 1: Create New Api Project Structure
+- [x] Created `LiveSync.Api/DTOs/AuthDTOs.cs`
+- [x] Created `LiveSync.Api/Models/ApplicationUser.cs`
+- [x] Created `LiveSync.Api/Data/ApplicationDbContext.cs`
+- [x] Created `LiveSync.Api/Services/IAuthService.cs`
+- [x] Created `LiveSync.Api/Services/AuthService.cs`
+- [x] Created `LiveSync.Api/Controllers/AuthController.cs`
 
-### Phase 2: Configure AuthApi Project
-- [x] Updated `LiveSync.AuthApi.csproj` with required NuGet packages:
+### Phase 2: Configure Api Project
+- [x] Updated `LiveSync.Api.csproj` with required NuGet packages:
   - Microsoft.AspNetCore.Authentication.JwtBearer
   - Microsoft.AspNetCore.Identity.EntityFrameworkCore
   - Microsoft.EntityFrameworkCore.InMemory
   - Swashbuckle.AspNetCore
-- [x] Updated `LiveSync.AuthApi/Program.cs` with full authentication setup
-- [x] Updated `LiveSync.AuthApi/appsettings.json` with JWT configuration
-- [x] Removed WeatherForecast sample files from AuthApi
+- [x] Updated `LiveSync.Api/Program.cs` with full authentication setup
+- [x] Updated `LiveSync.Api/appsettings.json` with JWT configuration
+- [x] Removed WeatherForecast sample files from Api
 
 ### Phase 3: Clean Up SignalR Project
 - [x] Removed `LiveSync/Controllers/AuthController.cs`
@@ -32,7 +32,7 @@
 - [x] Updated `LiveSync/appsettings.json` (updated Issuer to "LiveSyncAuthAPI")
 
 ### Phase 4: Documentation
-- [x] Created `LiveSync.AuthApi/README.md` - Complete authentication API documentation
+- [x] Created `LiveSync.Api/README.md` - Complete authentication API documentation
 - [x] Created `LiveSync/README_BACKEND.md` - Microservices architecture documentation
 - [x] Updated `LiveSync/README_AUTH.md` - Added migration notice
 - [x] Created `LiveSync/MIGRATION_SUMMARY.md` - Detailed migration summary
@@ -47,7 +47,7 @@
 ## ?? Configuration Verification
 
 ### JWT Configuration Match
-| Setting | LiveSync.AuthApi | LiveSync.SignalR | Status |
+| Setting | LiveSync.Api | LiveSync.SignalR | Status |
 |---------|------------------|------------------|--------|
 | Secret | YourSuperSecret... | YourSuperSecret... | ? Match |
 | Issuer | LiveSyncAuthAPI | LiveSyncAuthAPI | ? Match |
@@ -56,16 +56,16 @@
 ### Service Ports (Default)
 | Service | HTTPS Port | HTTP Port | Status |
 |---------|-----------|-----------|--------|
-| AuthApi | 7001 | 5001 | ? Configured |
+| Api | 7001 | 5001 | ? Configured |
 | SignalR | 7000 | 5000 | ? Configured |
 
 ## ?? Next Steps for Development
 
 ### Immediate Tasks
-- [ ] Test AuthApi locally (`cd LiveSync.AuthApi && dotnet run`)
+- [ ] Test Api locally (`cd LiveSync.Api && dotnet run`)
 - [ ] Test SignalR locally (`cd LiveSync && dotnet run`)
 - [ ] Test integration (Register ? Login ? Get JWT ? Connect to SignalR)
-- [ ] Update frontend to use new AuthApi URL
+- [ ] Update frontend to use new Api URL
 
 ### Short-term Enhancements
 - [ ] Configure launchSettings.json for both projects
@@ -98,7 +98,7 @@
 ## ?? Testing Checklist
 
 ### Manual Testing
-- [ ] Register a new user via AuthApi
+- [ ] Register a new user via Api
 - [ ] Login with registered user
 - [ ] Verify JWT token is returned
 - [ ] Copy JWT token
@@ -117,7 +117,7 @@
 - [ ] Test database connection pooling
 
 ### Load Testing
-- [ ] Load test AuthApi (register/login)
+- [ ] Load test Api (register/login)
 - [ ] Load test SignalR hub connections
 - [ ] Test simultaneous users on same document
 - [ ] Measure response times
@@ -125,7 +125,7 @@
 
 ## ?? Service Health Monitoring
 
-### AuthApi Metrics to Monitor
+### Api Metrics to Monitor
 - [ ] User registration rate
 - [ ] Login success/failure rate
 - [ ] Token generation time
@@ -143,7 +143,7 @@
 
 ## ?? Security Checklist
 
-### AuthApi Security
+### Api Security
 - [x] Password hashing enabled (Identity)
 - [x] Account lockout configured
 - [x] JWT token expiration set
@@ -164,7 +164,7 @@
 
 | Document | Status | Location |
 |----------|--------|----------|
-| Authentication API Docs | ? Complete | LiveSync.AuthApi/README.md |
+| Authentication API Docs | ? Complete | LiveSync.Api/README.md |
 | Backend Architecture Docs | ? Complete | LiveSync/README_BACKEND.md |
 | Migration Summary | ? Complete | LiveSync/MIGRATION_SUMMARY.md |
 | Auth Migration Notice | ? Complete | LiveSync/README_AUTH.md |
@@ -177,7 +177,7 @@
 - [ ] Refresh token endpoint not fully implemented (placeholder)
 - [ ] OAuth endpoints not implemented (placeholders exist)
 - [ ] In-memory database (not suitable for production)
-- [ ] CORS set to "AllowAll" in AuthApi (development only)
+- [ ] CORS set to "AllowAll" in Api (development only)
 - [ ] No distributed caching for sessions
 - [ ] No API versioning strategy
 - [ ] No service discovery mechanism

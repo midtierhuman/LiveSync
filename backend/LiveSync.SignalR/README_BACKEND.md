@@ -3,12 +3,12 @@
 ## Overview
 The LiveSync backend is structured as a microservices architecture with two main services:
 
-1. **LiveSync.AuthApi** - Authentication Service
+1. **LiveSync.Api** - Authentication Service
 2. **LiveSync.SignalR** - Real-time Collaboration Service
 
 ## Services
 
-### 1. LiveSync.AuthApi (Authentication Service)
+### 1. LiveSync.Api (Authentication Service)
 **Port:** `https://localhost:7001` (configurable in launchSettings.json)
 
 **Purpose:** Handles all authentication and user management operations.
@@ -34,7 +34,7 @@ The LiveSync backend is structured as a microservices architecture with two main
 - JWT Bearer Authentication
 - Swagger/OpenAPI
 
-**Documentation:** See `LiveSync.AuthApi/README.md`
+**Documentation:** See `LiveSync.Api/README.md`
 
 ---
 
@@ -45,7 +45,7 @@ The LiveSync backend is structured as a microservices architecture with two main
 
 **Features:**
 - Real-time document synchronization
-- JWT token validation (from AuthApi)
+- JWT token validation (from Api)
 - SignalR hub for collaborative editing
 - CORS support for web clients
 
@@ -77,14 +77,14 @@ The LiveSync backend is structured as a microservices architecture with two main
 1. Right-click on the Solution
 2. Select "Configure Startup Projects"
 3. Choose "Multiple startup projects"
-4. Set both `LiveSync.AuthApi` and `LiveSync.SignalR` to "Start"
+4. Set both `LiveSync.Api` and `LiveSync.SignalR` to "Start"
 5. Press F5
 
 **Using Terminal:**
 
 Terminal 1 (Auth Service):
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 ```
 
@@ -98,7 +98,7 @@ dotnet run
 
 **Auth Service Only:**
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 ```
 
@@ -141,7 +141,7 @@ Both services use the same JWT configuration to ensure tokens are compatible:
 
 ### Service-Specific Ports
 
-**LiveSync.AuthApi:**
+**LiveSync.Api:**
 - HTTPS: `https://localhost:7001`
 - HTTP: `http://localhost:5001`
 
@@ -164,7 +164,7 @@ Configure these in each service's `Properties/launchSettings.json`
          ?                  ?                  ?
          ?                  ?                  ?
 ???????????????????  ????????????????????    ?
-? LiveSync.AuthApi?  ? LiveSync.SignalR ?    ?
+? LiveSync.Api?  ? LiveSync.SignalR ?    ?
 ?  Port: 7001     ?  ?  Port: 7000      ?    ?
 ???????????????????  ????????????????????    ?
 ? - Register      ?  ? - SignalR Hub    ?    ?
@@ -217,7 +217,7 @@ await connection.start();
 ### Adding New Features
 
 **Authentication-related features:**
-- Add to `LiveSync.AuthApi`
+- Add to `LiveSync.Api`
 - Example: Password reset, email verification, OAuth providers
 
 **Real-time collaboration features:**
@@ -232,15 +232,15 @@ Currently using in-memory databases for development. To switch to persistent sto
 2. Update `Program.cs` in respective service
 3. Run migrations:
 ```bash
-dotnet ef migrations add InitialCreate --project LiveSync.AuthApi
-dotnet ef database update --project LiveSync.AuthApi
+dotnet ef migrations add InitialCreate --project LiveSync.Api
+dotnet ef database update --project LiveSync.Api
 ```
 
 ## Deployment
 
 ### Docker Deployment (Example)
 
-**Dockerfile.AuthApi:**
+**Dockerfile.Api:**
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
@@ -249,19 +249,19 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["LiveSync.AuthApi/LiveSync.AuthApi.csproj", "LiveSync.AuthApi/"]
-RUN dotnet restore "LiveSync.AuthApi/LiveSync.AuthApi.csproj"
+COPY ["LiveSync.Api/LiveSync.Api.csproj", "LiveSync.Api/"]
+RUN dotnet restore "LiveSync.Api/LiveSync.Api.csproj"
 COPY . .
-WORKDIR "/src/LiveSync.AuthApi"
-RUN dotnet build "LiveSync.AuthApi.csproj" -c Release -o /app/build
+WORKDIR "/src/LiveSync.Api"
+RUN dotnet build "LiveSync.Api.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "LiveSync.AuthApi.csproj" -c Release -o /app/publish
+RUN dotnet publish "LiveSync.Api.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "LiveSync.AuthApi.dll"]
+ENTRYPOINT ["dotnet", "LiveSync.Api.dll"]
 ```
 
 ### Environment Variables (Production)

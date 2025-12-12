@@ -52,7 +52,7 @@ SignalR uses **persistent connections**, not individual HTTP requests.
 
 ## Current Architecture
 
-### LiveSync.AuthApi (Port 7001)
+### LiveSync.Api (Port 7001)
 ? **Needs Swagger** - Has REST API endpoints
 - `POST /api/auth/register`
 - `POST /api/auth/login`
@@ -124,7 +124,7 @@ public async Task JoinDocument_AddsUserToGroup()
 
 ### 2. Cleaner Codebase
 - No confusing Swagger UI that doesn't work
-- Clear separation: AuthApi has Swagger, SignalR doesn't
+- Clear separation: Api has Swagger, SignalR doesn't
 
 ### 3. Less Confusion
 - Developers won't try to test SignalR through Swagger
@@ -174,7 +174,7 @@ interface EditorHubCallbacks {
 
 ## Updated Service Endpoints
 
-### LiveSync.AuthApi
+### LiveSync.Api
 - **Base URL:** `https://localhost:7001`
 - **Swagger:** `https://localhost:7001/swagger` ?
 - **Type:** REST API
@@ -221,7 +221,7 @@ public class DocumentsController : ControllerBase
 ```
 
 But in our current architecture:
-- **AuthApi** = REST endpoints (needs Swagger)
+- **Api** = REST endpoints (needs Swagger)
 - **SignalR** = WebSocket hubs (doesn't need Swagger)
 
 ## Summary
@@ -233,7 +233,7 @@ But in our current architecture:
 4. Reduces dependencies and package size
 5. Makes service purpose clearer
 
-? **Kept Swagger in LiveSync.AuthApi because:**
+? **Kept Swagger in LiveSync.Api because:**
 1. It has REST API endpoints
 2. Swagger properly documents REST APIs
 3. Provides testing UI for authentication

@@ -7,12 +7,12 @@ Configured optimal launch settings for both microservices with appropriate brows
 
 ## ?? Launch Configuration Summary
 
-### LiveSync.AuthApi (Port 7001)
+### LiveSync.Api (Port 7001)
 ? **Opens browser** ? Launches Swagger UI automatically  
 ? **Port:** 7001 (HTTPS), 5001 (HTTP)
 
 **Why?**
-- AuthApi is a REST API service
+- Api is a REST API service
 - Swagger UI is useful for testing endpoints
 - Developers need immediate visual feedback
 - Can test registration/login directly in browser
@@ -32,7 +32,7 @@ Configured optimal launch settings for both microservices with appropriate brows
 
 ## ?? Configuration Details
 
-### LiveSync.AuthApi - launchSettings.json
+### LiveSync.Api - launchSettings.json
 
 ```json
 {
@@ -82,7 +82,7 @@ Configured optimal launch settings for both microservices with appropriate brows
 
 | Service | HTTPS Port | HTTP Port | Browser Launch |
 |---------|-----------|-----------|----------------|
-| **AuthApi** | 7001 | 5001 | ? Yes (Swagger) |
+| **Api** | 7001 | 5001 | ? Yes (Swagger) |
 | **SignalR** | 7000 | 5000 | ? No |
 
 **Port Selection Rationale:**
@@ -99,7 +99,7 @@ Configured optimal launch settings for both microservices with appropriate brows
 
 #### Option 1: Visual Studio (Multiple Startup Projects)
 When you press **F5**:
-1. ? AuthApi starts ? Browser opens with Swagger UI at `https://localhost:7001/swagger`
+1. ? Api starts ? Browser opens with Swagger UI at `https://localhost:7001/swagger`
 2. ? SignalR starts ? Runs silently, console output visible
 3. ? Both services ready for development
 
@@ -111,7 +111,7 @@ When you press **F5**:
 #### Option 2: Terminal
 ```bash
 # Terminal 1 - Auth API (opens browser)
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 # Browser opens automatically to: https://localhost:7001/swagger
 
@@ -127,7 +127,7 @@ dotnet run
 
 ### 1. Start Both Services (F5 in Visual Studio)
 ```
-? AuthApi starts ? https://localhost:7001/swagger (opens in browser)
+? Api starts ? https://localhost:7001/swagger (opens in browser)
 ? SignalR starts ? https://localhost:7000 (background)
 ```
 
@@ -155,7 +155,7 @@ const connection = new signalR.HubConnectionBuilder()
 ### Before Configuration
 ```
 Start Services:
-??? AuthApi starts ? Opens browser to https://localhost:7072/swagger
+??? Api starts ? Opens browser to https://localhost:7072/swagger
 ??? SignalR starts ? Opens browser to https://localhost:7153/swagger
 ??? Result: 2 browser tabs, one is useless (SignalR has no Swagger)
 ```
@@ -169,7 +169,7 @@ Start Services:
 ### After Configuration
 ```
 Start Services:
-??? AuthApi starts ? Opens browser to https://localhost:7001/swagger ?
+??? Api starts ? Opens browser to https://localhost:7001/swagger ?
 ??? SignalR starts ? Runs in background (no browser) ?
 ??? Result: 1 useful browser tab, clean console output
 ```
@@ -184,7 +184,7 @@ Start Services:
 
 ## ?? Service Endpoints Reference
 
-### AuthApi (Browser-Friendly)
+### Api (Browser-Friendly)
 | Endpoint | URL | Opens in Browser |
 |----------|-----|------------------|
 | Swagger UI | https://localhost:7001/swagger | ? Yes |
@@ -260,7 +260,7 @@ taskkill /PID <process-id> /F
 **Check:**
 1. ? Service is running: `https://localhost:7000`
 2. ? CORS is configured correctly
-3. ? JWT token is valid (from AuthApi)
+3. ? JWT token is valid (from Api)
 4. ? Using HTTPS (not HTTP for tokens)
 
 ---
@@ -269,7 +269,7 @@ taskkill /PID <process-id> /F
 
 ### What Changed
 
-| Setting | AuthApi | SignalR |
+| Setting | Api | SignalR |
 |---------|---------|---------|
 | `launchBrowser` | `true` ? | `false` ? |
 | HTTPS Port | 7001 | 7000 |
@@ -279,7 +279,7 @@ taskkill /PID <process-id> /F
 ### Why It Matters
 
 1. **Better UX** - Only opens useful browser tabs
-2. **Clear Purpose** - AuthApi is interactive, SignalR is background
+2. **Clear Purpose** - Api is interactive, SignalR is background
 3. **Consistent Ports** - Easy to remember and document
 4. **Professional** - Follows microservice best practices
 5. **Efficient** - Reduces resource usage

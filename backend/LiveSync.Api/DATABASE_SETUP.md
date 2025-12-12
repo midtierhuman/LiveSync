@@ -1,7 +1,7 @@
 # SQL Server Database Setup - Complete ?
 
 ## Overview
-Successfully configured LiveSync.AuthApi to use SQL Server with Entity Framework Core Code First approach. The database `LiveSyncAuthDb` has been created with all necessary tables.
+Successfully configured LiveSync.Api to use SQL Server with Entity Framework Core Code First approach. The database `LiveSyncAuthDb` has been created with all necessary tables.
 
 ---
 
@@ -193,7 +193,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 ### 1. Create Migration
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet ef migrations add InitialCreate
 ```
 
@@ -203,7 +203,7 @@ dotnet ef migrations add InitialCreate
 
 ### 2. Apply Migration (Create Database)
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet ef database update
 ```
 
@@ -262,7 +262,7 @@ SELECT COUNT(*) as UserCount FROM AspNetUsers;
 
 ```bash
 # List migrations
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet ef migrations list
 
 # View migration SQL (without applying)
@@ -278,7 +278,7 @@ dotnet ef dbcontext info
 
 ### 1. Start the Application
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 ```
 
@@ -356,7 +356,7 @@ var connectionString = Environment.GetEnvironmentVariable("LIVESYNC_DB_CONNECTIO
 
 3. **Use User Secrets (Development):**
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "your-connection-string"
 ```
@@ -394,7 +394,7 @@ Data Source=FURY\SQLEXPRESS;Initial Catalog=LiveSyncAuthDb;User Id=LiveSyncApiUs
 
 ### Create New Migration
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet ef migrations add MigrationName
 ```
 
@@ -432,7 +432,7 @@ dotnet ef database drop
 
 ### Rebuild Database from Scratch
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet ef database drop --force
 dotnet ef database update
 ```

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Successfully migrated all authentication functionality from the monolithic `LiveSync.SignalR` project to a new standalone `LiveSync.AuthApi` microservice. The application now follows a clean microservices architecture.
+Successfully migrated all authentication functionality from the monolithic `LiveSync.SignalR` project to a new standalone `LiveSync.Api` microservice. The application now follows a clean microservices architecture.
 
 ---
 
@@ -19,7 +19,7 @@ LiveSync.SignalR
 ### After (Microservices)
 ```
 ???????????????????????????
-?   LiveSync.AuthApi      ?
+?   LiveSync.Api      ?
 ?   Port: 7001            ?
 ???????????????????????????
 ? ? User Registration     ?
@@ -44,7 +44,7 @@ LiveSync.SignalR
 
 ## ?? Files Migrated
 
-### ? Created in LiveSync.AuthApi
+### ? Created in LiveSync.Api
 - `Controllers/AuthController.cs` - All authentication endpoints
 - `Services/AuthService.cs` - Authentication business logic
 - `Services/IAuthService.cs` - Service interface
@@ -63,7 +63,7 @@ LiveSync.SignalR
 - `DTOs/AuthDTOs.cs` ?
 
 ### ? Documentation Created
-- `LiveSync.AuthApi/README.md` - Authentication API documentation
+- `LiveSync.Api/README.md` - Authentication API documentation
 - `LiveSync/README_BACKEND.md` - Microservices architecture guide
 - `LiveSync/MIGRATION_SUMMARY.md` - Detailed migration notes
 - `LiveSync/MIGRATION_CHECKLIST.md` - Implementation checklist
@@ -74,7 +74,7 @@ LiveSync.SignalR
 
 ## ?? Configuration Changes
 
-### LiveSync.AuthApi Configuration
+### LiveSync.Api Configuration
 
 **NuGet Packages Added:**
 - ? Microsoft.AspNetCore.Authentication.JwtBearer (8.0.*)
@@ -133,7 +133,7 @@ LiveSync.SignalR
 
 ## ?? API Endpoints
 
-### LiveSync.AuthApi - https://localhost:7001
+### LiveSync.Api - https://localhost:7001
 
 | Endpoint | Method | Description | Auth Required |
 |----------|--------|-------------|---------------|
@@ -160,7 +160,7 @@ LiveSync.SignalR
 
 ### Build Status
 ```
-? LiveSync.AuthApi - Build Successful
+? LiveSync.Api - Build Successful
 ? LiveSync.SignalR - Build Successful
 ? No Compilation Errors
 ? All Dependencies Resolved
@@ -171,7 +171,7 @@ LiveSync.SignalR
 ? JWT Secret: Synchronized between services
 ? JWT Issuer: "LiveSyncAuthAPI" (both services)
 ? JWT Audience: "LiveSyncClient" (both services)
-? Ports: AuthApi (7001), SignalR (7000)
+? Ports: Api (7001), SignalR (7000)
 ? CORS: Configured properly
 ```
 
@@ -187,7 +187,7 @@ LiveSync.SignalR
 ### Option 2: Terminal
 ```bash
 # Terminal 1
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 
 # Terminal 2
@@ -196,7 +196,7 @@ dotnet run
 ```
 
 ### Access Points
-- **AuthApi Swagger:** https://localhost:7001/swagger
+- **Api Swagger:** https://localhost:7001/swagger
 - **SignalR Swagger:** https://localhost:7000/swagger
 
 ---
@@ -234,7 +234,7 @@ dotnet run
 |----------|---------|----------|
 | **Quick Start Guide** | Get started in 5 minutes | `LiveSync/QUICK_START.md` |
 | **Backend Architecture** | Microservices overview | `LiveSync/README_BACKEND.md` |
-| **Authentication API** | AuthApi documentation | `LiveSync.AuthApi/README.md` |
+| **Authentication API** | Api documentation | `LiveSync.Api/README.md` |
 | **Migration Summary** | Detailed migration info | `LiveSync/MIGRATION_SUMMARY.md` |
 | **Checklist** | Implementation checklist | `LiveSync/MIGRATION_CHECKLIST.md` |
 
@@ -310,7 +310,7 @@ dotnet run
 
 ### Immediate
 - [ ] Test end-to-end flow
-- [ ] Update frontend to use AuthApi
+- [ ] Update frontend to use Api
 - [ ] Configure launchSettings.json
 
 ### Short-term
@@ -353,6 +353,6 @@ The authentication functionality has been successfully migrated to a standalone 
 ---
 
 *Migration completed on: [Current Date]*
-*Services: LiveSync.AuthApi (7001) | LiveSync.SignalR (7000)*
+*Services: LiveSync.Api (7001) | LiveSync.SignalR (7000)*
 *Framework: .NET 8.0*
 *Architecture: Microservices*

@@ -1,7 +1,7 @@
-using LiveSync.AuthApi.DTOs;
-using LiveSync.AuthApi.Models;
+using LiveSync.Api.DTOs;
+using LiveSync.Api.Models;
 
-namespace LiveSync.AuthApi.Services
+namespace LiveSync.Api.Services
 {
     public interface IAuthService
     {

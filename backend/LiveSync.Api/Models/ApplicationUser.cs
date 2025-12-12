@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace LiveSync.AuthApi.Models
+namespace LiveSync.Api.Models
 {
     public class ApplicationUser : IdentityUser
     {

@@ -56,9 +56,9 @@
 ## ?? Files Modified/Created
 
 ### Modified Files
-1. ? `LiveSync.AuthApi/LiveSync.AuthApi.csproj` - Updated packages
-2. ? `LiveSync.AuthApi/appsettings.json` - Added connection string
-3. ? `LiveSync.AuthApi/Program.cs` - Changed to SQL Server
+1. ? `LiveSync.Api/LiveSync.Api.csproj` - Updated packages
+2. ? `LiveSync.Api/appsettings.json` - Added connection string
+3. ? `LiveSync.Api/Program.cs` - Changed to SQL Server
 
 ### Created Files
 1. ? `Migrations/20251212102118_InitialCreate.cs` - Migration code
@@ -72,7 +72,7 @@
 
 ### 1. Start the Application
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 ```
 
@@ -160,7 +160,7 @@ Command Timeout=0                    ? No command timeout
 ## ?? Migration Commands Reference
 
 ```bash
-# All commands run from LiveSync.AuthApi directory
+# All commands run from LiveSync.Api directory
 
 # Create migration
 dotnet ef migrations add MigrationName
@@ -295,7 +295,7 @@ dotnet ef database update
 
 ## ?? Ready for Development!
 
-**Your LiveSync.AuthApi is now using SQL Server!**
+**Your LiveSync.Api is now using SQL Server!**
 
 - ? Persistent storage (data survives restarts)
 - ? Production-ready architecture
@@ -305,7 +305,7 @@ dotnet ef database update
 
 **Test it now:**
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 # Visit: https://localhost:7001/swagger
 # Register a user and check the database!

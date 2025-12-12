@@ -5,7 +5,7 @@
 ### What We Accomplished
 
 #### 1?? **Authentication Extracted to Microservice** ?
-- Moved all auth code from LiveSync.SignalR to LiveSync.AuthApi
+- Moved all auth code from LiveSync.SignalR to LiveSync.Api
 - Clean separation of concerns
 - Independent scaling and deployment
 
@@ -15,7 +15,7 @@
 - Cleaner, lighter service
 
 #### 3?? **Optimized Launch Configuration** ?
-- AuthApi opens browser to Swagger (useful)
+- Api opens browser to Swagger (useful)
 - SignalR runs silently in background (appropriate)
 - Standardized ports: 7001 (Auth), 7000 (SignalR)
 
@@ -23,7 +23,7 @@
 
 ## ?? Service Configuration Matrix
 
-| Feature | LiveSync.AuthApi | LiveSync.SignalR |
+| Feature | LiveSync.Api | LiveSync.SignalR |
 |---------|------------------|------------------|
 | **Purpose** | Authentication REST API | Real-time WebSocket Hub |
 | **Port (HTTPS)** | 7001 | 7000 |
@@ -38,7 +38,7 @@
 
 ## ?? Package Dependencies
 
-### LiveSync.AuthApi
+### LiveSync.Api
 ```xml
 <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.*" />
 <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.*" />
@@ -60,7 +60,7 @@
 ### Before Optimization
 ```
 Press F5:
-??? AuthApi starts ? Browser opens to random port with Swagger
+??? Api starts ? Browser opens to random port with Swagger
 ??? SignalR starts ? Browser opens to random port with empty page
 ??? Result: 2 browser tabs, confusing ports, unnecessary dependencies
 ```
@@ -68,7 +68,7 @@ Press F5:
 ### After Optimization
 ```
 Press F5:
-??? AuthApi starts ? Browser opens to https://localhost:7001/swagger ?
+??? Api starts ? Browser opens to https://localhost:7001/swagger ?
 ??? SignalR starts ? Runs silently on https://localhost:7000 ?
 ??? Result: 1 useful browser tab, consistent ports, minimal dependencies
 ```
@@ -79,7 +79,7 @@ Press F5:
 
 ### Created Documentation
 ```
-LiveSync.AuthApi/
+LiveSync.Api/
 ??? README.md                          Complete API documentation
 
 LiveSync.SignalR/
@@ -108,7 +108,7 @@ LiveSync/
 - [x] Ports configured correctly
 
 ### Launch Behavior
-- [x] AuthApi opens browser to Swagger
+- [x] Api opens browser to Swagger
 - [x] SignalR doesn't open browser
 - [x] Consistent port numbers (7000, 7001)
 - [x] Environment variables set correctly
@@ -133,7 +133,7 @@ LiveSync/
 
 ### 1. Start Services (F5 or `dotnet run`)
 ```
-? AuthApi listening on https://localhost:7001
+? Api listening on https://localhost:7001
 ? SignalR listening on https://localhost:7000
 ? Swagger UI opens automatically at https://localhost:7001/swagger
 ```
@@ -194,7 +194,7 @@ console.log('? Connected to SignalR!');
 ## ?? Ready for Development!
 
 ### Access Points
-- **AuthApi Swagger:** https://localhost:7001/swagger
+- **Api Swagger:** https://localhost:7001/swagger
 - **SignalR Hub:** wss://localhost:7000/hubs/editor
 - **SignalR Service:** https://localhost:7000 (no UI)
 
@@ -207,7 +207,7 @@ console.log('? Connected to SignalR!');
 ### Documentation Quick Access
 - ?? New to the project? ? Read `QUICK_START.md`
 - ??? Want architecture overview? ? Read `README_BACKEND.md`
-- ?? Need auth details? ? Read `LiveSync.AuthApi/README.md`
+- ?? Need auth details? ? Read `LiveSync.Api/README.md`
 - ? Quick reference? ? Read `QUICK_REFERENCE.md`
 
 ---
@@ -224,7 +224,7 @@ console.log('? Connected to SignalR!');
 - **Consistent Ports:** ? Yes (7000, 7001)
 - **Appropriate Browser Launch:** ? Yes
 - **JWT Config Synchronized:** ? Yes
-- **Swagger Where Needed:** ? Yes (AuthApi only)
+- **Swagger Where Needed:** ? Yes (Api only)
 
 ### Developer Experience
 - **Startup Time:** Faster (fewer packages)
@@ -311,7 +311,7 @@ console.log('? Connected to SignalR!');
 
 ```
 ???????????????????????????
-?   LiveSync.AuthApi      ?  ? REST API + Swagger
+?   LiveSync.Api      ?  ? REST API + Swagger
 ?   Port: 7001            ?     Browser: ? Yes
 ?   Swagger: ?           ?
 ???????????????????????????

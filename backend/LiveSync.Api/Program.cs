@@ -1,6 +1,6 @@
-using LiveSync.AuthApi.Data;
-using LiveSync.AuthApi.Models;
-using LiveSync.AuthApi.Services;
+using LiveSync.Api.Data;
+using LiveSync.Api.Models;
+using LiveSync.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -90,9 +90,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo 
     { 
-        Title = "LiveSync Authentication API", 
+        Title = "LiveSync API", 
         Version = "v1",
-        Description = "Authentication service for LiveSync application"
+        Description = "Api LiveSync application"
     });
     
     // Add JWT Authentication to Swagger

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace LiveSync.AuthApi.Migrations
+namespace LiveSync.Api.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration

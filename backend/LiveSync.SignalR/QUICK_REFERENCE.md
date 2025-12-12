@@ -4,7 +4,7 @@
 
 | Service | HTTPS | HTTP | Browser | Purpose |
 |---------|-------|------|---------|---------|
-| **AuthApi** | https://localhost:7001 | http://localhost:5001 | ? Opens (Swagger) | Authentication |
+| **Api** | https://localhost:7001 | http://localhost:5001 | ? Opens (Swagger) | Authentication |
 | **SignalR** | https://localhost:7000 | http://localhost:5000 | ? Background | Real-time |
 
 ---
@@ -14,14 +14,14 @@
 ### Visual Studio
 ```
 1. Press F5
-2. AuthApi opens in browser with Swagger
+2. Api opens in browser with Swagger
 3. SignalR runs in background
 ```
 
 ### Terminal
 ```bash
 # Terminal 1
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 
 # Terminal 2
@@ -66,7 +66,7 @@ connection.on('ReceiveContentUpdate', (content) => {
 
 ## Key Differences
 
-### ? AuthApi (7001)
+### ? Api (7001)
 - Has REST API endpoints
 - Has Swagger UI
 - Opens browser on launch
@@ -125,7 +125,7 @@ dotnet build
 
 - ?? `QUICK_START.md` - Detailed getting started
 - ?? `README_BACKEND.md` - Architecture overview
-- ?? `LiveSync.AuthApi/README.md` - Auth API docs
+- ?? `LiveSync.Api/README.md` - Auth API docs
 - ?? `SWAGGER_REMOVAL.md` - Why no Swagger in SignalR
 - ?? `LAUNCH_CONFIGURATION.md` - Launch settings explained
 
@@ -167,7 +167,7 @@ console.log("Connected!");
 
 ```
 backend/
-??? LiveSync.AuthApi/          (Port 7001)
+??? LiveSync.Api/          (Port 7001)
 ?   ??? Controllers/           REST API endpoints
 ?   ??? Services/             Auth business logic
 ?   ??? Models/               User entities

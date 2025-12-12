@@ -18,7 +18,7 @@ cd backend
 ```
 
 You should see two main projects:
-- `LiveSync.AuthApi/` - Authentication service
+- `LiveSync.Api/` - Authentication service
 - `LiveSync/` - SignalR real-time service
 
 ## Step 2: Start Both Services
@@ -29,14 +29,14 @@ You should see two main projects:
 2. Right-click on the Solution in Solution Explorer
 3. Select **"Set Startup Projects"**
 4. Choose **"Multiple startup projects"**
-5. Set both `LiveSync.AuthApi` and `LiveSync.SignalR` to **"Start"**
+5. Set both `LiveSync.Api` and `LiveSync.SignalR` to **"Start"**
 6. Press **F5** to run both services
 
 ### Option B: Using Terminal (Two Terminals)
 
 **Terminal 1 - Start Authentication Service:**
 ```bash
-cd LiveSync.AuthApi
+cd LiveSync.Api
 dotnet run
 ```
 
@@ -96,7 +96,7 @@ Now you can test protected endpoints!
 
 ### Test "Get Current User" Endpoint
 
-1. In AuthApi Swagger (`https://localhost:7001/swagger`)
+1. In Api Swagger (`https://localhost:7001/swagger`)
 2. You should still be authorized from before
 3. Find `GET /api/auth/me`
 4. Click **"Try it out"**
@@ -243,7 +243,7 @@ dotnet dev-certs https --trust
 
 ### Issue: "401 Unauthorized" in SignalR
 **Solution:** 
-- Make sure you got a token from AuthApi first
+- Make sure you got a token from Api first
 - Use `Bearer <token>` format in Authorization header
 - Check token hasn't expired (24 hours by default)
 
@@ -286,7 +286,7 @@ dotnet run
 
 **What to do next:**
 1. ?? Read `README_BACKEND.md` for architecture details
-2. ?? Read `LiveSync.AuthApi/README.md` for authentication details
+2. ?? Read `LiveSync.Api/README.md` for authentication details
 3. ?? Write unit tests for your features
 4. ?? Deploy to Azure/AWS (see deployment guides)
 5. ?? Build your frontend application
