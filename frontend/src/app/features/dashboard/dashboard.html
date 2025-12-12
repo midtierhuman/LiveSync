@@ -1,0 +1,28 @@
+<div class="dashboard-container">
+  <header class="dashboard-header">
+    <div class="header-left">
+      <mat-icon class="logo">code</mat-icon>
+      <span class="title">LiveSync Dashboard</span>
+    </div>
+    <div class="header-right">
+      <span class="user-name">{{ authService.user()?.userName }}</span>
+      <button mat-icon-button [matMenuTriggerFor]="menu">
+        <mat-icon>account_circle</mat-icon>
+      </button>
+      <mat-menu #menu="matMenu">
+        <button mat-menu-item disabled>
+          <span>{{ authService.user()?.email }}</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Sign Out</span>
+        </button>
+      </mat-menu>
+    </div>
+  </header>
+
+  <main class="dashboard-content">
+    <app-editor></app-editor>
+  </main>
+</div>

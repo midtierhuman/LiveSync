@@ -10,9 +10,16 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Database Context (In-Memory for now, can be changed to SQL Server/PostgreSQL later)
+// Add Database Context - SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseInMemoryDatabase("LiveSyncAuthDb"));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null
+        )
+    ));
 
 // Add Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>

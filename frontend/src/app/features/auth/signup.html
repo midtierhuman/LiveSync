@@ -1,0 +1,94 @@
+<div class="signup-container">
+  <mat-card class="signup-card">
+    <mat-card-header>
+      <h2>Create Account</h2>
+      <p>Join LiveSync and start collaborating</p>
+    </mat-card-header>
+
+    <mat-card-content>
+      <form (ngSubmit)="onSignUp()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Username</mat-label>
+          <input
+            matInput
+            [(ngModel)]="username"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            name="username"
+            placeholder="Choose a username"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email</mat-label>
+          <input
+            matInput
+            type="email"
+            [(ngModel)]="email"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            name="email"
+            placeholder="Enter your email"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Password</mat-label>
+          <input
+            matInput
+            [type]="hidePassword() ? 'password' : 'text'"
+            [(ngModel)]="password"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            name="password"
+            placeholder="Create a password"
+          />
+          <button mat-icon-button matSuffix (click)="togglePasswordVisibility()" type="button">
+            <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Confirm Password</mat-label>
+          <input
+            matInput
+            [type]="hideConfirmPassword() ? 'password' : 'text'"
+            [(ngModel)]="confirmPassword"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            name="confirmPassword"
+            placeholder="Confirm your password"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            (click)="toggleConfirmPasswordVisibility()"
+            type="button"
+          >
+            <mat-icon>{{ hideConfirmPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+
+        <div *ngIf="errorMessage()" class="error-message">
+          {{ errorMessage() }}
+        </div>
+
+        <button
+          mat-raised-button
+          color="primary"
+          type="submit"
+          class="full-width"
+          [disabled]="authService.isLoading()"
+        >
+          <mat-spinner *ngIf="authService.isLoading()" diameter="20"></mat-spinner>
+          <span *ngIf="!authService.isLoading()">Create Account</span>
+        </button>
+      </form>
+
+      <div class="divider">
+        <span>or</span>
+      </div>
+
+      <p class="signin-link">
+        Already have an account?
+        <a routerLink="/signin">Sign in here</a>
+      </p>
+    </mat-card-content>
+  </mat-card>
+</div>
