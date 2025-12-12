@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using LiveSync.Models;
+using LiveSync.AuthApi.Models;
 
-namespace LiveSync.Data
+namespace LiveSync.AuthApi.Data
 {
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {

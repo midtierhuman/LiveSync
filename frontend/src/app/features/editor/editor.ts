@@ -269,7 +269,7 @@ export class Editor {
         console.warn('Not connected, buffering update...');
       }
       this.debounceTimer = null;
-    }, 300);
+    }, 150);
   }
 
   private async setupSignalR() {

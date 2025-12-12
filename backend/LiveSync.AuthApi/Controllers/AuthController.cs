@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using LiveSync.DTOs;
-using LiveSync.Services;
+using LiveSync.AuthApi.DTOs;
+using LiveSync.AuthApi.Services;
 
-namespace LiveSync.Controllers
+namespace LiveSync.AuthApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

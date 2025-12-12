@@ -1,44 +1,14 @@
-using LiveSync.Data;
 using LiveSync.Hubs;
-using LiveSync.Models;
-using LiveSync.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Database Context (In-Memory for now, can be changed to SQL Server/PostgreSQL later)
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseInMemoryDatabase("LiveSyncDb"));
-
-// Add Identity
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
-{
-    // Password settings
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 6;
-
-    // Lockout settings
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-    options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.AllowedForNewUsers = true;
-
-    // User settings
-    options.User.RequireUniqueEmail = true;
-})
-.AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders();
-
-// Add JWT Authentication
+// Add JWT Authentication (for validating tokens from AuthAPI)
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "YourSuperSecretKeyForJWT_ChangeThisInProduction_32Characters!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "LiveSyncAPI";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "LiveSyncAuthAPI";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "LiveSyncClient";
 
 builder.Services.AddAuthentication(options =>
@@ -78,9 +48,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Register Services
-builder.Services.AddScoped<IAuthService, AuthService>();
-
 // Add services to the container.
 builder.Services.AddSignalR();
 
@@ -100,12 +67,17 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "LiveSync API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "LiveSync SignalR API", 
+        Version = "v1",
+        Description = "Real-time collaborative editing service using SignalR"
+    });
     
     // Add JWT Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
+        Description = "JWT Authorization header using the Bearer scheme. Get your token from LiveSync.AuthApi service. Enter 'Bearer' [space] and then your token.",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,

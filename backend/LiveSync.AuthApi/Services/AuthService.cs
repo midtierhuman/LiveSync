@@ -3,10 +3,10 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using LiveSync.DTOs;
-using LiveSync.Models;
+using LiveSync.AuthApi.DTOs;
+using LiveSync.AuthApi.Models;
 
-namespace LiveSync.Services
+namespace LiveSync.AuthApi.Services
 {
     public class AuthService : IAuthService
     {

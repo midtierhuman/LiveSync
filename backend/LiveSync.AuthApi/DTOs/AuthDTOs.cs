@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace LiveSync.DTOs
+namespace LiveSync.AuthApi.DTOs
 {
     public class RegisterRequest
     {
