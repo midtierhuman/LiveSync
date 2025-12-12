@@ -7,6 +7,8 @@ export interface UserInfo {
   id: string;
   email: string;
   userName: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface AuthResponse {
@@ -18,9 +20,11 @@ export interface AuthResponse {
 }
 
 export interface RegisterRequest {
-  username: string;
   email: string;
   password: string;
+  confirmPassword: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface LoginRequest {
@@ -111,19 +115,21 @@ export class AuthService {
   }
 
   async signup(
-    username: string,
     email: string,
     password: string,
-    confirmPassword: string
+    confirmPassword: string,
+    firstName?: string,
+    lastName?: string
   ): Promise<boolean> {
     this.isLoading.set(true);
     try {
       const response = await firstValueFrom(
         this.http.post<AuthResponse>(`${this.apiUrl}/register`, {
-          username,
           email,
           password,
           confirmPassword,
+          firstName,
+          lastName,
         })
       );
 

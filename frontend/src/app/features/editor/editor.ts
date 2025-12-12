@@ -6,33 +6,46 @@ import {
   afterNextRender,
   inject,
   ElementRef,
+  OnInit,
+  DestroyRef,
 } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SignalRService } from '../../services/signalr.service';
+import { DocumentDto, DocumentService } from '../../services/document.service';
 
 @Component({
   selector: 'app-editor',
+  standalone: true,
   imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
-export class Editor {
+export class Editor implements OnInit {
   // Angular 20 signal-based queries
   readonly codeTextarea = viewChild.required<ElementRef<HTMLTextAreaElement>>('codeTextarea');
   readonly lineNumbers = viewChild.required<ElementRef<HTMLPreElement>>('lineNumbers');
 
-  // Inject service using Angular 20 inject() function
+  // Inject services using Angular 20 inject() function
   readonly signalRService = inject(SignalRService);
+  private readonly documentService = inject(DocumentService);
+  private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Signals for reactive state
-  readonly docId = signal('doc-123');
+  readonly docId = signal<string>('');
+  readonly document = signal<DocumentDto | null>(null);
   readonly lineNumbersArray = signal<number[]>([1]);
   readonly codeSignal = signal('// Start typing to collaborate...\n');
   readonly theme = signal('vs-dark');
   readonly isDarkMode = signal(true);
+  readonly isLoading = signal(false);
+  readonly error = signal('');
+  readonly docTitle = signal('');
 
   // Private state
   private isUpdatingFromRemote = false;
@@ -40,6 +53,49 @@ export class Editor {
   private readonly undoStack = signal<string[]>([]);
   private readonly redoStack = signal<string[]>([]);
   private readonly maxUndoSteps = 50;
+
+  ngOnInit() {
+    // Get document ID from route
+    const subscription = this.activatedRoute.params.subscribe(async (params) => {
+      const id = params['id'];
+      if (id) {
+        this.docId.set(id);
+        await this.loadDocument(id);
+      }
+    });
+
+    // Cleanup subscription on destroy
+    this.destroyRef.onDestroy(() => {
+      subscription.unsubscribe();
+      const docId = this.docId();
+      if (docId) {
+        this.signalRService.leaveDocument(docId);
+      }
+    });
+  }
+
+  async loadDocument(id: string) {
+    this.isLoading.set(true);
+    this.error.set('');
+    try {
+      const doc = await this.documentService.getDocument(id);
+      this.document.set(doc);
+      this.docTitle.set(doc.title);
+      this.codeSignal.set(doc.content || '// Start typing to collaborate...\n');
+
+      // Join the document for real-time collaboration
+      await this.signalRService.startConnection();
+      this.signalRService.joinDocument(id);
+    } catch (error) {
+      console.error('Error loading document:', error);
+      this.error.set('Failed to load document. Redirecting...');
+      setTimeout(() => {
+        this.router.navigate(['/dashboard']);
+      }, 2000);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
 
   constructor() {
     // Effects for SignalR events

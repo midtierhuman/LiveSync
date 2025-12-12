@@ -70,6 +70,7 @@ builder.Services.AddAuthorization();
 
 // Register Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
 
 // Add CORS
 builder.Services.AddCors(options =>

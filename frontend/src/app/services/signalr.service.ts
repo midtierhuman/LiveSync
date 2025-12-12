@@ -1,11 +1,13 @@
 import { Injectable, signal, DestroyRef, inject } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
+import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SignalRService {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly authService = inject(AuthService);
   private hubConnection: signalR.HubConnection;
   private isStarting = false;
 
@@ -28,7 +30,9 @@ export class SignalRService {
       this.hubConnection.stop();
     });
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('https://localhost:7000/hubs/editor') // .NET API URL
+      .withUrl('https://localhost:7000/hubs/editor', {
+        accessTokenFactory: () => this.authService.token() || '',
+      }) // .NET API URL with JWT token
       .withAutomaticReconnect()
       .build();
 

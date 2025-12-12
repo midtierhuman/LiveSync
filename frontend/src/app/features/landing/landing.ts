@@ -1,5 +1,4 @@
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -9,7 +8,7 @@ import { AuthService } from '../../services/auth.service';
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatButtonModule, MatToolbarModule, MatIconModule],
+  imports: [RouterModule, MatButtonModule, MatToolbarModule, MatIconModule],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })

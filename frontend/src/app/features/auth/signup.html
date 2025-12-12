@@ -9,13 +9,7 @@
       <form (ngSubmit)="onSignUp()">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Username</mat-label>
-          <input
-            matInput
-            [(ngModel)]="username"
-            [ngModelOptions]="{ updateOn: 'blur' }"
-            name="username"
-            placeholder="Choose a username"
-          />
+          <input matInput [(ngModel)]="username" name="username" placeholder="Choose a username" />
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -24,7 +18,6 @@
             matInput
             type="email"
             [(ngModel)]="email"
-            [ngModelOptions]="{ updateOn: 'blur' }"
             name="email"
             placeholder="Enter your email"
           />
@@ -36,7 +29,6 @@
             matInput
             [type]="hidePassword() ? 'password' : 'text'"
             [(ngModel)]="password"
-            [ngModelOptions]="{ updateOn: 'blur' }"
             name="password"
             placeholder="Create a password"
           />
@@ -51,7 +43,6 @@
             matInput
             [type]="hideConfirmPassword() ? 'password' : 'text'"
             [(ngModel)]="confirmPassword"
-            [ngModelOptions]="{ updateOn: 'blur' }"
             name="confirmPassword"
             placeholder="Confirm your password"
           />

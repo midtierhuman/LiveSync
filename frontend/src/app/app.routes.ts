@@ -23,8 +23,14 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
-    path: 'editor',
+    path: 'editor/:id',
     loadComponent: () => import('./features/editor/editor').then((m) => m.Editor),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'add-shared',
+    loadComponent: () =>
+      import('./features/dashboard/add-shared/add-shared').then((m) => m.AddShared),
     canActivate: [authGuard],
   },
   {

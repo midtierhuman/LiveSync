@@ -13,7 +13,6 @@
             matInput
             type="text"
             [(ngModel)]="emailOrUsername"
-            [ngModelOptions]="{ updateOn: 'blur' }"
             name="emailOrUsername"
             placeholder="Enter your email or username"
           />
@@ -25,7 +24,6 @@
             matInput
             [type]="hidePassword() ? 'password' : 'text'"
             [(ngModel)]="password"
-            [ngModelOptions]="{ updateOn: 'blur' }"
             name="password"
             placeholder="Enter your password"
           />

@@ -1,7 +1,7 @@
 <div class="dashboard-container">
   <header class="dashboard-header">
     <div class="header-left">
-      <mat-icon class="logo">code</mat-icon>
+      <mat-icon class="logo">description</mat-icon>
       <span class="title">LiveSync Dashboard</span>
     </div>
     <div class="header-right">
@@ -23,6 +23,144 @@
   </header>
 
   <main class="dashboard-content">
-    <app-editor></app-editor>
+    <!-- Create New Document Section -->
+    <section class="create-section">
+      <h2>Create New Document</h2>
+      <div class="create-form">
+        <input
+          type="text"
+          [(ngModel)]="newDocTitle"
+          placeholder="Enter document title"
+          (keyup.enter)="createNewDocument()"
+          class="doc-input"
+        />
+        <button (click)="createNewDocument()" [disabled]="isCreating()" class="btn-create">
+          {{ isCreating() ? 'Creating...' : '+ New Document' }}
+        </button>
+      </div>
+    </section>
+
+    <!-- My Documents Section -->
+    <section class="documents-section">
+      <h2>My Documents</h2>
+      @if (isLoading()) {
+      <div class="loading">Loading documents...</div>
+      } @else if (myDocuments().length === 0) {
+      <div class="empty-state">
+        <p>No documents yet. Create your first document above!</p>
+      </div>
+      } @else {
+      <div class="documents-grid">
+        @for (doc of myDocuments(); track doc.id) {
+        <div class="document-card">
+          <div class="doc-header">
+            <h3>{{ doc.title }}</h3>
+            <button mat-icon-button [matMenuTriggerFor]="docMenu">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #docMenu="matMenu">
+              <button mat-menu-item (click)="openShareModal(doc)">
+                <mat-icon>share</mat-icon>
+                <span>Share Document</span>
+              </button>
+              <button mat-menu-item (click)="confirmDelete(doc.id)">
+                <mat-icon>delete</mat-icon>
+                <span>Delete</span>
+              </button>
+            </mat-menu>
+          </div>
+          <p class="doc-meta">Created: {{ doc.createdAt | date : 'short' }}</p>
+          @if (doc.lastEditedAt) {
+          <p class="doc-meta">
+            Last edited: {{ doc.lastEditedAt | date : 'short' }} by {{ doc.lastEditedBy }}
+          </p>
+          } @if (doc.sharedWith.length > 0) {
+          <p class="doc-shared">Shared with {{ doc.sharedWith.length }} user(s)</p>
+          }
+          <button (click)="openDocument(doc.id)" class="btn-open">Open Document</button>
+        </div>
+        }
+      </div>
+      }
+    </section>
+
+    <!-- Shared With Me Section -->
+    <section class="documents-section">
+      <div class="shared-header">
+        <h2>Shared With Me</h2>
+        <button (click)="goToAddShared()" class="btn-add-shared">+ Add Shared Document</button>
+      </div>
+      @if (sharedDocuments().length === 0) {
+      <div class="empty-state">
+        <p>No documents shared with you yet.</p>
+      </div>
+      } @else {
+      <div class="documents-grid">
+        @for (doc of sharedDocuments(); track doc.id) {
+        <div class="document-card shared">
+          <div class="doc-header">
+            <h3>{{ doc.documentTitle }}</h3>
+            <span class="owner-badge">by {{ doc.userName }}</span>
+          </div>
+          <p class="doc-meta">Shared: {{ doc.sharedAt | date : 'short' }}</p>
+          <p class="access-level">
+            Access: <strong>{{ doc.accessLevel }}</strong>
+          </p>
+          <button (click)="openSharedDoc(doc.documentId)" class="btn-open">Open Document</button>
+        </div>
+        }
+      </div>
+      }
+    </section>
   </main>
+
+  <!-- Share Modal -->
+  @if (showShareModal()) {
+  <div class="modal-overlay" (click)="closeShareModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h2>Share Document: {{ selectedDocForShare()?.title }}</h2>
+      <div class="share-code-section">
+        <p>Share this code with others to let them access your document:</p>
+        <div class="share-code-display">
+          <input type="text" [value]="shareCode()" readonly class="share-code-input" />
+          <button (click)="copyShareCode()" class="btn-copy">Copy Code</button>
+        </div>
+        <button (click)="regenerateShareCode()" class="btn-regenerate">Generate New Code</button>
+      </div>
+
+      @if (selectedDocForShare()?.sharedWith?.length! > 0) {
+      <div class="shared-users">
+        <h3>Shared With:</h3>
+        @for (user of selectedDocForShare()?.sharedWith; track user.userId) {
+        <div class="user-item">
+          <span>{{ user.userName }} ({{ user.accessLevel }})</span>
+          <button
+            (click)="removeSharedAccess(selectedDocForShare()!.id, user.userId)"
+            class="btn-remove"
+          >
+            Remove
+          </button>
+        </div>
+        }
+      </div>
+      }
+
+      <button (click)="closeShareModal()" class="btn-close">Close</button>
+    </div>
+  </div>
+  }
+
+  <!-- Delete Confirmation Modal -->
+  @if (showDeleteConfirm()) {
+  <div class="modal-overlay" (click)="showDeleteConfirm.set(false)">
+    <div class="modal-small" (click)="$event.stopPropagation()">
+      <h2>Delete Document?</h2>
+      <p>This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button (click)="showDeleteConfirm.set(false)" class="btn-cancel">Cancel</button>
+        <button (click)="deleteDocument()" class="btn-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+  }
 </div>

@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
 
 namespace LiveSync.Hubs
 {
     // A ConcurrentDictionary to simulate a fast in-memory cache of who is in which "room" (document)
+    [Authorize]
     public class EditorHub : Hub
     {
         // Key: DocumentId, Value: List of ConnectionIds

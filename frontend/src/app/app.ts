@@ -11,9 +11,5 @@ import { AuthService } from './services/auth.service';
 export class App {
   protected readonly title = 'LiveSync';
   private readonly authService = inject(AuthService);
-
-  constructor() {
-    // Initialize authentication on app startup
-    this.authService.initializeAuth();
-  }
+  // AuthService initializes itself in its constructor, no need to call it again
 }

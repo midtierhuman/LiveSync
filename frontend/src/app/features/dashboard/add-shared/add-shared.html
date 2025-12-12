@@ -1,0 +1,95 @@
+<div class="add-shared-container">
+  <header class="add-shared-header">
+    <button (click)="goBack()" class="btn-back">← Back to Dashboard</button>
+    <h1>Add Shared Document</h1>
+  </header>
+
+  <main class="add-shared-content">
+    <section class="input-section">
+      <h2>Enter Share Code</h2>
+      <p>Ask the document owner for the unique share code</p>
+
+      <div class="code-input-area">
+        <input
+          type="text"
+          [(ngModel)]="shareCode"
+          (keyup.enter)="verifyShareCode()"
+          placeholder="Enter 8-character share code (e.g., ABC12345)"
+          class="share-code-input"
+          [disabled]="isLoading()"
+        />
+        <button
+          (click)="verifyShareCode()"
+          [disabled]="isLoading() || !shareCode()"
+          class="btn-verify"
+        >
+          {{ isLoading() ? 'Verifying...' : 'Verify Code' }}
+        </button>
+      </div>
+
+      @if (errorMessage()) {
+      <div class="error-message">⚠️ {{ errorMessage() }}</div>
+      } @if (successMessage()) {
+      <div class="success-message">✓ {{ successMessage() }}</div>
+      }
+    </section>
+
+    <!-- Document Preview -->
+    @if (documentPreview()) {
+    <section class="preview-section">
+      <h2>Document Preview</h2>
+      <div class="document-preview">
+        <div class="preview-header">
+          <h3>{{ documentPreview()?.title }}</h3>
+          <span class="owner">by {{ documentPreview()?.ownerName }}</span>
+        </div>
+
+        <div class="preview-details">
+          <p>
+            <strong>Created:</strong>
+            {{ documentPreview()?.createdAt | date : 'medium' }}
+          </p>
+          @if (documentPreview()?.lastEditedAt) {
+          <p>
+            <strong>Last Updated:</strong>
+            {{ documentPreview()?.lastEditedAt | date : 'medium' }}
+          </p>
+          }
+          <p>
+            <strong>Content Preview:</strong>
+          </p>
+          <div class="content-preview">
+            {{
+              documentPreview()?.content
+                ? (documentPreview()?.content | slice : 0 : 200) + '...'
+                : '(Empty document)'
+            }}
+          </div>
+        </div>
+
+        <div class="preview-actions">
+          <button (click)="addDocument()" [disabled]="isLoading()" class="btn-add">
+            {{ isLoading() ? 'Adding...' : '✓ Add This Document' }}
+          </button>
+        </div>
+      </div>
+    </section>
+    }
+
+    <!-- Tips Section -->
+    <section class="tips-section">
+      <h2>How to Share Documents</h2>
+      <ul>
+        <li>
+          <strong>Get a Share Code:</strong> Open a document in your dashboard and click "Share
+          Document"
+        </li>
+        <li><strong>Copy the Code:</strong> The 8-character code will be displayed</li>
+        <li>
+          <strong>Share with Others:</strong> Send the code to anyone you want to collaborate with
+        </li>
+        <li><strong>Paste Here:</strong> Other users paste the code here to gain access</li>
+      </ul>
+    </section>
+  </main>
+</div>
