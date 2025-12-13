@@ -18,6 +18,11 @@ namespace LiveSync.Api.Services
         Task<DocumentDto?> GetDocumentByShareCodeAsync(string shareCode);
         Task<bool> AddSharedDocumentAsync(string shareCode, string userId);
         Task<bool> RemoveSharedAccessAsync(string documentId, string userId, string sharedUserId);
+        Task<bool> UpdateShareCodeAccessLevelAsync(string documentId, string userId, string accessLevel);
+
+        // Access control
+        Task<bool> HasEditAccessAsync(string documentId, string userId);
+        Task<bool> UpdateSharedAccessLevelAsync(string documentId, string sharedUserId, string accessLevel);
 
         // Helper
         string GenerateShareCode();

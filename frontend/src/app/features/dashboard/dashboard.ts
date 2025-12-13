@@ -53,6 +53,8 @@ export class Dashboard implements OnInit {
   showEditorModal = signal(false);
   selectedDocId = signal<string>('');
   deleteDocId = signal('');
+  defaultAccessLevel = signal<string>('View');
+  editingAccessLevelFor = signal<string | null>(null);
 
   async ngOnInit() {
     await this.loadDocuments();
@@ -114,6 +116,9 @@ export class Dashboard implements OnInit {
 
   async openShareModal(doc: DocumentDto) {
     this.selectedDocForShare.set(doc);
+    // Initialize default access level from document (default to 'View' if not set)
+    this.defaultAccessLevel.set((doc as any).defaultAccessLevel || 'View');
+
     if (!doc.shareCode) {
       try {
         const updatedDoc = await this.documentService.generateShareCode(doc.id);
@@ -171,6 +176,42 @@ export class Dashboard implements OnInit {
     } catch (error) {
       console.error('Error removing shared access:', error);
       alert('Failed to remove shared access');
+    }
+  }
+
+  async updateSharedAccessLevel(docId: string, userId: string, newAccessLevel: string) {
+    try {
+      await this.documentService.updateSharedAccessLevel(docId, userId, newAccessLevel);
+      const doc = this.myDocuments().find((d) => d.id === docId);
+      if (doc) {
+        const sharedUser = doc.sharedWith.find((s) => s.userId === userId);
+        if (sharedUser) {
+          sharedUser.accessLevel = newAccessLevel;
+          this.myDocuments.set([...this.myDocuments()]);
+        }
+      }
+      this.editingAccessLevelFor.set(null);
+      alert('Access level updated successfully');
+    } catch (error) {
+      console.error('Error updating access level:', error);
+      alert('Failed to update access level');
+    }
+  }
+
+  async updateDefaultAccessLevel() {
+    const doc = this.selectedDocForShare();
+    if (!doc) return;
+
+    try {
+      await this.documentService.updateShareCodeAccessLevel(doc.id, this.defaultAccessLevel());
+      // Update local state
+      const updatedDocs = this.myDocuments().map((d) =>
+        d.id === doc.id ? { ...d, defaultAccessLevel: this.defaultAccessLevel() } : d
+      );
+      this.myDocuments.set(updatedDocs);
+    } catch (error) {
+      console.error('Error updating default access level:', error);
+      alert('Failed to update default access level');
     }
   }
 

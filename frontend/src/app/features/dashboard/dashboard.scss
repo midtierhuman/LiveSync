@@ -449,6 +449,58 @@
       border-color: #00d4ff;
     }
   }
+
+  .default-access-level {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 6px;
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #eee;
+      font-size: 0.95rem;
+    }
+
+    .access-select {
+      width: 100%;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      color: #eee;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      &:focus {
+        outline: none;
+        border-color: #00d4ff;
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      option {
+        background: #1a1a2e;
+        color: #eee;
+      }
+    }
+
+    .access-hint {
+      margin-top: 0.75rem;
+      margin-bottom: 0;
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      font-size: 0.9rem;
+      color: #aaa;
+
+      strong {
+        color: #00d4ff;
+      }
+    }
+  }
 }
 
 .shared-users {
@@ -471,6 +523,68 @@
     border-radius: 6px;
     margin-bottom: 0.5rem;
     color: #aaa;
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+
+      .user-name {
+        font-weight: 500;
+        color: #eee;
+      }
+
+      .access-badge {
+        padding: 0.25rem 0.75rem;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #aaa;
+
+        &.edit-access {
+          background: rgba(0, 212, 255, 0.1);
+          border-color: rgba(0, 212, 255, 0.3);
+          color: #00d4ff;
+        }
+      }
+
+      .access-select-inline {
+        padding: 0.35rem 0.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 4px;
+        color: #eee;
+        font-size: 0.85rem;
+        cursor: pointer;
+
+        &:focus {
+          outline: none;
+          border-color: #00d4ff;
+        }
+
+        option {
+          background: #1a1a2e;
+        }
+      }
+
+      .btn-change-access {
+        padding: 0.25rem 0.6rem;
+        background: rgba(0, 212, 255, 0.1);
+        color: #00d4ff;
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+          background: rgba(0, 212, 255, 0.2);
+          border-color: #00d4ff;
+        }
+      }
+    }
 
     .btn-remove {
       padding: 0.35rem 0.75rem;

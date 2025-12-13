@@ -44,6 +44,7 @@ export interface DocumentContentUpdateRequest {
 
 export interface AddSharedDocumentRequest {
   shareCode: string;
+  accessLevel?: string;
 }
 
 @Injectable({
@@ -168,6 +169,36 @@ export class DocumentService {
       await firstValueFrom(this.http.delete(`${this.apiUrl}/${documentId}/shared/${sharedUserId}`));
     } catch (error) {
       console.error('Error removing shared access:', error);
+      throw error;
+    }
+  }
+
+  async updateSharedAccessLevel(
+    documentId: string,
+    sharedUserId: string,
+    accessLevel: string
+  ): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.put(`${this.apiUrl}/${documentId}/shared/${sharedUserId}/access-level`, {
+          accessLevel,
+        })
+      );
+    } catch (error) {
+      console.error('Error updating access level:', error);
+      throw error;
+    }
+  }
+
+  async updateShareCodeAccessLevel(documentId: string, accessLevel: string): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.put(`${this.apiUrl}/${documentId}/share-code-access-level`, {
+          accessLevel,
+        })
+      );
+    } catch (error) {
+      console.error('Error updating share code access level:', error);
       throw error;
     }
   }

@@ -200,6 +200,24 @@
       }
     }
 
+    .access-level-info {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: rgba(255, 200, 0, 0.05);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 200, 0, 0.2);
+
+      .info-message {
+        color: #ddd;
+        font-size: 0.9rem;
+        margin: 0;
+
+        strong {
+          color: #ffc800;
+        }
+      }
+    }
+
     .preview-actions {
       .btn-add {
         width: 100%;

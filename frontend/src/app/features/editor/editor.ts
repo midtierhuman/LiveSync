@@ -51,6 +51,8 @@ export class Editor implements OnInit {
   readonly isLoading = signal(false);
   readonly error = signal('');
   readonly docTitle = signal('');
+  readonly isEditable = signal(true);
+  readonly accessLevel = signal<string>('Edit');
 
   // Private state
   private isUpdatingFromRemote = false;
@@ -103,6 +105,19 @@ export class Editor implements OnInit {
       const content = doc.content || '// Start typing to collaborate...\n';
       console.log('Loading document content:', content);
       this.codeSignal.set(content);
+
+      // Check if document is shared and get access level
+      const sharedDocs = await this.documentService.getSharedDocuments();
+      const sharedDoc = sharedDocs.find((d) => d.documentId === id);
+
+      if (sharedDoc) {
+        this.accessLevel.set(sharedDoc.accessLevel);
+        this.isEditable.set(sharedDoc.accessLevel === 'Edit');
+      } else {
+        // User is the owner, always editable
+        this.accessLevel.set('Edit');
+        this.isEditable.set(true);
+      }
 
       // Join the document for real-time collaboration
       await this.signalRService.startConnection();
@@ -184,12 +199,16 @@ export class Editor implements OnInit {
 
     // Input event listener
     textarea.addEventListener('input', (event: Event) => {
-      if (!this.isUpdatingFromRemote) {
+      if (!this.isUpdatingFromRemote && this.isEditable()) {
         const newValue = (event.target as HTMLTextAreaElement).value;
         this.pushToUndoStack(this.codeSignal());
         this.codeSignal.set(newValue);
         this.updateLineNumbers(newValue);
         this.scheduleDebounce(newValue);
+      } else if (!this.isEditable()) {
+        // Revert changes if not editable
+        event.preventDefault();
+        (event.target as HTMLTextAreaElement).value = this.codeSignal();
       }
     });
 

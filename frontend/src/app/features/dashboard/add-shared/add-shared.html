@@ -67,6 +67,13 @@
           </div>
         </div>
 
+        <div class="access-level-info">
+          <p class="info-message">
+            <strong>Note:</strong> Your access level (View or Edit) is determined by the document
+            owner. You'll see your permissions after adding the document.
+          </p>
+        </div>
+
         <div class="preview-actions">
           <button (click)="addDocument()" [disabled]="isLoading()" class="btn-add">
             {{ isLoading() ? 'Adding...' : '✓ Add This Document' }}

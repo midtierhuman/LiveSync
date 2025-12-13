@@ -123,7 +123,11 @@ namespace LiveSync.Api.Services
                     .Include(d => d.SharedWith)
                     .FirstOrDefaultAsync(d => d.Id == documentId);
 
-                if (document == null || document.OwnerId != userId)
+                if (document == null)
+                    return null;
+
+                // Check if user has edit access (owner or shared with Edit permission)
+                if (!await HasEditAccessAsync(documentId, userId))
                     return null;
 
                 if (!string.IsNullOrEmpty(request.Title))
@@ -178,8 +182,8 @@ namespace LiveSync.Api.Services
                 if (document == null)
                     return null;
 
-                // Check if user is owner or has edit access
-                if (document.OwnerId != userId && !document.SharedWith.Any(s => s.UserId == userId && s.AccessLevel == "Edit"))
+                // Check if user has edit access
+                if (!await HasEditAccessAsync(documentId, userId))
                     return null;
 
                 document.Content = request.Content;
@@ -242,6 +246,7 @@ namespace LiveSync.Api.Services
         {
             try
             {
+                // Find document by share code
                 var document = await _context.Documents
                     .FirstOrDefaultAsync(d => d.ShareCode == shareCode);
 
@@ -253,17 +258,24 @@ namespace LiveSync.Api.Services
                     .FirstOrDefaultAsync(s => s.DocumentId == document.Id && s.UserId == userId);
 
                 if (existingShare != null)
-                    return false; // Already shared
+                    return false; // Already has access
 
+                // Use the document's default access level for the share code
+                var accessLevel = document.DefaultAccessLevel ?? "View";
+
+                // Create new shared document entry with the document's default access level
                 var sharedDoc = new SharedDocument
                 {
+                    Id = Guid.NewGuid().ToString(),
                     DocumentId = document.Id,
                     UserId = userId,
-                    AccessLevel = "View"
+                    SharedAt = DateTime.UtcNow,
+                    AccessLevel = accessLevel
                 };
 
                 _context.SharedDocuments.Add(sharedDoc);
                 await _context.SaveChangesAsync();
+
                 return true;
             }
             catch (Exception ex)
@@ -298,6 +310,82 @@ namespace LiveSync.Api.Services
             }
         }
 
+        public async Task<bool> HasEditAccessAsync(string documentId, string userId)
+        {
+            try
+            {
+                // Check if user is the owner
+                var document = await _context.Documents.FindAsync(documentId);
+                if (document?.OwnerId == userId)
+                    return true;
+
+                // Check if user has shared access with Edit permission
+                var sharedDoc = await _context.SharedDocuments
+                    .FirstOrDefaultAsync(s => s.DocumentId == documentId && s.UserId == userId);
+
+                return sharedDoc?.AccessLevel == "Edit";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking edit access");
+                return false;
+            }
+        }
+
+        public async Task<bool> UpdateSharedAccessLevelAsync(string documentId, string sharedUserId, string accessLevel)
+        {
+            try
+            {
+                // Validate access level
+                if (accessLevel != "View" && accessLevel != "Edit")
+                    return false;
+
+                // Find the shared document entry
+                var sharedDoc = await _context.SharedDocuments
+                    .FirstOrDefaultAsync(s => s.DocumentId == documentId && s.UserId == sharedUserId);
+
+                if (sharedDoc == null)
+                    return false;
+
+                // Update the access level
+                sharedDoc.AccessLevel = accessLevel;
+                await _context.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating shared access level");
+                return false;
+            }
+        }
+
+        public async Task<bool> UpdateShareCodeAccessLevelAsync(string documentId, string userId, string accessLevel)
+        {
+            try
+            {
+                // Validate access level
+                if (accessLevel != "View" && accessLevel != "Edit")
+                    return false;
+
+                // Find the document and verify ownership
+                var document = await _context.Documents.FindAsync(documentId);
+                if (document == null || document.OwnerId != userId)
+                    return false;
+
+                // Update the document's default access level
+                document.DefaultAccessLevel = accessLevel;
+                await _context.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating share code access level");
+                return false;
+            }
+        }
+
         public string GenerateShareCode()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -317,6 +405,7 @@ namespace LiveSync.Api.Services
                 OwnerId = document.OwnerId,
                 OwnerName = document.Owner?.UserName ?? "Unknown",
                 ShareCode = document.ShareCode,
+                DefaultAccessLevel = document.DefaultAccessLevel,
                 CreatedAt = document.CreatedAt,
                 UpdatedAt = document.UpdatedAt,
                 LastEditedAt = document.LastEditedAt,

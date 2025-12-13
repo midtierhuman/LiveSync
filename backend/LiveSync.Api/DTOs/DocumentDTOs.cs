@@ -10,6 +10,7 @@ namespace LiveSync.Api.DTOs
         public string OwnerId { get; set; } = string.Empty;
         public string? OwnerName { get; set; }
         public string? ShareCode { get; set; }
+        public string DefaultAccessLevel { get; set; } = "View";
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public DateTime? LastEditedAt { get; set; }
@@ -67,5 +68,11 @@ namespace LiveSync.Api.DTOs
         public string Content { get; set; } = string.Empty;
 
         public string? LastEditedBy { get; set; }
+    }
+
+    public class UpdateAccessLevelRequest
+    {
+        [Required]
+        public string AccessLevel { get; set; } = string.Empty;
     }
 }

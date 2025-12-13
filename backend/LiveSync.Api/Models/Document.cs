@@ -23,6 +23,9 @@ namespace LiveSync.Api.Models
 
         public string? ShareCode { get; set; }
 
+        [StringLength(50)]
+        public string DefaultAccessLevel { get; set; } = "View";
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

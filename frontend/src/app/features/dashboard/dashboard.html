@@ -125,6 +125,27 @@
           <input type="text" [value]="shareCode()" readonly class="share-code-input" />
           <button (click)="copyShareCode()" class="btn-copy">Copy Code</button>
         </div>
+
+        <div class="default-access-level">
+          <label for="defaultAccessLevel"><strong>Default Access Level:</strong></label>
+          <select
+            id="defaultAccessLevel"
+            [(ngModel)]="defaultAccessLevel"
+            (change)="updateDefaultAccessLevel()"
+            class="access-select"
+          >
+            <option value="View">View Only</option>
+            <option value="Edit">Can Edit</option>
+          </select>
+          <p class="access-hint">
+            @if (defaultAccessLevel() === 'View') {
+            <span>📖 People using this code will have <strong>view-only</strong> access.</span>
+            } @else {
+            <span>✏️ People using this code will be able to <strong>view and edit</strong>.</span>
+            }
+          </p>
+        </div>
+
         <button (click)="regenerateShareCode()" class="btn-regenerate">Generate New Code</button>
       </div>
 
@@ -133,7 +154,32 @@
         <h3>Shared With:</h3>
         @for (user of selectedDocForShare()?.sharedWith; track user.userId) {
         <div class="user-item">
-          <span>{{ user.userName }} ({{ user.accessLevel }})</span>
+          <div class="user-info">
+            <span class="user-name">{{ user.userName }}</span>
+            @if (editingAccessLevelFor() === user.userId) {
+            <select
+              [(ngModel)]="user.accessLevel"
+              class="access-select-inline"
+              (change)="
+                updateSharedAccessLevel(selectedDocForShare()!.id, user.userId, user.accessLevel)
+              "
+            >
+              <option value="View">View Only</option>
+              <option value="Edit">Can Edit</option>
+            </select>
+            } @else {
+            <span class="access-badge" [class.edit-access]="user.accessLevel === 'Edit'">
+              {{ user.accessLevel === 'Edit' ? '✏️ Can Edit' : '📖 View Only' }}
+            </span>
+            <button
+              (click)="editingAccessLevelFor.set(user.userId)"
+              class="btn-change-access"
+              title="Change access level"
+            >
+              Change
+            </button>
+            }
+          </div>
           <button
             (click)="removeSharedAccess(selectedDocForShare()!.id, user.userId)"
             class="btn-remove"
