@@ -39,6 +39,14 @@
     </div>
   </mat-toolbar>
 
+  <!-- Permission Revoked Banner -->
+  @if (permissionRevokedMessage()) {
+  <div class="permission-revoked-banner">
+    <mat-icon>warning</mat-icon>
+    <span>{{ permissionRevokedMessage() }}</span>
+  </div>
+  }
+
   <!-- Editor -->
   <div class="editor-container">
     <div class="line-numbers-wrapper" [class.dark-theme]="isDarkMode()">

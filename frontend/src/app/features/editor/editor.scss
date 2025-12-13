@@ -196,6 +196,49 @@
   }
 }
 
+// Permission revoked banner
+.permission-revoked-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: rgba(255, 152, 0, 0.15);
+  color: #ff9800;
+  border-bottom: 2px solid rgba(255, 152, 0, 0.5);
+  font-size: 14px;
+  font-weight: 500;
+  animation: slideDown 0.3s ease-out;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    padding: 10px 12px;
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  span {
+    flex: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 // Editor container - horizontal layout (row)
 .editor-container {
   flex: 1 1 auto;

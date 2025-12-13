@@ -53,6 +53,7 @@ export class Editor implements OnInit {
   readonly docTitle = signal('');
   readonly isEditable = signal(true);
   readonly accessLevel = signal<string>('Edit');
+  readonly permissionRevokedMessage = signal<string>('');
 
   // Private state
   private isUpdatingFromRemote = false;
@@ -206,9 +207,16 @@ export class Editor implements OnInit {
         this.updateLineNumbers(newValue);
         this.scheduleDebounce(newValue);
       } else if (!this.isEditable()) {
-        // Revert changes if not editable
-        event.preventDefault();
-        (event.target as HTMLTextAreaElement).value = this.codeSignal();
+        // Revert changes if not editable (permission was revoked)
+        const target = event.target as HTMLTextAreaElement;
+        const currentValue = this.codeSignal();
+        if (target.value !== currentValue) {
+          target.value = currentValue;
+          // Show message if not already shown
+          if (!this.permissionRevokedMessage()) {
+            this.permissionRevokedMessage.set('This document is read-only.');
+          }
+        }
       }
     });
 
@@ -393,6 +401,12 @@ export class Editor implements OnInit {
     const docId = this.docId();
     if (!docId) return;
 
+    // Don't attempt to save if not editable
+    if (!this.isEditable()) {
+      console.log('Document is read-only, skipping save');
+      return;
+    }
+
     try {
       this.isSaving.set(true);
       await this.documentService.updateDocument(docId, {
@@ -402,11 +416,41 @@ export class Editor implements OnInit {
       });
       this.lastSaved.set(new Date());
       console.log('Document saved to backend at', this.lastSaved());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving document to backend:', error);
+
+      // Handle permission errors - user no longer has edit access
+      if (error.isPermissionError || error.status === 401 || error.status === 403) {
+        console.warn('Permission denied - switching to read-only mode');
+        this.handlePermissionRevoked();
+      }
     } finally {
       this.isSaving.set(false);
     }
+  }
+
+  private handlePermissionRevoked(): void {
+    // Update the UI to reflect read-only mode
+    this.isEditable.set(false);
+    this.accessLevel.set('View');
+    this.permissionRevokedMessage.set(
+      'Your edit access has been revoked. You can still view real-time updates but cannot make changes.'
+    );
+
+    // Make the textarea read-only
+    const textarea = this.codeTextarea()?.nativeElement;
+    if (textarea) {
+      textarea.setAttribute('readonly', 'true');
+      textarea.style.cursor = 'not-allowed';
+      textarea.style.backgroundColor = '#f5f5f5';
+    }
+
+    // Optionally: You can keep the SignalR connection to continue viewing updates
+    // or disconnect if you prefer:
+    // await this.signalRService.leaveDocument(this.docId());
+
+    // Show an alert to the user
+    alert('Your edit access has been revoked. The document is now read-only.');
   }
 
   private async setupSignalR() {

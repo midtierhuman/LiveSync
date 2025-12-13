@@ -116,8 +116,17 @@ export class DocumentService {
         this.http.put<DocumentDto>(`${this.apiUrl}/${id}/content`, request)
       );
       return response;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating content:', error);
+      // Add specific handling for permission errors
+      if (error.status === 401 || error.status === 403) {
+        const permissionError = new Error(
+          'Permission denied: You no longer have edit access to this document'
+        );
+        (permissionError as any).status = error.status;
+        (permissionError as any).isPermissionError = true;
+        throw permissionError;
+      }
       throw error;
     }
   }
