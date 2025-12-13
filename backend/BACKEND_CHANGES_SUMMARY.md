@@ -155,6 +155,7 @@ The frontend has already been updated to:
 4. `LiveSync.Api/Services/DocumentService.cs`
 5. `LiveSync.Api/Controllers/DocumentsController.cs`
 6. `LiveSync.Api/Migrations/20251213041104_AddDefaultAccessLevelToDocument.cs` (new)
+7. `LiveSync.Api/Program.cs` (added automatic database migration on startup)
 
 ## Database Schema Change
 
@@ -163,10 +164,21 @@ ALTER TABLE [Documents]
 ADD [DefaultAccessLevel] nvarchar(50) NOT NULL DEFAULT N'View';
 ```
 
+## Deployment Features
+
+### Automatic Database Migration
+The application now automatically applies pending database migrations on startup. This is ideal for deployment scenarios (especially AWS) where:
+- Database may not exist initially
+- No manual migration steps are needed
+- Migrations are applied automatically on each deployment
+
+See `AWS_DEPLOYMENT_GUIDE.md` for detailed deployment instructions.
+
 ## Next Steps
 
 1. Test all endpoints manually using Swagger or Postman
 2. Verify frontend integration works correctly
 3. Test real-time editing restrictions with view-only access
-4. Deploy to testing environment
+4. Deploy to testing environment (migrations will apply automatically)
 5. Update API documentation if needed
+6. Follow AWS deployment guide for production deployment
