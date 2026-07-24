@@ -16,8 +16,8 @@ COPY LiveSync.Execution.Contracts/ LiveSync.Execution.Contracts/
 WORKDIR "/src/LiveSync.Sandbox"
 RUN dotnet publish "LiveSync.Sandbox.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# Stage 2: ASP.NET 10 Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+# Stage 2: .NET 10 SDK Runtime (required for `dotnet run` during code execution)
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS runtime
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
