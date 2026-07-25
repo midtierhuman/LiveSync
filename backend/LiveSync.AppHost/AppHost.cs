@@ -31,7 +31,6 @@ builder.AddProject<Projects.LiveSync_SignalR>("signalr")
     .WithReference(redis)
     .WaitFor(redis)
     .WithEnvironment("Services__ApiBaseUrl", api.GetEndpoint("https"))
-    .WithReference(api)
     .WaitFor(api)
     .WithExternalHttpEndpoints();
 
