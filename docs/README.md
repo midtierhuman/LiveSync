@@ -4,14 +4,6 @@ All project documentation is organised here by area.
 
 ---
 
-## Root
-
-| File | Description |
-|------|-------------|
-| [FAANG_READINESS_CHECKLIST.md](./FAANG_READINESS_CHECKLIST.md) | Ordered checklist to make the project FAANG-interview ready |
-
----
-
 ## Backend
 
 | File | Description |
