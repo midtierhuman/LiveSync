@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
 import java.time.Instant;
 
 @Entity
@@ -47,40 +48,148 @@ public class ApplicationUser {
     @Column(name = "LockoutEnd")
     private Instant lockoutEnd;
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    public String getUserName() { return userName; }
-    public void setUserName(String userName) { this.userName = userName; }
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
-    public String getFirstName() { return firstName; }
-    public void setFirstName(String firstName) { this.firstName = firstName; }
-    public String getLastName() { return lastName; }
-    public void setLastName(String lastName) { this.lastName = lastName; }
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-    public Instant getLastLoginAt() { return lastLoginAt; }
-    public void setLastLoginAt(Instant lastLoginAt) { this.lastLoginAt = lastLoginAt; }
-    public String getNormalizedEmail() { return normalizedEmail; }
-    public void setNormalizedEmail(String value) { normalizedEmail = value; }
-    public String getNormalizedUserName() { return normalizedUserName; }
-    public void setNormalizedUserName(String value) { normalizedUserName = value; }
-    public boolean isEmailConfirmed() { return emailConfirmed; }
-    public void setEmailConfirmed(boolean value) { emailConfirmed = value; }
-    public String getSecurityStamp() { return securityStamp; }
-    public void setSecurityStamp(String value) { securityStamp = value; }
-    public String getConcurrencyStamp() { return concurrencyStamp; }
-    public void setConcurrencyStamp(String value) { concurrencyStamp = value; }
-    public boolean isPhoneNumberConfirmed() { return phoneNumberConfirmed; }
-    public void setPhoneNumberConfirmed(boolean value) { phoneNumberConfirmed = value; }
-    public boolean isTwoFactorEnabled() { return twoFactorEnabled; }
-    public void setTwoFactorEnabled(boolean value) { twoFactorEnabled = value; }
-    public boolean isLockoutEnabled() { return lockoutEnabled; }
-    public void setLockoutEnabled(boolean value) { lockoutEnabled = value; }
-    public int getAccessFailedCount() { return accessFailedCount; }
-    public void setAccessFailedCount(int value) { accessFailedCount = value; }
-    public Instant getLockoutEnd() { return lockoutEnd; }
-    public void setLockoutEnd(Instant value) { lockoutEnd = value; }
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(Instant lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
+    }
+
+    public String getNormalizedEmail() {
+        return normalizedEmail;
+    }
+
+    public void setNormalizedEmail(String value) {
+        normalizedEmail = value;
+    }
+
+    public String getNormalizedUserName() {
+        return normalizedUserName;
+    }
+
+    public void setNormalizedUserName(String value) {
+        normalizedUserName = value;
+    }
+
+    public boolean isEmailConfirmed() {
+        return emailConfirmed;
+    }
+
+    public void setEmailConfirmed(boolean value) {
+        emailConfirmed = value;
+    }
+
+    public String getSecurityStamp() {
+        return securityStamp;
+    }
+
+    public void setSecurityStamp(String value) {
+        securityStamp = value;
+    }
+
+    public String getConcurrencyStamp() {
+        return concurrencyStamp;
+    }
+
+    public void setConcurrencyStamp(String value) {
+        concurrencyStamp = value;
+    }
+
+    public boolean isPhoneNumberConfirmed() {
+        return phoneNumberConfirmed;
+    }
+
+    public void setPhoneNumberConfirmed(boolean value) {
+        phoneNumberConfirmed = value;
+    }
+
+    public boolean isTwoFactorEnabled() {
+        return twoFactorEnabled;
+    }
+
+    public void setTwoFactorEnabled(boolean value) {
+        twoFactorEnabled = value;
+    }
+
+    public boolean isLockoutEnabled() {
+        return lockoutEnabled;
+    }
+
+    public void setLockoutEnabled(boolean value) {
+        lockoutEnabled = value;
+    }
+
+    public int getAccessFailedCount() {
+        return accessFailedCount;
+    }
+
+    public void setAccessFailedCount(int value) {
+        accessFailedCount = value;
+    }
+
+    public Instant getLockoutEnd() {
+        return lockoutEnd;
+    }
+
+    public void setLockoutEnd(Instant value) {
+        lockoutEnd = value;
+    }
 }
+
