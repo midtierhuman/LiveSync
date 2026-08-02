@@ -1,0 +1,13 @@
+# Environment variables & secrets
+.env
+*.pem
+*.key
+
+# Local data volumes
+postgres_data/
+redis_data/
+kafka_data/
+
+# IDEs
+.idea/
+.vscode/
