@@ -9,7 +9,7 @@
 
 ## What changed from the old setup
 
-- Removed the old .NET backend docs and commands
+- Removed the old backend docs and commands
 - Replaced SignalR-specific guidance with Socket.IO guidance
 - Updated setup instructions to match the current service ports and runtimes
 

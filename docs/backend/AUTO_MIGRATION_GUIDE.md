@@ -1,6 +1,6 @@
 # Schema Setup Notes
 
-The current Java API does not use the old .NET startup-migration flow.
+The current Java API does not use the old startup-migration flow.
 Its datasource settings are defined in `backend/livesync/livesync-api/src/main/resources/application*.properties`.
 
 ## What to know
