@@ -127,11 +127,22 @@ public class DocumentsController {
             return ResponseEntity.ok(new DocumentExecutionResponse(id, result.language(), result.status(), result.isSuccess(), result.message(), result.standardOutput(), result.standardError(), result.requestedAt(), result.completedAt()));
         } catch (IllegalStateException exception) {
             Instant completed = Instant.now();
-            return ResponseEntity.ok(new DocumentExecutionResponse(id, request.language(), "Failed", false, "Sandbox execution request failed.", null, exception.getMessage(), requested, completed));
+            String detail = rootCauseMessage(exception);
+            return ResponseEntity.ok(new DocumentExecutionResponse(id, request.language(), "Failed", false, detail, null, detail, requested, completed));
         }
     }
 
     private boolean valid(String value) {
         return "View".equals(value) || "Edit".equals(value);
+    }
+
+    private String rootCauseMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+
+        String message = current.getMessage();
+        return (message == null || message.isBlank()) ? "Sandbox execution request failed." : message;
     }
 }

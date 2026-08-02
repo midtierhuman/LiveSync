@@ -1,4 +1,5 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
+from pydantic import ValidationError
 from app.models.execution import (
     ExecutionLanguageDescriptor,
     SandboxExecutionRequest,
@@ -26,6 +27,29 @@ async def get_languages():
     status_code=status.HTTP_200_OK,
     summary="Execute code snippet in sandbox",
 )
-async def execute_code(request: SandboxExecutionRequest):
+async def execute_code(request: Request):
     """Executes code snippet securely and returns standard output, error, exit code, and execution metrics."""
-    return await executor_service.execute(request)
+    raw_body = await request.body()
+    if not raw_body:
+        return SandboxExecutionResponse(
+            language="",
+            status="Rejected",
+            is_success=False,
+            message="Request body is required.",
+            standard_output="",
+            standard_error="Request body is required.",
+        )
+
+    try:
+        execution_request = SandboxExecutionRequest.model_validate_json(raw_body)
+    except ValidationError as error:
+        return SandboxExecutionResponse(
+            language="",
+            status="Rejected",
+            is_success=False,
+            message="Invalid execution request.",
+            standard_output="",
+            standard_error=str(error),
+        )
+
+    return await executor_service.execute(execution_request)

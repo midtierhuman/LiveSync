@@ -17,7 +17,7 @@ services:
   # 2a. Java Spring Boot REST API
   livesync-api:
     build:
-      context: ./new-backend/livesync/livesync-api
+      context: ./backend/livesync/livesync-api
       dockerfile: Dockerfile
     depends_on:
       - livesync-sandbox
@@ -35,7 +35,7 @@ services:
   # 2b. Python FastAPI Code Execution Sandbox
   livesync-sandbox:
     build:
-      context: ./new-backend/livesync/livesync-sandbox
+      context: ./backend/livesync/livesync-sandbox
       dockerfile: Dockerfile
     environment:
       - ENVIRONMENT=Development
@@ -44,7 +44,7 @@ services:
   # 2c. Node.js Socket.IO Realtime Engine
   livesync-realtime:
     build:
-      context: ./new-backend/livesync/livesync-realtime
+      context: ./backend/livesync/livesync-realtime
       dockerfile: Dockerfile
     deploy:
       replicas: 2
