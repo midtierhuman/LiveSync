@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "LiveSync Realtime (Node.js)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/new-backend/livesync/livesync-realtime",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "LiveSync Sandbox (Python)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--port", "8080", "--reload"],
+      "cwd": "${workspaceFolder}/new-backend/livesync/livesync-sandbox",
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run Polyglot Backend Services",
+      "configurations": [
+        "LiveSync Realtime (Node.js)",
+        "LiveSync Sandbox (Python)"
+      ]
+    }
+  ]
+}

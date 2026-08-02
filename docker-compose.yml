@@ -1,5 +1,7 @@
 services:
-  # 1. Angular Frontend
+  # =========================================================================
+  # 1. FRONTEND
+  # =========================================================================
   frontend:
     build:
       context: ./frontend
@@ -9,42 +11,28 @@ services:
     depends_on:
       - api-loadbalancer
 
-  # 2. PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: livesync
-      POSTGRES_USER: devuser
-      POSTGRES_PASSWORD: devpassword
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  # 3. Redis Cache & State Store
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
-  # 4. Java Spring Boot REST API
+  # =========================================================================
+  # 2. NEW POLYGLOT BACKEND MICROSERVICES (ACTIVE)
+  # =========================================================================
+  # 2a. Java Spring Boot REST API
   livesync-api:
     build:
       context: ./new-backend/livesync/livesync-api
       dockerfile: Dockerfile
     depends_on:
-      - postgres
       - livesync-sandbox
     environment:
       - SPRING_PROFILES_ACTIVE=development
-      - LIVESYNC_DATABASE_URL=jdbc:postgresql://postgres:5432/livesync?options=-c%20timezone=UTC
+      - LIVESYNC_DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/livesync?options=-c%20timezone=UTC
       - LIVESYNC_DATABASE_USERNAME=devuser
       - LIVESYNC_DATABASE_PASSWORD=devpassword
       - LIVESYNC_JWT_SECRET=LiveSync-Development-Only-Secret-Change-Me!
       - LIVESYNC_SANDBOX_BASE_URL=http://livesync-sandbox:8080/
       - LIVESYNC_CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  # 5. Python FastAPI Code Execution Sandbox
+  # 2b. Python FastAPI Code Execution Sandbox
   livesync-sandbox:
     build:
       context: ./new-backend/livesync/livesync-sandbox
@@ -53,23 +41,74 @@ services:
       - ENVIRONMENT=Development
       - DEFAULT_TIMEOUT_MS=10000
 
-  # 6. Node.js Socket.IO Realtime Engine
+  # 2c. Node.js Socket.IO Realtime Engine
   livesync-realtime:
     build:
       context: ./new-backend/livesync/livesync-realtime
       dockerfile: Dockerfile
     deploy:
       replicas: 2
-    depends_on:
-      - redis
-      - livesync-api
     environment:
       - PORT=5000
-      - REDIS_URL=redis://redis:6379
-      - API_BASE_URL=http://livesync-api:8080/
+      - REDIS_URL=redis://:LocalDevPassword123!@host.docker.internal:6379
+      - API_BASE_URL=http://api-loadbalancer:80/
       - CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  # 7. Nginx Load Balancer
+  # =========================================================================
+  # 3. OLD .NET BACKEND MICROSERVICES (COMMENTED OUT FOR EASY SWITCHING)
+  # =========================================================================
+  # livesync-api-dotnet:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: LiveSync.Api/Dockerfile
+  #   depends_on:
+  #     - livesync-sandbox-dotnet
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=livesync;Username=devuser;Password=devpassword
+  #     - Redis__ConnectionString=host.docker.internal:6379,password=LocalDevPassword123!,abortConnect=false
+  #     - Services__SandboxBaseUrl=http://livesync-sandbox-dotnet:8080/
+  #     - Cors__AllowedOrigins__0=http://localhost:4200
+  #     - Cors__AllowedOrigins__1=http://localhost:4000
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+
+  # livesync-sandbox-dotnet:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: LiveSync.Sandbox/Dockerfile
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=livesync;Username=devuser;Password=devpassword
+  #     - Redis__ConnectionString=host.docker.internal:6379,password=LocalDevPassword123!,abortConnect=false
+  #     - Cors__AllowedOrigins__0=http://localhost:4200
+  #     - Cors__AllowedOrigins__1=http://localhost:4000
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+
+  # livesync-signalr-dotnet:
+  #   build:
+  #     context: ./backend/LiveSync.SignalR
+  #     dockerfile: Dockerfile
+  #   deploy:
+  #     replicas: 2
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - Redis__ConnectionString=host.docker.internal:6379,password=LocalDevPassword123!,abortConnect=false
+  #     - Services__ApiBaseUrl=http://api-loadbalancer:80/
+  #     - Jwt__Secret=LiveSync-Development-Only-Secret-Change-Me!
+  #     - Jwt__Issuer=LiveSyncAuthAPI
+  #     - Jwt__Audience=LiveSyncClient
+  #     - Cors__AllowedOrigins__0=http://localhost:4200
+  #     - Cors__AllowedOrigins__1=http://localhost:4000
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+
+  # =========================================================================
+  # 4. NGINX LOAD BALANCER
+  # =========================================================================
   api-loadbalancer:
     image: nginx:alpine
     ports:
@@ -80,6 +119,3 @@ services:
       - livesync-api
       - livesync-realtime
       - livesync-sandbox
-
-volumes:
-  postgres_data:

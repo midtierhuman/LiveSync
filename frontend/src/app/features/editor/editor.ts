@@ -46,7 +46,7 @@ import { json } from '@codemirror/lang-json';
 import { html } from '@codemirror/lang-html';
 import { markdown } from '@codemirror/lang-markdown';
 import { css } from '@codemirror/lang-css';
-import { SignalRService } from '../../services/signalr.service';
+import { RealtimeService } from '../../services/realtime.service';
 import {
   DocumentDto,
   DocumentExecutionResponse,
@@ -66,7 +66,8 @@ export class Editor implements OnInit {
 
   readonly editorHost = viewChild.required<ElementRef<HTMLDivElement>>('editorHost');
 
-  readonly signalRService = inject(SignalRService);
+  readonly realtimeService = inject(RealtimeService);
+  readonly signalRService = this.realtimeService;
   private readonly documentService = inject(DocumentService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);

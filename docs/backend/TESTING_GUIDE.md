@@ -186,9 +186,9 @@
 **Cause**: User is not the document owner
 **Solution**: Authenticate as document owner
 
-### Issue: Migration not applied
+### Issue: Schema not applied
 **Symptom**: Column 'DefaultAccessLevel' doesn't exist
-**Solution**: Run `dotnet ef database update` in LiveSync.Api directory
+**Solution**: Apply the current database schema for the Java API before running the access-level tests
 
 ## Success Criteria
 

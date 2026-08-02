@@ -181,9 +181,9 @@ This combines benefits of both: simplicity of CRDTs with efficiency of OT.
 
 ### Integration Tests (Future)
 
-- Multi-client scenarios using `SignalR.Client`
-- Simulated network delays/reordering
-- Server crash + recovery scenarios
+- Multi-client scenarios using `socket.io-client`
+- Simulated network delays and reordering
+- Reconnect and recovery scenarios against the realtime service
 
 ### Manual Testing
 
@@ -213,19 +213,16 @@ This combines benefits of both: simplicity of CRDTs with efficiency of OT.
 ## Code Structure
 
 ```
-LiveSync.SignalR/
-├── Models/
-│   ├── Operation.cs              # Base class, InsertOperation, DeleteOperation
-│   └── OperationId.cs            # SiteId + Clock tuple
-├── Services/
-│   ├── ConflictResolver.cs       # Transform & apply logic
-│   ├── IOperationLog.cs          # Interface for operation storage
-│   └── RedisOperationLog.cs      # Redis implementation
-├── Hubs/
-│   └── EditorHub.cs              # SendOperation, RequestMissedOperations
-
-LiveSync.SignalR.Tests/
-└── ConflictResolverTests.cs      # 20+ test cases covering all scenarios
+backend/livesync/livesync-realtime/src/
+├── models/
+│   ├── operation.ts              # Operation shape and IDs
+│   └── operationId.ts            # Operation ID helpers
+├── services/
+│   ├── conflictResolver.ts       # Transform & apply logic
+│   ├── operationLog.ts           # Redis-backed operation log
+│   └── documentStateService.ts   # Document state and presence storage
+└── sockets/
+    └── editorSocket.ts           # JoinDocument, SendOperation, RequestMissedOperations
 ```
 
 ---

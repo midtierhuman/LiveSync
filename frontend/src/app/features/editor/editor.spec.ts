@@ -4,7 +4,7 @@ import { ActivatedRoute, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { Editor } from './editor';
-import { SignalRService } from '../../services/signalr.service';
+import { RealtimeService } from '../../services/realtime.service';
 import { DocumentService } from '../../services/document.service';
 
 describe('Editor', () => {
@@ -33,13 +33,10 @@ describe('Editor', () => {
         provideZonelessChangeDetection(),
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { params: of({}) } },
-        { provide: SignalRService, useValue: signalRStub },
+        { provide: RealtimeService, useValue: signalRStub },
         { provide: DocumentService, useValue: {} },
       ],
     })
-    .compileComponents();
-
-    fixture = TestBed.createComponent(Editor);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

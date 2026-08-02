@@ -5,7 +5,7 @@ Successfully implemented backend support for access level control (View/Edit) fo
 
 ## Changes Implemented
 
-### 1. DTO Updates (DocumentDTOs.cs)
+### 1. DTO Updates (`DocumentDtos.java`)
 
 #### AddSharedDocumentRequest
 - **Removed**: `AccessLevel` property
@@ -16,35 +16,35 @@ Successfully implemented backend support for access level control (View/Edit) fo
 - **Added**: `DefaultAccessLevel` property
 - This exposes the document's default access level for share codes to the frontend
 
-### 2. Model Updates (Document.cs)
+### 2. Model Updates (`Document.java`)
 
 #### Document Model
 - **Added**: `DefaultAccessLevel` property with `[StringLength(50)]` attribute
 - Default value: "View"
 - Stores the access level that will be applied when users add the document via share code
 
-### 3. Service Interface Updates (IDocumentService.cs)
+### 3. Service Updates (`DocumentService.java`)
 
 #### Updated Methods
-- `AddSharedDocumentAsync(string shareCode, string userId)` - Removed `accessLevel` parameter
-- **Added**: `UpdateShareCodeAccessLevelAsync(string documentId, string userId, string accessLevel)` - New method for updating share code default access level
+- `addShare(String shareCode, String userId)` - uses the document default access level
+- `updateCodeAccess(String documentId, String userId, String accessLevel)` - updates the share code default access level
 
-### 4. Service Implementation Updates (DocumentService.cs)
+### 4. Controller and Service Implementation Updates
 
-#### AddSharedDocumentAsync Method
+#### Add Shared Document
 - Now reads the `DefaultAccessLevel` from the document instead of accepting it as a parameter
 - Uses document's default access level when creating new SharedDocument entries
 - Security improvement: Access level is controlled by document owner, not by users adding the document
 
-#### UpdateShareCodeAccessLevelAsync Method (New)
+#### Update Share Code Access Level
 - Allows document owners to update the default access level for their share codes
 - Validates that the requesting user is the document owner
 - Validates access level values ("View" or "Edit")
 
-#### MapToDto Method
+#### DTO mapping
 - Updated to include `DefaultAccessLevel` in the mapping from Document to DocumentDto
 
-### 5. Controller Updates (DocumentsController.cs)
+### 5. Controller Updates (`DocumentsController.java`)
 
 #### AddSharedDocument Endpoint
 - Updated to call `AddSharedDocumentAsync` with only `shareCode` and `userId` parameters
@@ -57,14 +57,10 @@ Successfully implemented backend support for access level control (View/Edit) fo
 - **Validates**: Access level must be "View" or "Edit"
 - **Returns**: 200 OK on success, appropriate error codes for invalid requests
 
-### 6. Database Migration
+### 6. Database Schema
 
-#### Migration: AddDefaultAccessLevelToDocument
-- **Created**: `20251213041104_AddDefaultAccessLevelToDocument.cs`
-- **Changes**: Adds `DefaultAccessLevel` column to Documents table
-- **Column Type**: nvarchar(50)
-- **Default Value**: "View" (for existing documents)
-- **Status**: ? Applied successfully to database
+- `DefaultAccessLevel` is stored on the document record
+- Existing documents default to `View`
 
 ## API Endpoints
 
@@ -149,13 +145,10 @@ The frontend has already been updated to:
 
 ## Files Modified
 
-1. `LiveSync.Api/DTOs/DocumentDTOs.cs`
-2. `LiveSync.Api/Models/Document.cs`
-3. `LiveSync.Api/Services/IDocumentService.cs`
-4. `LiveSync.Api/Services/DocumentService.cs`
-5. `LiveSync.Api/Controllers/DocumentsController.cs`
-6. `LiveSync.Api/Migrations/20251213041104_AddDefaultAccessLevelToDocument.cs` (new)
-7. `LiveSync.Api/Program.cs` (added automatic database migration on startup)
+1. `backend/livesync/livesync-api/src/main/java/com/livesync/api/dto/DocumentDtos.java`
+2. `backend/livesync/livesync-api/src/main/java/com/livesync/api/model/Document.java`
+3. `backend/livesync/livesync-api/src/main/java/com/livesync/api/service/DocumentService.java`
+4. `backend/livesync/livesync-api/src/main/java/com/livesync/api/controller/DocumentsController.java`
 
 ## Database Schema Change
 
@@ -166,13 +159,9 @@ ADD [DefaultAccessLevel] nvarchar(50) NOT NULL DEFAULT N'View';
 
 ## Deployment Features
 
-### Automatic Database Migration
-The application now automatically applies pending database migrations on startup. This is ideal for deployment scenarios (especially AWS) where:
-- Database may not exist initially
-- No manual migration steps are needed
-- Migrations are applied automatically on each deployment
-
-See `AWS_DEPLOYMENT_GUIDE.md` for detailed deployment instructions.
+### Deployment Notes
+The Java API expects the database schema to be present before startup.
+Use the deployment guide to keep the schema and application in sync.
 
 ## Next Steps
 
