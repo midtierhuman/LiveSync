@@ -40,12 +40,13 @@ public class SecurityConfiguration {
         var config = new CorsConfiguration();
         if (origins != null && !origins.isBlank()) {
             config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).toList());
+            config.setAllowCredentials(true);
         } else {
+            // Wildcard origin patterns cannot be combined with allowCredentials=true
             config.setAllowedOriginPatterns(List.of("*"));
         }
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("*"));
-        config.setAllowCredentials(true);
 
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

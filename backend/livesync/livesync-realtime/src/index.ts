@@ -3,6 +3,7 @@ import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 
 import { RedisOperationLog } from './services/operationLog';
@@ -39,6 +40,8 @@ const server = http.createServer(app);
 
 // Configure Redis client
 const redisClient = new Redis(REDIS_URL);
+const redisPubClient = redisClient;
+const redisSubClient = redisClient.duplicate();
 redisClient.on('connect', () => console.log('Connected to Redis successfully'));
 redisClient.on('error', (err: unknown) => console.error('Redis Client Error:', err));
 
@@ -58,10 +61,18 @@ const io = new Server(server, {
     credentials: true,
   },
   maxHttpBufferSize: 1e6, // 1MB message limit
+  pingInterval: 10000, // Send a ping every 10 seconds
+  pingTimeout: 5000, // Wait 5 seconds for pong before considering dead
 });
 
+// Wire Redis adapter so all replicas share rooms and broadcasts
+io.adapter(createAdapter(redisPubClient, redisSubClient));
+
 // Setup Socket.IO Handlers
-setupEditorSocket(io, documentStateService, documentAccessClient, conflictResolver);
+const editorHub = setupEditorSocket(io, documentStateService, documentAccessClient, conflictResolver);
+
+// Start stale connection sweeper to clean up orphaned Redis entries every 30 seconds
+editorHub.startStaleConnectionSweeper(30000);
 
 server.listen(PORT, () => {
   console.log(`LiveSync Realtime Service listening on port ${PORT}`);

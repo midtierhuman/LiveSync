@@ -8,12 +8,16 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class SandboxExecutionClient {
+    private static final Logger log = LoggerFactory.getLogger(SandboxExecutionClient.class);
     public record SandboxRequest(String language, String code, String standardInput) {}
     public record SandboxResponse(String language, String status, boolean isSuccess, String message, String standardOutput, String standardError, Integer exitCode, Instant requestedAt, Instant completedAt) {}
     private final HttpClient client = HttpClient.newHttpClient();
@@ -31,8 +35,15 @@ public class SandboxExecutionClient {
     }
     public SandboxResponse execute(SandboxRequest payload) {
         try {
-            var request = HttpRequest.newBuilder(base.resolve("api/execution/run")).header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload))).build();
+            String body = json.writeValueAsString(payload);
+            if (body == null || body.isBlank()) {
+                throw new IllegalStateException("Sandbox execution payload is empty.");
+            }
+            log.info("Sending sandbox execution request body length={}", body.length());
+            var request = HttpRequest.newBuilder(base.resolve("api/execution/run"))
+                .version(HttpClient.Version.HTTP_1_1)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
             var parsed = tryParseSandboxResponse(response.body());
             if (response.statusCode() / 100 != 2) {

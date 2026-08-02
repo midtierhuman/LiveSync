@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, status
+import logging
 from pydantic import ValidationError
 from app.models.execution import (
     ExecutionLanguageDescriptor,
@@ -8,6 +9,7 @@ from app.models.execution import (
 from app.services.executor_service import executor_service
 
 router = APIRouter(prefix="/api/execution", tags=["Execution"])
+logger = logging.getLogger(__name__)
 
 
 @router.get(
@@ -30,6 +32,7 @@ async def get_languages():
 async def execute_code(request: Request):
     """Executes code snippet securely and returns standard output, error, exit code, and execution metrics."""
     raw_body = await request.body()
+    print(f"Execution request raw body length={len(raw_body)}", flush=True)
     if not raw_body:
         return SandboxExecutionResponse(
             language="",

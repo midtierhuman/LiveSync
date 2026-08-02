@@ -3,6 +3,7 @@ import type { Operation } from '../models/operation';
 
 export interface IOperationLog {
   appendOperation(documentId: string, operation: Operation): Promise<void>;
+  appendOperationAtomically(documentId: string, operation: Omit<Operation, 'serverRevision'>): Promise<Operation>;
   getOperationsSince(documentId: string, fromRevision: number): Promise<Operation[]>;
   getAllOperations(documentId: string): Promise<Operation[]>;
   getCurrentRevision(documentId: string): Promise<number>;
@@ -40,6 +41,39 @@ export class RedisOperationLog implements IOperationLog {
     pipeline.set(revisionKey, operation.serverRevision.toString());
 
     await pipeline.exec();
+  }
+
+  /**
+   * Atomically increments the revision counter and appends the operation in one Lua script,
+   * eliminating the TOCTOU race condition between getCurrentRevision and appendOperation.
+   * Returns the operation with the assigned serverRevision.
+   */
+  public async appendOperationAtomically(
+    documentId: string,
+    operation: Omit<Operation, 'serverRevision'>
+  ): Promise<Operation> {
+    if (!documentId || !documentId.trim()) {
+      throw new Error('Document ID cannot be null or empty');
+    }
+
+    const operationKey = this.getOperationLogKey(documentId);
+    const revisionKey = this.getCurrentRevisionKey(documentId);
+
+    // Lua: atomically INCR revision, then ZADD the operation with that revision as score
+    const luaScript = `
+      local rev = redis.call('INCR', KEYS[1])
+      local op = cjson.decode(ARGV[1])
+      op['serverRevision'] = tonumber(rev)
+      local json = cjson.encode(op)
+      redis.call('ZADD', KEYS[2], rev, json)
+      return rev
+    `;
+
+    const serverRevision = (await this.redis.eval(
+      luaScript, 2, revisionKey, operationKey, JSON.stringify(operation)
+    )) as number;
+
+    return { ...(operation as Operation), serverRevision };
   }
 
   public async getOperationsSince(documentId: string, fromRevision: number): Promise<Operation[]> {

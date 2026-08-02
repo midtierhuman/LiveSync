@@ -731,16 +731,19 @@
 .editor-close-btn {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   z-index: 1003;
-  background: rgba(244, 67, 54, 0.9);
-  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  color: #ccc;
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  transition: all 0.2s ease;
 
   &:hover {
-    background: rgba(244, 67, 54, 1);
+    background: rgba(244, 67, 54, 0.95);
+    color: white;
     transform: scale(1.1);
   }
 
@@ -754,7 +757,7 @@
     width: 36px;
     height: 36px;
     top: 6px;
-    left: 6px;
+    right: 6px;
 
     mat-icon {
       font-size: 20px;

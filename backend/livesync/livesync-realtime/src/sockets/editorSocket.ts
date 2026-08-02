@@ -12,13 +12,13 @@ export function setupEditorSocket(
 ): EditorHub {
   const hub = new EditorHub(io, state, documentAccessClient, conflictResolver);
 
-  // Bind to main namespace or /hubs/editor namespace
+  // Bind to /hubs/editor namespace
   const editorNamespace = io.of('/hubs/editor');
   editorNamespace.on('connection', (socket: Socket) => {
     hub.registerHandlers(socket);
   });
 
-  // Also bind default namespace for flexibility
+  // Also bind default namespace — the frontend client connects here
   io.on('connection', (socket: Socket) => {
     hub.registerHandlers(socket);
   });

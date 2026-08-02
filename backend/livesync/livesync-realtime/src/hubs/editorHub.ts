@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { IDocumentStateService } from '../services/documentStateService';
+import { IDocumentStateService, RedisDocumentStateService } from '../services/documentStateService';
 import { DocumentAccessClient } from '../services/documentAccessClient';
 import { ConflictResolver } from '../services/conflictResolver';
 import { Operation } from '../models/operation';
@@ -40,6 +40,62 @@ export class EditorHub {
     socket.on('sendCursorPosition', (arg1: any, arg2?: any) => this.handleSendCursorPosition(socket, arg1, arg2));
 
     socket.on('disconnect', () => this.handleDisconnect(socket));
+  }
+
+  /**
+   * Starts a periodic sweep that removes stale connection IDs from Redis.
+   * Call this once after constructing the hub.
+   */
+  public startStaleConnectionSweeper(intervalMs: number = 30000): void {
+    setInterval(() => {
+      this.sweepStaleConnections().catch((err: unknown) =>
+        console.error('Stale connection sweep error:', err)
+      );
+    }, intervalMs);
+    console.log(`Stale connection sweeper started (every ${intervalMs / 1000}s)`);
+  }
+
+  private async sweepStaleConnections(): Promise<void> {
+    // Only works when state is the concrete Redis implementation
+    if (!(this.state instanceof RedisDocumentStateService)) return;
+
+    const concreteState = this.state as RedisDocumentStateService;
+    const documentIds = await concreteState.getAllDocumentUserKeys();
+
+    // Fetch socket IDs across ALL replicas via the Redis adapter
+    const allSockets = await this.io.fetchSockets();
+    const connectedIds = new Set<string>(allSockets.map(s => s.id));
+
+    // Also include sockets on the /hubs/editor namespace
+    const editorSockets = await this.io.of('/hubs/editor').fetchSockets();
+    for (const s of editorSockets) connectedIds.add(s.id);
+
+    let swept = 0;
+    for (const documentId of documentIds) {
+      const members = await concreteState.getDocumentUserMembers(documentId);
+
+      for (const connectionId of members) {
+        if (!connectedIds.has(connectionId)) {
+          // This connection is stale — remove it
+          await this.state.removeUserFromDocument(documentId, connectionId);
+          const count = await this.state.getUserCount(documentId);
+
+          if (count === 0) {
+            await this.state.deleteContent(documentId);
+            const operationLog = this.state.getOperationLog();
+            await operationLog.deleteOperations(documentId);
+          }
+
+          this.io.to(documentId).emit('UserLeft', connectionId, count);
+          await this.state.removeConnection(connectionId);
+          swept++;
+        }
+      }
+    }
+
+    if (swept > 0) {
+      console.log(`Sweeper: cleaned up ${swept} stale connection(s)`);
+    }
   }
 
   private getAccessToken(socket: Socket): string {
@@ -179,26 +235,26 @@ export class EditorHub {
 
       const operationLog = this.state.getOperationLog();
       const currentRevision = await operationLog.getCurrentRevision(documentId);
-      const serverOp: Operation = { ...operation, serverRevision: currentRevision + 1 };
 
       const concurrentOps = await operationLog.getOperationsSince(documentId, operation.clientRevision);
 
-      let transformedOp = serverOp;
+      let transformedOp: Operation = { ...operation, serverRevision: currentRevision + 1 };
       for (const concurrentOp of concurrentOps) {
         transformedOp = this.conflictResolver.transformAgainstConcurrent(transformedOp, concurrentOp);
       }
 
-      await operationLog.appendOperation(documentId, transformedOp);
+      // Atomically claim the next revision and store — eliminates TOCTOU race between read and write
+      const committedOp = await operationLog.appendOperationAtomically(documentId, transformedOp);
 
       const currentContent = (await this.state.getContent(documentId)) || '';
-      const updatedContent = this.conflictResolver.applyOperation(currentContent, transformedOp);
+      const updatedContent = this.conflictResolver.applyOperation(currentContent, committedOp);
       await this.state.setContent(documentId, updatedContent);
 
       console.log(
-        `Operation applied for document ${documentId} by ${socket.id}. ServerRevision: ${transformedOp.serverRevision}`
+        `Operation applied for document ${documentId} by ${socket.id}. ServerRevision: ${committedOp.serverRevision}`
       );
 
-      this.io.to(documentId).emit('ReceiveOperation', transformedOp);
+      this.io.to(documentId).emit('ReceiveOperation', committedOp);
     } catch (error: any) {
       console.error(`Error processing operation for document ${documentId}:`, error);
       socket.emit('Error', `Failed to process operation: ${error.message}`);

@@ -41,7 +41,10 @@ export class RedisDocumentStateService implements IDocumentStateService {
   }
 
   public async addUserToDocument(documentId: string, connectionId: string, accessLevel: string): Promise<boolean> {
-    const added = await this.redis.sadd(RedisDocumentStateService.docUsersKey(documentId), connectionId);
+    const docUsersKey = RedisDocumentStateService.docUsersKey(documentId);
+    const added = await this.redis.sadd(docUsersKey, connectionId);
+    // Refresh TTL on the document user set so orphaned sets eventually expire
+    await this.redis.expire(docUsersKey, RedisDocumentStateService.CONN_KEY_TTL_SECONDS);
     const connDocsKey = RedisDocumentStateService.connDocsKey(connectionId);
     await this.redis.hset(connDocsKey, documentId, accessLevel);
     await this.redis.expire(connDocsKey, RedisDocumentStateService.CONN_KEY_TTL_SECONDS);
@@ -49,8 +52,11 @@ export class RedisDocumentStateService implements IDocumentStateService {
   }
 
   public async removeUserFromDocument(documentId: string, connectionId: string): Promise<boolean> {
-    const removed = await this.redis.srem(RedisDocumentStateService.docUsersKey(documentId), connectionId);
+    const docUsersKey = RedisDocumentStateService.docUsersKey(documentId);
+    const removed = await this.redis.srem(docUsersKey, connectionId);
     await this.redis.hdel(RedisDocumentStateService.connDocsKey(connectionId), documentId);
+    // Refresh TTL after removal so the set doesn't linger if it becomes empty later
+    await this.redis.expire(docUsersKey, RedisDocumentStateService.CONN_KEY_TTL_SECONDS);
     return removed > 0;
   }
 
@@ -63,7 +69,12 @@ export class RedisDocumentStateService implements IDocumentStateService {
   }
 
   public async setContent(documentId: string, content: string): Promise<void> {
-    await this.redis.set(RedisDocumentStateService.docContentKey(documentId), content);
+    await this.redis.set(
+      RedisDocumentStateService.docContentKey(documentId),
+      content,
+      'EX',
+      RedisDocumentStateService.CONN_KEY_TTL_SECONDS
+    );
   }
 
   public async getContent(documentId: string): Promise<string | null> {
@@ -100,5 +111,34 @@ export class RedisDocumentStateService implements IDocumentStateService {
 
   public getOperationLog(): IOperationLog {
     return this.operationLog;
+  }
+
+  /**
+   * Scan Redis for all active document user set keys.
+   * Returns document IDs that have a user set in Redis.
+   */
+  public async getAllDocumentUserKeys(): Promise<string[]> {
+    const pattern = 'livesync:doc:*:users';
+    const documentIds: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      for (const key of keys) {
+        // Extract documentId from key pattern "livesync:doc:{docId}:users"
+        const match = key.match(/^livesync:doc:(.+):users$/);
+        if (match) {
+          documentIds.push(match[1]);
+        }
+      }
+    } while (cursor !== '0');
+    return documentIds;
+  }
+
+  /**
+   * Get all connection IDs that are members of a document's user set.
+   */
+  public async getDocumentUserMembers(documentId: string): Promise<string[]> {
+    return await this.redis.smembers(RedisDocumentStateService.docUsersKey(documentId));
   }
 }
