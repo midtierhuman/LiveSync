@@ -1,33 +1,29 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# Built application files
+/build/
+/target/
+.gradle/
+**/build/
+**/target/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
+# IntelliJ IDEA specific files
+.idea/
 *.iml
+*.iws
 *.ipr
+out/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# Gradle wrapper caches and configurations
+.gradletasknamecache
 
-### VS Code ###
-.vscode/
+# Log files and application logs
+*.log
+
+# Spring Boot specific files
+.DS_Store
+Thumbs.db
+ehcache-*.data
+
+# Environment and local properties overrides
+application-local.yml
+application-local.properties
+.env
