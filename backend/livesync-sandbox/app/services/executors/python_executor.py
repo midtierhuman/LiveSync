@@ -70,7 +70,13 @@ class PythonExecutor(BaseExecutor):
 
                 is_success = (exit_code == 0)
                 status = "Success" if is_success else "Failed"
-                message = "Execution completed successfully." if is_success else f"Process exited with code {exit_code}."
+                if is_success:
+                    message = "Execution completed successfully."
+                elif "EOFError: EOF when reading a line" in stderr_str:
+                    message = "Process expected user input (EOFError). Tip: Use the Interactive REPL Stream (Terminal button) to interact dynamically."
+                else:
+                    message = f"Process exited with code {exit_code}."
+
 
                 # Prometheus metrics
                 EXECUTION_COUNTER.labels(language=self.language_name, status=status).inc()

@@ -31,6 +31,17 @@
       </div>
 
       <div class="toolbar-right">
+        <button
+          mat-button
+          class="mode-toggle-btn"
+          [class.auto-mode]="isAutoMode()"
+          (click)="toggleAutoMode()"
+          [matTooltip]="isAutoMode() ? 'Auto Mode: Automatically detects language & switches to REPL terminal when needed.' : 'Manual Mode: Full manual control over language and execution.'"
+        >
+          <mat-icon>{{ isAutoMode() ? 'auto_awesome' : 'tune' }}</mat-icon>
+          <span>{{ isAutoMode() ? 'Auto' : 'Manual' }}</span>
+        </button>
+
         <label class="execution-language-select" matTooltip="Execution language">
           <span>Lang</span>
           <select
@@ -38,8 +49,8 @@
             (change)="setExecutionLanguage($event)"
             [disabled]="isLoadingExecutionLanguages() || isExecuting()"
           >
-            @for (language of executionLanguages(); track language) {
-              <option [value]="language">{{ language }}</option>
+            @for (language of executionLanguages(); track language.name) {
+              <option [value]="language.name">{{ language.displayName }}</option>
             }
           </select>
         </label>
@@ -47,20 +58,15 @@
           <mat-icon>auto_fix_high</mat-icon>
         </button>
         <button
-          mat-icon-button
+          mat-raised-button
+          color="primary"
+          class="primary-run-btn"
           (click)="runCode()"
-          [disabled]="!isEditable() || isExecuting() || !selectedExecutionLanguage()"
-          [matTooltip]="'Run as ' + (selectedExecutionLanguage() || 'language')"
-        >
-          <mat-icon>{{ isExecuting() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          (click)="runCodeStream()"
           [disabled]="!isEditable() || streamService.isStreaming() || !selectedExecutionLanguage()"
-          [matTooltip]="'Interactive REPL Stream (' + (selectedExecutionLanguage() || 'language') + ')'"
+          [matTooltip]="'Run Code (' + (selectedExecutionLanguage() || 'language') + ')'"
         >
-          <mat-icon>{{ streamService.isStreaming() ? 'sync' : 'terminal' }}</mat-icon>
+          <mat-icon>{{ streamService.isStreaming() ? 'sync' : 'play_arrow' }}</mat-icon>
+          <span>Run</span>
         </button>
         <button mat-icon-button (click)="toggleWordWrap()" matTooltip="Toggle Word Wrap">
           <mat-icon>{{ isWordWrapEnabled() ? 'wrap_text' : 'notes' }}</mat-icon>
@@ -311,11 +317,16 @@
         <span class="terminal-title">
           <mat-icon>terminal</mat-icon> Live REPL Session [{{ streamService.streamStatus() }}]
         </span>
-        @if (streamService.isStreaming()) {
-          <button mat-button color="warn" (click)="stopStream()" class="stop-stream-btn">
-            <mat-icon>stop</mat-icon> Stop Session
+        <div class="terminal-header-actions">
+          @if (streamService.isStreaming()) {
+            <button mat-button color="warn" (click)="stopStream()" class="stop-stream-btn" matTooltip="Stop running execution">
+              <mat-icon>stop</mat-icon> Stop Session
+            </button>
+          }
+          <button mat-icon-button (click)="closeTerminal()" class="close-terminal-btn" matTooltip="Close Terminal">
+            <mat-icon>close</mat-icon>
           </button>
-        }
+        </div>
       </div>
 
       @if (streamService.finalExecutionResult()?.executionDurationMs !== undefined || streamService.finalExecutionResult()?.timeComplexity) {
@@ -349,7 +360,7 @@
         </div>
       }
 
-      <pre class="terminal-body">{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
+      <pre class="terminal-body" #terminalBody>{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
 
       @if (streamService.isStreaming()) {
         <div class="terminal-input-bar">

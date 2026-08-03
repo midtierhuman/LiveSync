@@ -39,7 +39,10 @@ services:
       dockerfile: Dockerfile
     environment:
       - ENVIRONMENT=Development
-      - DEFAULT_TIMEOUT_MS=10000
+      - DEFAULT_TIMEOUT_MS=15000
+      - CORS_ALLOWED_ORIGINS=["http://localhost:4200","http://localhost:4000","http://localhost:3000","http://localhost:5038"]
+
+
 
   # 2c. Node.js Socket.IO Realtime Engine
   livesync-realtime:

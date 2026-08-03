@@ -97,7 +97,7 @@
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 
   button {
     transition: transform 0.2s ease;
@@ -105,6 +105,55 @@
     &:hover {
       transform: translateY(-1px);
     }
+  }
+}
+
+.mode-toggle-btn {
+  height: 32px;
+  line-height: 32px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  margin-right: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #cccccc;
+  transition: all 0.2s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &.auto-mode {
+    background: rgba(99, 102, 241, 0.25);
+    color: #a5b4fc;
+    border-color: rgba(129, 140, 248, 0.5);
+  }
+}
+
+.primary-run-btn {
+  height: 32px;
+  line-height: 32px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  margin-left: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
   }
 }
 
@@ -789,11 +838,35 @@ button.active-mode {
       gap: 6px;
     }
 
+    .terminal-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .stop-stream-btn {
       font-size: 12px;
       padding: 0 8px;
       height: 24px;
       line-height: 24px;
+    }
+
+    .close-terminal-btn {
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      color: #8b949e;
+
+      &:hover {
+        color: #f85149;
+        background: rgba(248, 81, 73, 0.15);
+      }
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
     }
   }
 

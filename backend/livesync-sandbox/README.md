@@ -1,20 +1,22 @@
-# LiveSync Sandbox Service (Python 3.14 + FastAPI)
+# 🐍 LiveSync Polyglot Sandbox Service
 
-A modern, high-performance polyglot code execution microservice built with **Python 3.14** and **FastAPI**.
+A modern, high-performance polyglot code execution microservice built with **Python 3** and **FastAPI**.
 
 ## Features
 
-- **Python 3.14 Native**: Modern Python 3.14 features, native union types (`str | None`), generic collections (`list`, `dict`), and asynchronous process isolation.
-- **FastAPI Framework**: Modern async framework with automatic OpenAPI (`/docs`) interactive documentation.
-- **Polyglot Code Execution**: Supports running Python, JavaScript (Node.js 24), and C# code snippets.
-- **Timeout & Process Isolation**: Enforces execution timeout boundaries (`asyncio.wait_for`) and captures `stdout`, `stderr`, and exit codes.
-- **Pydantic v2**: Strict data validation with automatic camelCase JSON serialization matching `LiveSync.Execution.Contracts`.
+- **Polyglot Execution Engine**: Isolated execution environments for Python 3, JavaScript (Node.js), and C# (.NET).
+- **Interactive REPL Terminal (WebSockets)**: Bi-directional streaming execution over WebSockets (`/ws/execution/stream`) supporting live interactive `stdin` input.
+- **AST Big-O Complexity Analyzer**: Automated AST code inspection to calculate Time & Space complexity ($\mathcal{O}(1)$, $\mathcal{O}(N)$, $\mathcal{O}(N \log N)$, $\mathcal{O}(N^2)$, etc.) with explanations.
+- **Process Resource Metrics**: Real-time monitoring of process CPU time and peak RAM memory usage via Prometheus (`/metrics`).
+- **Timeout & Process Isolation**: Execution timeout boundaries (`asyncio.wait_for`) with automatic temporary file and directory cleanup.
 
 ## API Endpoints
 
 - `GET /health`: Health check status.
-- `GET /api/execution/languages`: List all supported execution engines.
-- `POST /api/execution/run`: Execute a code snippet.
+- `GET /metrics`: Prometheus telemetry metrics.
+- `GET /api/execution/languages`: List all available execution engines.
+- `POST /api/execution/run`: Batch execute a code snippet.
+- `WS /ws/execution/stream`: Interactive WebSocket stream for live REPL execution.
 
 ## Local Development
 
@@ -25,8 +27,8 @@ A modern, high-performance polyglot code execution microservice built with **Pyt
 
 2. Run the development server:
    ```bash
-   uvicorn app.main:app --port 8080 --reload
+   uvicorn app.main:app --port 4000 --reload
    ```
 
 3. Open API docs in browser:
-   [http://localhost:8080/docs](http://localhost:8080/docs)
+   [http://localhost:4000/docs](http://localhost:4000/docs)

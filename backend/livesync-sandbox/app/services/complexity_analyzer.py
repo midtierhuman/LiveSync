@@ -38,21 +38,18 @@ class ComplexityAnalyzer:
         has_divide_and_conquer = False
         has_collection_alloc = False
         has_matrix_alloc = False
-        func_names: set[str] = set()
 
-        # Gather function names
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
-                func_names.add(node.name)
-
-        def get_nesting_depth(node: ast.AST, current_depth: int = 0) -> int:
+        def get_nesting_depth(node: ast.AST, current_depth: int = 0, current_func: str | None = None) -> int:
             nonlocal has_recursion, has_sort, has_divide_and_conquer, has_collection_alloc, has_matrix_alloc
             depth = current_depth
+
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                current_func = node.name
 
             if isinstance(node, (ast.For, ast.While, ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp)):
                 depth += 1
 
-            # Check recursion
+            # Check recursion: call must occur INSIDE a function body and target the SAME function name
             if isinstance(node, ast.Call):
                 func_id = None
                 if isinstance(node.func, ast.Name):
@@ -60,7 +57,7 @@ class ComplexityAnalyzer:
                 elif isinstance(node.func, ast.Attribute):
                     func_id = node.func.attr
 
-                if func_id in func_names:
+                if current_func and func_id == current_func:
                     has_recursion = True
                 if func_id in ("sorted", "sort"):
                     has_sort = True
@@ -79,14 +76,14 @@ class ComplexityAnalyzer:
 
             max_d = depth
             for child in ast.iter_child_nodes(node):
-                max_d = max(max_d, get_nesting_depth(child, depth))
+                max_d = max(max_d, get_nesting_depth(child, depth, current_func))
             return max_d
 
         max_loop_depth = get_nesting_depth(tree)
 
         # Determine Time Complexity
         if has_recursion and max_loop_depth >= 1:
-            time_comp = f"O(2^N)" if max_loop_depth > 1 else "O(2^N) / O(N!)"
+            time_comp = "O(2^N)" if max_loop_depth > 1 else "O(2^N) / O(N!)"
             explanation = "Detected recursive call hierarchy combined with iterative loops."
         elif has_recursion:
             time_comp = "O(N)"
@@ -111,7 +108,7 @@ class ComplexityAnalyzer:
             explanation = f"Polynomial time O(N^{max_loop_depth}): {max_loop_depth} nested loop levels."
 
         # Determine Space Complexity
-        if has_matrix_alloc or max_loop_depth >= 2 and has_collection_alloc:
+        if has_matrix_alloc or (max_loop_depth >= 2 and has_collection_alloc):
             space_comp = "O(N^2)"
             space_expl = " allocated 2D data structure / matrix."
         elif has_collection_alloc or has_recursion:

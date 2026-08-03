@@ -29,7 +29,7 @@ export class ExecutionStreamService {
   readonly streamStatus = signal<string>('Idle');
   readonly finalExecutionResult = signal<DocumentExecutionResponse | null>(null);
 
-  startExecution(language: string, code: string, timeoutMs: number = 10000) {
+  startExecution(language: string, code: string, timeoutMs: number = 120000) {
     this.close();
 
     this.isStreaming.set(true);
@@ -98,6 +98,15 @@ export class ExecutionStreamService {
       this.socket.send(JSON.stringify({ action: 'kill' }));
     }
     this.close();
+  }
+
+  closeTerminal() {
+    this.stopExecution();
+    this.streamOutput.set('');
+    this.streamErrorOutput.set('');
+    this.streamStatus.set('Idle');
+    this.finalExecutionResult.set(null);
+    this.isStreaming.set(false);
   }
 
   close() {

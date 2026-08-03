@@ -57,6 +57,11 @@ import { AuthService } from '../../services/auth.service';
 import { ExecutionStreamService } from '../../services/execution-stream.service';
 import { TimeTravelService } from '../../services/time-travel.service';
 
+export interface ExecutionLanguageOption {
+  name: string;
+  displayName: string;
+}
+
 @Component({
   selector: 'app-editor',
   standalone: true,
@@ -95,14 +100,17 @@ export class Editor implements OnInit {
   readonly cursorPosition = signal('Ln 1, Col 1');
   readonly isWordWrapEnabled = signal(false);
   readonly lastSaved = signal<Date | null>(null);
+
   readonly isSaving = signal(false);
   readonly isExecuting = signal(false);
   readonly executionResult = signal<DocumentExecutionResponse | null>(null);
   readonly executionError = signal('');
   readonly standardInput = signal('');
-  readonly executionLanguages = signal<string[]>([]);
+  readonly executionLanguages = signal<ExecutionLanguageOption[]>([]);
   readonly selectedExecutionLanguage = signal('');
   readonly isLoadingExecutionLanguages = signal(false);
+  readonly isAutoMode = signal<boolean>(true);
+  readonly terminalBodyElement = viewChild<ElementRef<HTMLPreElement>>('terminalBody');
 
   private isUpdatingFromRemote = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -139,6 +147,7 @@ export class Editor implements OnInit {
         await this.signalRService.leaveDocument(currentDocId);
       }
 
+      this.streamService.closeTerminal();
       this.editorView?.destroy();
       this.editorView = null;
     });
@@ -181,6 +190,19 @@ export class Editor implements OnInit {
             scrollIntoView: true,
           });
         }
+      }
+    });
+
+    effect(() => {
+      // Auto-scroll terminal console to bottom whenever output or stderr updates
+      this.streamService.streamOutput();
+      this.streamService.streamErrorOutput();
+
+      const el = this.terminalBodyElement()?.nativeElement;
+      if (el) {
+        setTimeout(() => {
+          el.scrollTop = el.scrollHeight;
+        }, 0);
       }
     });
 
@@ -458,6 +480,10 @@ export class Editor implements OnInit {
   }
 
   private scheduleDebounce(value: string) {
+    if (this.isAutoMode()) {
+      this.syncAutoLanguage();
+    }
+
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
@@ -593,39 +619,25 @@ export class Editor implements OnInit {
     void navigator.clipboard.writeText(this.codeSignal());
   }
 
+  private hasInteractiveInput(code: string, language: string): boolean {
+    if (!code) return false;
+    const lang = (language || '').toLowerCase();
+
+    if (lang === 'python' || lang === 'py') {
+      return /\binput\s*\(|\bsys\.stdin\./i.test(code);
+    }
+    if (lang === 'javascript' || lang === 'js' || lang === 'node' || lang === 'typescript' || lang === 'ts') {
+      return /\breadline\b|\bprocess\.stdin\b|\bprompt\s*\(/i.test(code);
+    }
+    if (lang === 'csharp' || lang === 'cs') {
+      return /\bConsole\.ReadLine\s*\(|\bConsole\.Read\s*\(/i.test(code);
+    }
+
+    return false;
+  }
+
   async runCode(): Promise<void> {
-    const currentDocId = this.docId();
-    if (!currentDocId || !this.isEditable()) {
-      return;
-    }
-
-    if (!this.selectedExecutionLanguage()) {
-      this.executionError.set('No execution language available for this document.');
-      return;
-    }
-
-    this.isExecuting.set(true);
-    this.executionError.set('');
-    this.executionResult.set(null);
-
-    try {
-      await this.documentService.updateContent(currentDocId, {
-        content: this.codeSignal(),
-        lastEditedBy: 'Code execution',
-      });
-      this.lastSaved.set(new Date());
-
-      const standardInput = this.standardInput();
-      const result = await this.documentService.executeDocument(currentDocId, {
-        language: this.selectedExecutionLanguage(),
-        ...(standardInput ? { standardInput } : {}),
-      });
-      this.executionResult.set(result);
-    } catch (error: unknown) {
-      this.executionError.set(this.getErrorMessage(error, 'Code execution failed.'));
-    } finally {
-      this.isExecuting.set(false);
-    }
+    return this.runCodeStream();
   }
 
   readonly interactiveInput = signal<string>('');
@@ -665,6 +677,12 @@ export class Editor implements OnInit {
     if (text) {
       this.streamService.sendStdin(text);
       this.interactiveInput.set('');
+      setTimeout(() => {
+        const el = this.terminalBodyElement()?.nativeElement;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+        }
+      }, 50);
     }
   }
 
@@ -672,12 +690,48 @@ export class Editor implements OnInit {
     this.streamService.stopExecution();
   }
 
+  closeTerminal(): void {
+    this.streamService.closeTerminal();
+  }
+
   setStandardInput(event: Event): void {
     this.standardInput.set((event.target as HTMLTextAreaElement).value);
   }
 
+  toggleAutoMode(): void {
+    const next = !this.isAutoMode();
+    this.isAutoMode.set(next);
+    if (next) {
+      this.syncAutoLanguage();
+    }
+  }
+
+  private syncAutoLanguage(): void {
+    if (!this.isAutoMode()) return;
+    const detected = this.detectLanguage(this.docTitle() || this.docId(), this.codeSignal());
+
+    if (detected !== 'plaintext' && detected !== this.currentLanguage()) {
+      this.currentLanguage.set(detected);
+      if (this.editorView) {
+        this.editorView.dispatch({
+          effects: this.languageCompartment.reconfigure(this.getLanguageExtension(detected)),
+        });
+      }
+    }
+
+    const executableLangs = this.executionLanguages();
+    const match = executableLangs.find(
+      (l) => l.name === detected || (detected === 'typescript' && l.name === 'javascript'),
+    );
+    if (match && match.name !== this.selectedExecutionLanguage()) {
+      this.selectedExecutionLanguage.set(match.name);
+    }
+  }
+
   setExecutionLanguage(event: Event): void {
-    this.selectedExecutionLanguage.set((event.target as HTMLSelectElement).value);
+    const val = (event.target as HTMLSelectElement).value;
+    this.selectedExecutionLanguage.set(val);
+    this.isAutoMode.set(false);
   }
 
   downloadCode() {
@@ -812,6 +866,19 @@ export class Editor implements OnInit {
     }
 
     const trimmed = content.trimStart();
+
+    if (/\bdef\s+\w+|\bimport\s+random|\bprint\s*\(|\binput\s*\(|\bif\s+__name__\s*==/i.test(trimmed)) {
+      return 'python';
+    }
+
+    if (/\busing\s+System|\bnamespace\s+\w+|\bConsole\.Write/i.test(trimmed)) {
+      return 'csharp';
+    }
+
+    if (/\bconst\s+|\blet\s+|\bfunction\s+|\bconsole\.log/i.test(trimmed)) {
+      return 'javascript';
+    }
+
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       return 'json';
     }
@@ -826,21 +893,48 @@ export class Editor implements OnInit {
   private async loadExecutionLanguages(): Promise<void> {
     this.isLoadingExecutionLanguages.set(true);
 
-    try {
-      const languages = await this.documentService.getExecutionLanguages();
-      const normalized = languages.filter((language) => typeof language === 'string' && language);
-      const fallback = normalized.length > 0 ? normalized : ['csharp'];
-      this.executionLanguages.set(fallback);
+    const defaultFallback: ExecutionLanguageOption[] = [
+      { name: 'python', displayName: 'Python' },
+      { name: 'javascript', displayName: 'JavaScript (Node.js)' },
+      { name: 'csharp', displayName: 'C# (.NET)' },
+    ];
 
-      const currentSelection = this.selectedExecutionLanguage();
-      if (!currentSelection || !fallback.includes(currentSelection)) {
-        this.selectedExecutionLanguage.set(fallback[0]);
+    try {
+      const rawLanguages = await this.documentService.getExecutionLanguages();
+      const parsed: ExecutionLanguageOption[] = (rawLanguages || [])
+        .map((lang: any) => {
+          if (typeof lang === 'string') {
+            return { name: lang, displayName: lang.toUpperCase() };
+          }
+          if (lang && (lang.name || lang.id)) {
+            const name = lang.name || lang.id;
+            const displayName = lang.displayName || lang.name || lang.id;
+            return { name, displayName };
+          }
+          return null;
+        })
+        .filter((item): item is ExecutionLanguageOption => item !== null);
+
+      const finalLanguages = parsed.length > 0 ? parsed : defaultFallback;
+      this.executionLanguages.set(finalLanguages);
+
+      const currentDocLang = this.currentLanguage();
+      const matchingLang = finalLanguages.find(
+        (l) => l.name === currentDocLang || (currentDocLang === 'typescript' && l.name === 'javascript'),
+      );
+
+      if (matchingLang) {
+        this.selectedExecutionLanguage.set(matchingLang.name);
+      } else if (
+        !this.selectedExecutionLanguage() ||
+        !finalLanguages.some((l) => l.name === this.selectedExecutionLanguage())
+      ) {
+        this.selectedExecutionLanguage.set(finalLanguages[0].name);
       }
     } catch {
-      const fallback = ['csharp'];
-      this.executionLanguages.set(fallback);
+      this.executionLanguages.set(defaultFallback);
       if (!this.selectedExecutionLanguage()) {
-        this.selectedExecutionLanguage.set(fallback[0]);
+        this.selectedExecutionLanguage.set(defaultFallback[0].name);
       }
     } finally {
       this.isLoadingExecutionLanguages.set(false);

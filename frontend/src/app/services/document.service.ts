@@ -71,6 +71,12 @@ export interface DocumentExecutionResponse {
   completedAt: string;
 }
 
+export interface ExecutionLanguageDescriptor {
+  id?: string;
+  name: string;
+  displayName: string;
+}
+
 export interface AiAnalysisResponse {
   action: string;
   language: string;
@@ -82,6 +88,7 @@ export interface AiAnalysisResponse {
 interface MessageResponse {
   message: string;
 }
+
 
 @Injectable({
   providedIn: 'root',
@@ -193,9 +200,9 @@ export class DocumentService {
     }
   }
 
-  async getExecutionLanguages(): Promise<string[]> {
+  async getExecutionLanguages(): Promise<ExecutionLanguageDescriptor[]> {
     try {
-      return await firstValueFrom(this.http.get<string[]>(`${this.apiUrl}/execution-languages`));
+      return await firstValueFrom(this.http.get<ExecutionLanguageDescriptor[]>(`${this.apiUrl}/execution-languages`));
     } catch (error) {
       console.error('Error fetching execution languages:', error);
       throw error;

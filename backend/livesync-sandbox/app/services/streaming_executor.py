@@ -41,7 +41,7 @@ class StreamingExecutorService:
 
             language = (init_data.get("language") or "").lower().strip()
             code = init_data.get("code") or ""
-            timeout_ms = int(init_data.get("timeoutMs") or 10000)
+            timeout_ms = int(init_data.get("timeoutMs") or 120000)
             timeout_seconds = timeout_ms / 1000.0
 
             # Analyze Big-O Complexity
