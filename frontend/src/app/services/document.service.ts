@@ -192,7 +192,11 @@ export class DocumentService {
   ): Promise<DocumentExecutionResponse> {
     try {
       return await firstValueFrom(
-        this.http.post<DocumentExecutionResponse>(`${this.apiUrl}/${id}/execute`, request),
+        this.http.post<DocumentExecutionResponse>(`${appEndpoints.apiBaseUrl}/api/execution/run`, {
+          language: request.language,
+          code: (request as any).code,
+          standardInput: request.standardInput,
+        }),
       );
     } catch (error) {
       console.error('Error executing document:', error);
@@ -202,7 +206,7 @@ export class DocumentService {
 
   async getExecutionLanguages(): Promise<ExecutionLanguageDescriptor[]> {
     try {
-      return await firstValueFrom(this.http.get<ExecutionLanguageDescriptor[]>(`${this.apiUrl}/execution-languages`));
+      return await firstValueFrom(this.http.get<ExecutionLanguageDescriptor[]>(`${appEndpoints.apiBaseUrl}/api/execution/languages`));
     } catch (error) {
       console.error('Error fetching execution languages:', error);
       throw error;
@@ -218,7 +222,7 @@ export class DocumentService {
   ): Promise<AiAnalysisResponse> {
     try {
       return await firstValueFrom(
-        this.http.post<AiAnalysisResponse>(`${this.apiUrl}/${id}/ai-assistant`, {
+        this.http.post<AiAnalysisResponse>(`${appEndpoints.apiBaseUrl}/api/ai/analyze`, {
           action,
           language,
           code,

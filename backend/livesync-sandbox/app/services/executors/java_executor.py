@@ -44,12 +44,15 @@ class JavaExecutor(BaseExecutor):
             if not java_executable:
                 raise RuntimeError("Java runtime environment is not installed.")
 
+            from app.utils.env_sanitizer import get_sanitized_env
+
             process = await asyncio.create_subprocess_exec(
                 java_executable,
                 file_path,
                 stdin=asyncio.subprocess.PIPE if request.standard_input else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=get_sanitized_env(),
             )
 
             stdin_data = request.standard_input.encode("utf-8") if request.standard_input else None

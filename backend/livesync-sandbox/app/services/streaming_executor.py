@@ -71,12 +71,15 @@ class StreamingExecutorService:
             full_cmd = [executable] + [arg.format(file=script_path, dir=temp_dir) for arg in command_args]
 
 
-            # Spawn interactive subprocess
+            from app.utils.env_sanitizer import get_sanitized_env
+
+            # Spawn interactive subprocess with sanitized environment
             process = await asyncio.create_subprocess_exec(
                 *full_cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=get_sanitized_env(),
             )
 
             # Send session started confirmation

@@ -60,6 +60,8 @@ class CSharpExecutor(BaseExecutor):
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(request.code)
 
+            from app.utils.env_sanitizer import get_sanitized_env
+
             process = await asyncio.create_subprocess_exec(
                 dotnet_path,
                 "run",
@@ -70,6 +72,7 @@ class CSharpExecutor(BaseExecutor):
                 stdin=asyncio.subprocess.PIPE if request.standard_input else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=get_sanitized_env(),
             )
 
 

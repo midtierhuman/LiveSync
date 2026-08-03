@@ -56,12 +56,15 @@ class NodeExecutor(BaseExecutor):
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(request.code)
 
+            from app.utils.env_sanitizer import get_sanitized_env
+
             process = await asyncio.create_subprocess_exec(
                 node_path,
                 file_path,
                 stdin=asyncio.subprocess.PIPE if request.standard_input else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=get_sanitized_env(),
             )
 
             stdin_data = request.standard_input.encode("utf-8") if request.standard_input else None

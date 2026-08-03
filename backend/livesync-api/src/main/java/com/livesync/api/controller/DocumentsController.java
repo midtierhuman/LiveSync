@@ -115,39 +115,6 @@ public class DocumentsController {
         return documents.updateCodeAccess(id, user(auth), request.accessLevel()) ? ResponseEntity.ok(Map.of("message", "Share code access level updated successfully")) : ResponseEntity.notFound().build();
     }
 
-    @PostMapping("/{id}/execute")
-    public ResponseEntity<?> execute(@PathVariable String id, @Valid @RequestBody ExecuteDocumentRequest request, Authentication auth) {
-        var document = documents.find(id, user(auth));
-        if (document.isEmpty()) return ResponseEntity.notFound().build();
-        if (!documents.canEdit(id, user(auth)))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "You don't have edit access to this document"));
-        Instant requested = Instant.now();
-        try {
-            var result = sandbox.execute(new SandboxExecutionClient.SandboxRequest("cs".equals(request.language()) ? "csharp" : request.language(), document.get().content(), request.standardInput()));
-            return ResponseEntity.ok(new DocumentExecutionResponse(id, result.language(), result.status(), result.isSuccess(), result.message(), result.standardOutput(), result.standardError(), result.executionDurationMs(), result.peakMemoryBytes(), result.cpuTimeMs(), result.timeComplexity(), result.spaceComplexity(), result.complexityExplanation(), result.requestedAt(), result.completedAt()));
-        } catch (IllegalStateException exception) {
-            Instant completed = Instant.now();
-            String detail = rootCauseMessage(exception);
-            return ResponseEntity.ok(new DocumentExecutionResponse(id, request.language(), "Failed", false, detail, null, detail, null, null, null, null, null, null, requested, completed));
-        }
-    }
-
-    @PostMapping("/{id}/ai-assistant")
-    public ResponseEntity<?> aiAssistant(@PathVariable String id, @RequestBody AiAnalysisRequest request, Authentication auth) {
-        var document = documents.find(id, user(auth));
-        if (document.isEmpty()) return ResponseEntity.notFound().build();
-        String codeToAnalyze = (request.code() != null && !request.code().isBlank())
-            ? request.code()
-            : document.get().content();
-        var result = sandbox.analyzeAi(
-            request.action() == null ? "explain" : request.action(),
-            request.language() == null ? "python" : request.language(),
-            codeToAnalyze,
-            request.prompt()
-        );
-        return ResponseEntity.ok(result);
-    }
-
     private boolean valid(String value) {
         return "View".equals(value) || "Edit".equals(value);
     }

@@ -11,7 +11,6 @@ class Settings(BaseSettings):
     cors_allowed_origins: list[str] = [
         "http://localhost:4200",
         "http://localhost:4000",
-        "http://localhost:3000",
         "http://localhost:5038",
     ]
 
