@@ -778,7 +778,7 @@ export class Editor implements OnInit {
     const lang = (language || '').toLowerCase();
 
     if (lang === 'python' || lang === 'py') {
-      return /\binput\s*\(|\bsys\.stdin\./i.test(code);
+      return /\binput\s*\(|\bsys\.stdin\b/i.test(code);
     }
     if (lang === 'javascript' || lang === 'js' || lang === 'node' || lang === 'typescript' || lang === 'ts') {
       return /\breadline\b|\bprocess\.stdin\b|\bprompt\s*\(/i.test(code);
@@ -786,12 +786,53 @@ export class Editor implements OnInit {
     if (lang === 'csharp' || lang === 'cs') {
       return /\bConsole\.ReadLine\s*\(|\bConsole\.Read\s*\(/i.test(code);
     }
+    if (lang === 'java') {
+      return /\bScanner\b|\bSystem\.in\b|\bBufferedReader\b/i.test(code);
+    }
 
     return false;
   }
 
   async runCode(): Promise<void> {
-    return this.runCodeStream();
+    const code = this.codeSignal();
+    const lang = this.selectedExecutionLanguage();
+
+    if (this.hasInteractiveInput(code, lang)) {
+      return this.runCodeStream();
+    }
+
+    const currentDocId = this.docId();
+    if (!currentDocId || !this.isEditable()) {
+      return;
+    }
+
+    if (!lang) {
+      this.executionError.set('No execution language available for this document.');
+      return;
+    }
+
+    this.isExecuting.set(true);
+    this.executionError.set('');
+    this.executionResult.set(null);
+
+    try {
+      await this.documentService.updateContent(currentDocId, {
+        content: code,
+        lastEditedBy: 'Live code execution',
+      });
+      this.lastSaved.set(new Date());
+
+      const response = await this.documentService.executeDocument(currentDocId, {
+        language: lang,
+        code: code,
+      } as any);
+
+      this.executionResult.set(response);
+    } catch (error: unknown) {
+      this.executionError.set(this.getErrorMessage(error, 'Code execution failed.'));
+    } finally {
+      this.isExecuting.set(false);
+    }
   }
 
   readonly interactiveInput = signal<string>('');
