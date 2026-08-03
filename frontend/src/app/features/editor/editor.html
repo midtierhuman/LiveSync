@@ -31,17 +31,6 @@
       </div>
 
       <div class="toolbar-right">
-        <button
-          mat-button
-          class="mode-toggle-btn"
-          [class.auto-mode]="isAutoMode()"
-          (click)="toggleAutoMode()"
-          [matTooltip]="isAutoMode() ? 'Auto Mode: Automatically detects language & switches to REPL terminal when needed.' : 'Manual Mode: Full manual control over language and execution.'"
-        >
-          <mat-icon>{{ isAutoMode() ? 'auto_awesome' : 'tune' }}</mat-icon>
-          <span>{{ isAutoMode() ? 'Auto' : 'Manual' }}</span>
-        </button>
-
         <label class="execution-language-select" matTooltip="Execution language">
           <span>Lang</span>
           <select
@@ -302,7 +291,16 @@
   </div>
 
   @if (streamService.isStreaming() || streamService.streamOutput() || streamService.streamErrorOutput() || streamService.finalExecutionResult()) {
-    <section class="interactive-terminal-panel">
+    <section class="interactive-terminal-panel" [style.height.px]="terminalHeight()">
+      <div
+        class="terminal-resize-handle"
+        (mousedown)="startResizingTerminal($event)"
+        (dblclick)="resetTerminalHeight()"
+        matTooltip="Drag up/down to resize terminal (Double-click to reset)"
+      >
+        <div class="resize-grip"></div>
+      </div>
+
       <div class="terminal-header">
         <span class="terminal-title">
           <mat-icon>terminal</mat-icon> Live REPL Session [{{ streamService.streamStatus() }}]
@@ -372,7 +370,17 @@
     <section
       class="execution-panel"
       [class.failed]="executionError() || !executionResult()?.isSuccess"
+      [style.height.px]="terminalHeight()"
     >
+      <div
+        class="terminal-resize-handle"
+        (mousedown)="startResizingTerminal($event)"
+        (dblclick)="resetTerminalHeight()"
+        matTooltip="Drag up/down to resize panel (Double-click to reset)"
+      >
+        <div class="resize-grip"></div>
+      </div>
+
       <div class="execution-heading">
         <strong>Execution {{ executionResult()?.status || 'failed' }}</strong>
         <span>{{ executionResult()?.message || executionError() }}</span>

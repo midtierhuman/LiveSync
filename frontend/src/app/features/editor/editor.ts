@@ -38,10 +38,14 @@ import {
   completionKeymap,
   closeBrackets,
   closeBracketsKeymap,
+  completeAnyWord,
+  CompletionContext,
+  CompletionSource,
 } from '@codemirror/autocomplete';
 import { foldKeymap } from '@codemirror/language';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { javascript } from '@codemirror/lang-javascript';
+import { python } from '@codemirror/lang-python';
 import { json } from '@codemirror/lang-json';
 import { html } from '@codemirror/lang-html';
 import { markdown } from '@codemirror/lang-markdown';
@@ -108,7 +112,8 @@ export class Editor implements OnInit {
   readonly executionLanguages = signal<ExecutionLanguageOption[]>([]);
   readonly selectedExecutionLanguage = signal('');
   readonly isLoadingExecutionLanguages = signal(false);
-  readonly isAutoMode = signal<boolean>(true);
+  private isManualLanguageSelection = false;
+  readonly terminalHeight = signal<number>(280);
   readonly terminalBodyElement = viewChild<ElementRef<HTMLPreElement>>('terminalBody');
 
   private isUpdatingFromRemote = false;
@@ -254,6 +259,57 @@ export class Editor implements OnInit {
     }
   }
 
+  private readonly declaredWordsAndLanguageCompletions: CompletionSource = async (
+    context: CompletionContext,
+  ) => {
+    const word = context.matchBefore(/[\w$]+/);
+    if (!word || (word.from === word.to && !context.explicit)) {
+      return null;
+    }
+
+    const anyWordResult = await completeAnyWord(context);
+    const wordOptions = anyWordResult && 'options' in anyWordResult ? anyWordResult.options : [];
+
+    const languageData = context.state.languageDataAt<CompletionSource>('autocomplete', context.pos);
+    let langOptions: any[] = [];
+    for (const source of languageData) {
+      try {
+        const res = await source(context);
+        if (res && 'options' in res && res.options) {
+          langOptions.push(...res.options);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const combinedMap = new Map<string, any>();
+
+    for (const opt of wordOptions) {
+      const label = typeof opt === 'string' ? opt : opt.label;
+      if (label && label.length > 1 && !combinedMap.has(label)) {
+        combinedMap.set(label, {
+          label,
+          type: 'variable',
+          boost: 1,
+        });
+      }
+    }
+
+    for (const opt of langOptions) {
+      const label = typeof opt === 'string' ? opt : opt.label;
+      if (label && !combinedMap.has(label)) {
+        combinedMap.set(label, typeof opt === 'string' ? { label, type: 'keyword' } : opt);
+      }
+    }
+
+    return {
+      from: word.from,
+      options: Array.from(combinedMap.values()),
+      validFor: /^[\w$]*$/,
+    };
+  };
+
   private initializeEditor() {
     const host = this.editorHost()?.nativeElement;
     if (!host) {
@@ -276,7 +332,10 @@ export class Editor implements OnInit {
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         bracketMatching(),
         closeBrackets(),
-        autocompletion(),
+        autocompletion({
+          override: [this.declaredWordsAndLanguageCompletions],
+          defaultKeymap: true,
+        }),
         this.languageCompartment.of(this.getLanguageExtension(language)),
         this.readOnlyCompartment.of(EditorState.readOnly.of(!this.isEditable())),
         this.wrapCompartment.of([]),
@@ -455,10 +514,14 @@ export class Editor implements OnInit {
   }
 
   private getLanguageExtension(language: string) {
-    switch (language) {
+    switch ((language || '').toLowerCase()) {
+      case 'python':
+      case 'py':
+        return python();
       case 'typescript':
         return javascript({ typescript: true });
       case 'javascript':
+      case 'js':
         return javascript();
       case 'json':
         return json();
@@ -479,7 +542,7 @@ export class Editor implements OnInit {
   }
 
   private scheduleDebounce(value: string) {
-    if (this.isAutoMode()) {
+    if (!this.isManualLanguageSelection) {
       this.syncAutoLanguage();
     }
 
@@ -568,6 +631,38 @@ export class Editor implements OnInit {
     });
   }
 
+  private formatPythonCode(code: string): string {
+    const lines = code.split(/\r?\n/);
+    const formattedLines: string[] = [];
+    let indentLevel = 0;
+
+    const blockStartRegex = /:\s*(#.*)?$/;
+    const dedentBlockRegex = /^\s*(elif\b|else\b|except\b|finally\b)/;
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trimEnd();
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        formattedLines.push('');
+        continue;
+      }
+
+      if (dedentBlockRegex.test(trimmed) && indentLevel > 0) {
+        indentLevel--;
+      }
+
+      const indent = '    '.repeat(Math.max(0, indentLevel));
+      formattedLines.push(indent + trimmed);
+
+      if (blockStartRegex.test(trimmed) && !trimmed.startsWith('#')) {
+        indentLevel++;
+      }
+    }
+
+    return formattedLines.join('\n').replace(/\n{3,}/g, '\n\n');
+  }
+
   async formatCode() {
     if (!this.editorView) {
       return;
@@ -582,24 +677,40 @@ export class Editor implements OnInit {
     }
 
     const source = this.editorView.state.doc.toString();
-    const formatter = await this.getFormatterConfig(this.currentLanguage());
+    const lang = (this.currentLanguage() || '').toLowerCase();
+
+    if (lang === 'python' || lang === 'py') {
+      const formatted = this.formatPythonCode(source);
+      if (formatted !== source) {
+        this.codeSignal.set(formatted);
+        this.updateEditorDocument(formatted);
+        this.scheduleDebounce(formatted);
+      }
+      return;
+    }
+
+    const formatter = await this.getFormatterConfig(lang);
     if (!formatter) {
       return;
     }
 
-    const prettier = await import('prettier/standalone');
-    const formatted = await prettier.format(source, {
-      parser: formatter.parser,
-      plugins: formatter.plugins,
-      printWidth: 100,
-      tabWidth: 2,
-      singleQuote: true,
-    });
+    try {
+      const prettier = await import('prettier/standalone');
+      const formatted = await prettier.format(source, {
+        parser: formatter.parser,
+        plugins: formatter.plugins,
+        printWidth: 100,
+        tabWidth: 2,
+        singleQuote: true,
+      });
 
-    if (formatted !== source) {
-      this.codeSignal.set(formatted);
-      this.updateEditorDocument(formatted);
-      this.scheduleDebounce(formatted);
+      if (formatted !== source) {
+        this.codeSignal.set(formatted);
+        this.updateEditorDocument(formatted);
+        this.scheduleDebounce(formatted);
+      }
+    } catch (e) {
+      console.warn('Prettier formatting warning:', e);
     }
   }
 
@@ -693,16 +804,40 @@ export class Editor implements OnInit {
     this.streamService.closeTerminal();
   }
 
-  toggleAutoMode(): void {
-    const next = !this.isAutoMode();
-    this.isAutoMode.set(next);
-    if (next) {
-      this.syncAutoLanguage();
-    }
+  private isResizingTerminal = false;
+  private startY = 0;
+  private startHeight = 280;
+
+  startResizingTerminal(event: MouseEvent): void {
+    event.preventDefault();
+    this.isResizingTerminal = true;
+    this.startY = event.clientY;
+    this.startHeight = this.terminalHeight();
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!this.isResizingTerminal) return;
+      const deltaY = this.startY - moveEvent.clientY;
+      const maxHeight = Math.max(window.innerHeight - 160, 300);
+      const newHeight = Math.min(Math.max(this.startHeight + deltaY, 120), maxHeight);
+      this.terminalHeight.set(newHeight);
+    };
+
+    const onMouseUp = () => {
+      this.isResizingTerminal = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  resetTerminalHeight(): void {
+    this.terminalHeight.set(280);
   }
 
   private syncAutoLanguage(): void {
-    if (!this.isAutoMode()) return;
+    if (this.isManualLanguageSelection) return;
     const detected = this.detectLanguage(this.docTitle() || this.docId(), this.codeSignal());
 
     if (detected !== 'plaintext' && detected !== this.currentLanguage()) {
@@ -726,7 +861,7 @@ export class Editor implements OnInit {
   setExecutionLanguage(event: Event): void {
     const val = (event.target as HTMLSelectElement).value;
     this.selectedExecutionLanguage.set(val);
-    this.isAutoMode.set(false);
+    this.isManualLanguageSelection = true;
   }
 
   downloadCode() {
