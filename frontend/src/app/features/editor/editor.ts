@@ -42,7 +42,8 @@ import {
   CompletionContext,
   CompletionSource,
 } from '@codemirror/autocomplete';
-import { foldKeymap } from '@codemirror/language';
+import { foldKeymap, StreamLanguage } from '@codemirror/language';
+import { csharp } from '@codemirror/legacy-modes/mode/clike';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
@@ -515,6 +516,9 @@ export class Editor implements OnInit {
 
   private getLanguageExtension(language: string) {
     switch ((language || '').toLowerCase()) {
+      case 'csharp':
+      case 'cs':
+        return StreamLanguage.define(csharp);
       case 'python':
       case 'py':
         return python();
@@ -663,6 +667,33 @@ export class Editor implements OnInit {
     return formattedLines.join('\n').replace(/\n{3,}/g, '\n\n');
   }
 
+  private formatCSharpCode(code: string): string {
+    const lines = code.split(/\r?\n/);
+    const formattedLines: string[] = [];
+    let indentLevel = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed) {
+        formattedLines.push('');
+        continue;
+      }
+
+      if (trimmed.startsWith('}') || trimmed.startsWith('})')) {
+        indentLevel = Math.max(0, indentLevel - 1);
+      }
+
+      const indent = '    '.repeat(indentLevel);
+      formattedLines.push(indent + trimmed);
+
+      if (trimmed.endsWith('{') && !trimmed.startsWith('//')) {
+        indentLevel++;
+      }
+    }
+
+    return formattedLines.join('\n').replace(/\n{3,}/g, '\n\n');
+  }
+
   async formatCode() {
     if (!this.editorView) {
       return;
@@ -681,6 +712,16 @@ export class Editor implements OnInit {
 
     if (lang === 'python' || lang === 'py') {
       const formatted = this.formatPythonCode(source);
+      if (formatted !== source) {
+        this.codeSignal.set(formatted);
+        this.updateEditorDocument(formatted);
+        this.scheduleDebounce(formatted);
+      }
+      return;
+    }
+
+    if (lang === 'csharp' || lang === 'cs') {
+      const formatted = this.formatCSharpCode(source);
       if (formatted !== source) {
         this.codeSignal.set(formatted);
         this.updateEditorDocument(formatted);
@@ -861,7 +902,13 @@ export class Editor implements OnInit {
   setExecutionLanguage(event: Event): void {
     const val = (event.target as HTMLSelectElement).value;
     this.selectedExecutionLanguage.set(val);
+    this.currentLanguage.set(val);
     this.isManualLanguageSelection = true;
+    if (this.editorView) {
+      this.editorView.dispatch({
+        effects: this.languageCompartment.reconfigure(this.getLanguageExtension(val)),
+      });
+    }
   }
 
   downloadCode() {
@@ -997,16 +1044,16 @@ export class Editor implements OnInit {
 
     const trimmed = content.trimStart();
 
+    if (/\bconst\s+|\blet\s+|\bvar\s+|\bfunction\s+|\bconsole\.log|\bdocument\.|\bwindow\./i.test(trimmed)) {
+      return 'javascript';
+    }
+
     if (/\bdef\s+\w+|\bimport\s+random|\bprint\s*\(|\binput\s*\(|\bif\s+__name__\s*==/i.test(trimmed)) {
       return 'python';
     }
 
     if (/\busing\s+System|\bnamespace\s+\w+|\bConsole\.Write/i.test(trimmed)) {
       return 'csharp';
-    }
-
-    if (/\bconst\s+|\blet\s+|\bfunction\s+|\bconsole\.log/i.test(trimmed)) {
-      return 'javascript';
     }
 
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {

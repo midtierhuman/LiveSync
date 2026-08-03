@@ -38,9 +38,10 @@ class ComplexityAnalyzer:
         has_divide_and_conquer = False
         has_collection_alloc = False
         has_matrix_alloc = False
+        has_interactive_io = False
 
         def get_nesting_depth(node: ast.AST, current_depth: int = 0, current_func: str | None = None) -> int:
-            nonlocal has_recursion, has_sort, has_divide_and_conquer, has_collection_alloc, has_matrix_alloc
+            nonlocal has_recursion, has_sort, has_divide_and_conquer, has_collection_alloc, has_matrix_alloc, has_interactive_io
             depth = current_depth
 
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -49,7 +50,7 @@ class ComplexityAnalyzer:
             if isinstance(node, (ast.For, ast.While, ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp)):
                 depth += 1
 
-            # Check recursion: call must occur INSIDE a function body and target the SAME function name
+            # Check recursion & I/O
             if isinstance(node, ast.Call):
                 func_id = None
                 if isinstance(node.func, ast.Name):
@@ -61,6 +62,8 @@ class ComplexityAnalyzer:
                     has_recursion = True
                 if func_id in ("sorted", "sort"):
                     has_sort = True
+                if func_id in ("input", "raw_input", "readline"):
+                    has_interactive_io = True
 
             # Check divide & conquer (binary division: // 2, / 2, >> 1)
             if isinstance(node, ast.BinOp):
@@ -82,7 +85,10 @@ class ComplexityAnalyzer:
         max_loop_depth = get_nesting_depth(tree)
 
         # Determine Time Complexity
-        if has_recursion and max_loop_depth >= 1:
+        if has_interactive_io:
+            time_comp = "N/A (Interactive I/O)"
+            explanation = "Interactive game/event loop detected. Execution time is driven by user input events rather than an algorithmic input size N."
+        elif has_recursion and max_loop_depth >= 1:
             time_comp = "O(2^N)" if max_loop_depth > 1 else "O(2^N) / O(N!)"
             explanation = "Detected recursive call hierarchy combined with iterative loops."
         elif has_recursion:
@@ -125,11 +131,9 @@ class ComplexityAnalyzer:
         )
 
     def _analyze_javascript(self, code: str) -> ComplexityResult:
-        # Regex inspection for JS/TS
         loop_patterns = [r'\bfor\s*\(', r'\bwhile\s*\(', r'\bdo\s*\{', r'\.forEach\s*\(', r'\.map\s*\(', r'\.reduce\s*\(']
-        total_loops = sum(len(re.findall(p, code)) for p in loop_patterns)
+        has_interactive_io = bool(re.search(r'\breadline\b|\bprocess\.stdin\b|\bprompt\s*\(', code))
 
-        # Estimate nesting depth
         max_depth = 0
         current_depth = 0
         for line in code.splitlines():
@@ -143,7 +147,10 @@ class ComplexityAnalyzer:
         has_recursion = bool(re.search(r'function\s+([a-zA-Z0-9_$]+).*\1\s*\(', code))
         has_array = bool(re.search(r'\[.*\]|\bnew\s+(Array|Map|Set)\b', code))
 
-        if has_recursion:
+        if has_interactive_io:
+            time_comp = "N/A (Interactive I/O)"
+            explanation = "Interactive event loop detected. Execution runtime is driven by user input events rather than an algorithmic input size N."
+        elif has_recursion:
             time_comp = "O(2^N)" if max_depth > 1 else "O(N)"
             explanation = "Recursive execution pattern detected."
         elif has_sort:
@@ -171,6 +178,8 @@ class ComplexityAnalyzer:
 
     def _analyze_csharp(self, code: str) -> ComplexityResult:
         loop_patterns = [r'\bfor\s*\(', r'\bforeach\s*\(', r'\bwhile\s*\(', r'\bdo\s*\{']
+        has_interactive_io = bool(re.search(r'\bConsole\.ReadLine\s*\(|\bConsole\.Read\s*\(', code))
+
         max_depth = 0
         current_depth = 0
 
@@ -184,7 +193,10 @@ class ComplexityAnalyzer:
         has_sort = bool(re.search(r'\bArray\.Sort\b|\bList<.*>\.Sort\b|\b\.OrderBy\b', code))
         has_collections = bool(re.search(r'\bnew\s+(List|Dictionary|HashSet|int\[\]|string\[\])\b', code))
 
-        if has_sort:
+        if has_interactive_io:
+            time_comp = "N/A (Interactive I/O)"
+            explanation = "Interactive CLI loop detected. Execution runtime is driven by user input events rather than an algorithmic input size N."
+        elif has_sort:
             time_comp = "O(N log N)"
             explanation = "Sorting operation detected (O(N log N))."
         elif max_depth == 0:
