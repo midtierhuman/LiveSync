@@ -1,16 +1,26 @@
 <div class="dashboard-container">
+  <!-- Top Navigation Header -->
   <header class="dashboard-header">
     <div class="header-left">
-      <mat-icon class="logo">description</mat-icon>
-      <span class="title">LiveSync Dashboard</span>
+      <div class="brand-badge">
+        <mat-icon class="logo">psychology</mat-icon>
+      </div>
+      <div class="brand-text">
+        <span class="title">LiveSync Cloud</span>
+        <span class="subtitle">Realtime Polyglot Pair-Programming Workspace</span>
+      </div>
     </div>
     <div class="header-right">
-      <span class="user-name">{{ authService.user()?.userName }}</span>
-      <button mat-icon-button [matMenuTriggerFor]="menu">
+      <div class="user-pill">
+        <mat-icon>person</mat-icon>
+        <span class="user-name">{{ authService.user()?.userName }}</span>
+      </div>
+      <button mat-icon-button [matMenuTriggerFor]="menu" class="avatar-btn">
         <mat-icon>account_circle</mat-icon>
       </button>
-      <mat-menu #menu="matMenu">
+      <mat-menu #menu="matMenu" class="user-menu">
         <button mat-menu-item disabled>
+          <mat-icon>email</mat-icon>
           <span>{{ authService.user()?.email }}</span>
         </button>
         <mat-divider></mat-divider>
@@ -23,94 +33,249 @@
   </header>
 
   <main class="dashboard-content">
-    <!-- Create New Document Section -->
-    <section class="create-section">
-      <h2>Create New Document</h2>
+    <!-- Hero Workspace Banner & Stats Bar -->
+    <section class="hero-stats-banner">
+      <div class="banner-info">
+        <h1>Welcome back, <span class="gradient-text">{{ authService.user()?.userName }}</span> 👋</h1>
+        <p>Collaborate in real-time, execute code statelessly across 4 languages, and leverage Gemini AI.</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value">{{ myDocuments().length + sharedDocuments().length }}</span>
+          <span class="stat-label">Total Documents</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">{{ sharedDocuments().length }}</span>
+          <span class="stat-label">Shared Workspaces</span>
+        </div>
+        <div class="stat-card status-card">
+          <span class="status-indicator online"></span>
+          <span class="stat-value">Active</span>
+          <span class="stat-label">Realtime & AI Engines</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Create New Document Card -->
+    <section class="create-card">
+      <div class="create-header">
+        <mat-icon>note_add</mat-icon>
+        <h3>Create New Document</h3>
+      </div>
       <div class="create-form">
         <input
           type="text"
           [(ngModel)]="newDocTitle"
-          placeholder="Enter document title"
+          placeholder="Enter document title (e.g. algorithm.py, app.cs, Main.java)..."
           (keyup.enter)="createNewDocument()"
           class="doc-input"
         />
         <button (click)="createNewDocument()" [disabled]="isCreating()" class="btn-create">
-          {{ isCreating() ? 'Creating...' : '+ New Document' }}
+          <mat-icon>add</mat-icon>
+          {{ isCreating() ? 'Creating...' : 'New Document' }}
+        </button>
+        <button (click)="goToAddShared()" class="btn-join-shared">
+          <mat-icon>group_add</mat-icon>
+          Join Shared Code
         </button>
       </div>
     </section>
 
-    <!-- My Documents Section -->
-    <section class="documents-section">
-      <h2>My Documents</h2>
-      @if (isLoading()) {
-      <div class="loading">Loading documents...</div>
-      } @else if (myDocuments().length === 0) {
-      <div class="empty-state">
-        <p>No documents yet. Create your first document above!</p>
+    <!-- Filter Bar & Search Controls -->
+    <section class="controls-bar">
+      <div class="tabs-group">
+        <button [class.active]="activeTab() === 'all'" (click)="activeTab.set('all')">
+          🌐 All ({{ myDocuments().length + sharedDocuments().length }})
+        </button>
+        <button [class.active]="activeTab() === 'mine'" (click)="activeTab.set('mine')">
+          📁 My Documents ({{ myDocuments().length }})
+        </button>
+        <button [class.active]="activeTab() === 'shared'" (click)="activeTab.set('shared')">
+          👥 Shared With Me ({{ sharedDocuments().length }})
+        </button>
+        <button [class.active]="activeTab() === 'favorites'" (click)="activeTab.set('favorites')">
+          ⭐ Favorites ({{ starredDocIds().size }})
+        </button>
       </div>
-      } @else {
-      <div class="documents-grid">
-        @for (doc of myDocuments(); track doc.id) {
-        <div class="document-card">
-          <div class="doc-header">
-            <h3>{{ doc.title }}</h3>
-            <button mat-icon-button [matMenuTriggerFor]="docMenu">
-              <mat-icon>more_vert</mat-icon>
-            </button>
-            <mat-menu #docMenu="matMenu">
-              <button mat-menu-item (click)="openShareModal(doc)">
-                <mat-icon>share</mat-icon>
-                <span>Share Document</span>
-              </button>
-              <button mat-menu-item (click)="confirmDelete(doc.id)">
-                <mat-icon>delete</mat-icon>
-                <span>Delete</span>
-              </button>
-            </mat-menu>
-          </div>
-          <p class="doc-meta">Created: {{ doc.createdAt | date : 'short' }}</p>
-          @if (doc.lastEditedAt) {
-          <p class="doc-meta">
-            Last edited: {{ doc.lastEditedAt | date : 'short' }} by {{ doc.lastEditedBy }}
-          </p>
-          } @if (doc.sharedWith.length > 0) {
-          <p class="doc-shared">Shared with {{ doc.sharedWith.length }} user(s)</p>
-          }
-          <button (click)="openDocument(doc.id)" class="btn-open">Open Document</button>
+
+      <div class="actions-group">
+        <div class="search-box">
+          <mat-icon>search</mat-icon>
+          <input
+            type="text"
+            placeholder="Search documents by title or owner..."
+            [value]="searchQuery()"
+            (input)="searchQuery.set($any($event.target).value)"
+          />
         </div>
-        }
+
+        <div class="view-toggle">
+          <button [class.active]="layoutView() === 'grid'" (click)="layoutView.set('grid')" matTooltip="Grid View">
+            <mat-icon>grid_view</mat-icon>
+          </button>
+          <button [class.active]="layoutView() === 'list'" (click)="layoutView.set('list')" matTooltip="List View">
+            <mat-icon>format_list_bulleted</mat-icon>
+          </button>
+        </div>
       </div>
-      }
     </section>
 
-    <!-- Shared With Me Section -->
-    <section class="documents-section">
-      <div class="shared-header">
-        <h2>Shared With Me</h2>
-        <button (click)="goToAddShared()" class="btn-add-shared">+ Add Shared Document</button>
+    <!-- Documents Container -->
+    @if (isLoading()) {
+      <div class="loading-state">
+        <span class="spinner">⚡</span> Loading your workspace documents...
       </div>
-      @if (sharedDocuments().length === 0) {
-      <div class="empty-state">
-        <p>No documents shared with you yet.</p>
-      </div>
-      } @else {
-      <div class="documents-grid">
-        @for (doc of sharedDocuments(); track doc.id) {
-        <div class="document-card shared">
-          <div class="doc-header">
-            <h3>{{ doc.documentTitle }}</h3>
-            <span class="owner-badge">by {{ doc.userName }}</span>
+    } @else {
+      <!-- My Documents Section -->
+      @if (activeTab() === 'all' || activeTab() === 'mine' || activeTab() === 'favorites') {
+        <section class="documents-section">
+          <div class="section-title">
+            <h2>📁 My Workspaces</h2>
+            <span class="count-badge">{{ getFilteredMyDocs().length }}</span>
           </div>
-          <p class="doc-meta">Shared: {{ doc.sharedAt | date : 'short' }}</p>
-          <p class="access-level">
-            Access: <strong>{{ doc.accessLevel }}</strong>
-          </p>
-          <button (click)="openSharedDoc(doc.documentId)" class="btn-open">Open Document</button>
-        </div>
-        }
-      </div>
+
+          @if (getFilteredMyDocs().length === 0) {
+            <div class="empty-card">
+              <p>No documents found matching current filter.</p>
+            </div>
+          } @else {
+            <div [class.documents-grid]="layoutView() === 'grid'" [class.documents-list]="layoutView() === 'list'">
+              @for (doc of getFilteredMyDocs(); track doc.id) {
+                <div class="document-card" (click)="openDocument(doc.id)">
+                  <div class="doc-card-top">
+                    <span class="lang-badge" [class]="getLanguageBadge(doc.title).class">
+                      <mat-icon>{{ getLanguageBadge(doc.title).icon }}</mat-icon>
+                      {{ getLanguageBadge(doc.title).name }}
+                    </span>
+                    <div class="card-actions" (click)="$event.stopPropagation()">
+                      <button mat-icon-button (click)="toggleStar(doc.id, $event)" [class.starred]="isStarred(doc.id)">
+                        <mat-icon>{{ isStarred(doc.id) ? 'star' : 'star_border' }}</mat-icon>
+                      </button>
+                      <button mat-icon-button [matMenuTriggerFor]="docMenu">
+                        <mat-icon>more_vert</mat-icon>
+                      </button>
+                      <mat-menu #docMenu="matMenu">
+                        <button mat-menu-item (click)="openShareModal(doc)">
+                          <mat-icon>share</mat-icon>
+                          <span>Share Access & Code</span>
+                        </button>
+                        <button mat-menu-item (click)="confirmDelete(doc.id)">
+                          <mat-icon>delete</mat-icon>
+                          <span>Delete Document</span>
+                        </button>
+                      </mat-menu>
+                    </div>
+                  </div>
+
+                  <h3 class="doc-title">{{ doc.title }}</h3>
+                  
+                  <div class="doc-meta-info">
+                    <span>📅 {{ doc.createdAt | date : 'mediumDate' }}</span>
+                    @if (doc.lastEditedBy) {
+                      <span>✏️ {{ doc.lastEditedBy }}</span>
+                    }
+                  </div>
+
+                  <div class="doc-footer">
+                    @if (doc.sharedWith && doc.sharedWith.length > 0) {
+                      <span class="shared-users-chip">👥 Shared ({{ doc.sharedWith.length }})</span>
+                    } @else {
+                      <span class="private-chip">🔒 Private</span>
+                    }
+                    <button class="btn-open-card" (click)="openDocument(doc.id)">
+                      Launch Editor <mat-icon>arrow_forward</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </section>
       }
+
+      <!-- Shared With Me Section -->
+      @if (activeTab() === 'all' || activeTab() === 'shared' || activeTab() === 'favorites') {
+        <section class="documents-section">
+          <div class="section-title">
+            <h2>👥 Shared With Me</h2>
+            <span class="count-badge shared">{{ getFilteredSharedDocs().length }}</span>
+          </div>
+
+          @if (getFilteredSharedDocs().length === 0) {
+            <div class="empty-card">
+              <p>No shared documents matching filter.</p>
+            </div>
+          } @else {
+            <div [class.documents-grid]="layoutView() === 'grid'" [class.documents-list]="layoutView() === 'list'">
+              @for (doc of getFilteredSharedDocs(); track doc.id) {
+                <div class="document-card shared-card" (click)="openSharedDoc(doc.documentId)">
+                  <div class="doc-card-top">
+                    <span class="lang-badge" [class]="getLanguageBadge(doc.documentTitle).class">
+                      <mat-icon>{{ getLanguageBadge(doc.documentTitle).icon }}</mat-icon>
+                      {{ getLanguageBadge(doc.documentTitle).name }}
+                    </span>
+                    <span class="owner-pill">By {{ doc.userName }}</span>
+                  </div>
+
+                  <h3 class="doc-title">{{ doc.documentTitle }}</h3>
+
+                  <div class="doc-meta-info">
+                    <span>👥 Access: <strong>{{ doc.accessLevel }}</strong></span>
+                    <span>📅 {{ doc.sharedAt | date : 'mediumDate' }}</span>
+                  </div>
+
+                  <div class="doc-footer">
+                    <span class="access-pill" [class.edit]="doc.accessLevel === 'Edit'">
+                      {{ doc.accessLevel === 'Edit' ? '✏️ Can Edit' : '📖 View Only' }}
+                    </span>
+                    <button class="btn-open-card" (click)="openSharedDoc(doc.documentId)">
+                      Open Pair Workspace <mat-icon>arrow_forward</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </section>
+      }
+    }
+
+    <!-- Platform Roadmap & Pending Feature Modules -->
+    <section class="roadmap-section">
+      <div class="section-title">
+        <h2>⚡ Platform Feature Roadmap (Pending Modules)</h2>
+        <span class="roadmap-pill">Under Active Development</span>
+      </div>
+
+      <div class="roadmap-grid">
+        <div class="roadmap-card">
+          <div class="card-icon">🤖</div>
+          <h3>AI Automated Unit Test Generator</h3>
+          <p>Automatic 1-click test generation using AST parsing and Gemini Flash for Python, Node.js, C#, and Java.</p>
+          <span class="status-tag pending">In Progress</span>
+        </div>
+
+        <div class="roadmap-card">
+          <div class="card-icon">🔄</div>
+          <h3>GitHub Repository Sync</h3>
+          <p>Connect your GitHub account to sync LiveSync documents directly to Git repositories and pull requests.</p>
+          <span class="status-tag planned">Planned</span>
+        </div>
+
+        <div class="roadmap-card">
+          <div class="card-icon">🎙️</div>
+          <h3>Voice & Video Pair Rooms</h3>
+          <p>Integrated WebRTC audio & video calling directly inside the collaborative code editor space.</p>
+          <span class="status-tag planned">Planned</span>
+        </div>
+
+        <div class="roadmap-card">
+          <div class="card-icon">🛡️</div>
+          <h3>nsjail / WASM Micro-Sandboxing</h3>
+          <p>Zero-network WebAssembly & container jail execution for ultra-secure public multi-tenant code running.</p>
+          <span class="status-tag in-progress">In Progress</span>
+        </div>
+      </div>
     </section>
   </main>
 

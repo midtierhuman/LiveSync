@@ -56,6 +56,60 @@ export class Dashboard implements OnInit {
   defaultAccessLevel = signal<string>('View');
   editingAccessLevelFor = signal<string | null>(null);
 
+  // Modern Dashboard Enhancements
+  searchQuery = signal<string>('');
+  activeTab = signal<'all' | 'mine' | 'shared' | 'favorites'>('all');
+  layoutView = signal<'grid' | 'list'>('grid');
+  starredDocIds = signal<Set<string>>(new Set(['starred_sample']));
+
+  toggleStar(docId: string, event?: Event) {
+    if (event) event.stopPropagation();
+    const current = new Set(this.starredDocIds());
+    if (current.has(docId)) {
+      current.delete(docId);
+    } else {
+      current.add(docId);
+    }
+    this.starredDocIds.set(current);
+  }
+
+  isStarred(docId: string): boolean {
+    return this.starredDocIds().has(docId);
+  }
+
+  getFilteredMyDocs(): DocumentDto[] {
+    const q = this.searchQuery().toLowerCase().trim();
+    return this.myDocuments().filter((d) => {
+      const matchesSearch = !q || d.title.toLowerCase().includes(q);
+      const matchesTab =
+        this.activeTab() === 'all' ||
+        this.activeTab() === 'mine' ||
+        (this.activeTab() === 'favorites' && this.isStarred(d.id));
+      return matchesSearch && matchesTab;
+    });
+  }
+
+  getFilteredSharedDocs(): SharedDocumentDto[] {
+    const q = this.searchQuery().toLowerCase().trim();
+    return this.sharedDocuments().filter((d) => {
+      const matchesSearch = !q || d.documentTitle.toLowerCase().includes(q) || (d.userName || '').toLowerCase().includes(q);
+      const matchesTab =
+        this.activeTab() === 'all' ||
+        this.activeTab() === 'shared' ||
+        (this.activeTab() === 'favorites' && this.isStarred(d.documentId));
+      return matchesSearch && matchesTab;
+    });
+  }
+
+  getLanguageBadge(title: string): { name: string; class: string; icon: string } {
+    const lowered = (title || '').toLowerCase();
+    if (lowered.endsWith('.py')) return { name: 'Python', class: 'python', icon: 'code' };
+    if (lowered.endsWith('.cs')) return { name: 'C# .NET', class: 'csharp', icon: 'terminal' };
+    if (lowered.endsWith('.java')) return { name: 'Java', class: 'java', icon: 'coffee' };
+    if (lowered.endsWith('.js') || lowered.endsWith('.ts')) return { name: 'Node.js', class: 'javascript', icon: 'javascript' };
+    return { name: 'Polyglot', class: 'generic', icon: 'data_object' };
+  }
+
   async ngOnInit() {
     await this.loadDocuments();
   }
