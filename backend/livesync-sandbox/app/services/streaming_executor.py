@@ -204,6 +204,9 @@ class StreamingExecutorService:
         elif language in ("csharp", "cs"):
             dotnet_path = shutil.which("dotnet")
             return dotnet_path, "Program.cs", ["run", "--project", "{dir}", "--no-restore", "--nologo"]
+        elif language in ("java",):
+            java_path = shutil.which("java")
+            return java_path, "Main.java", ["{file}"]
 
         return None, "", []
 

@@ -3,6 +3,7 @@ from app.services.executors.base import BaseExecutor
 from app.services.executors.python_executor import PythonExecutor
 from app.services.executors.node_executor import NodeExecutor
 from app.services.executors.csharp_executor import CSharpExecutor
+from app.services.executors.java_executor import JavaExecutor
 
 
 class ExecutionCatalog:
@@ -16,6 +17,7 @@ class ExecutionCatalog:
         "nodejs": "javascript",
         "ts": "javascript",
         "typescript": "javascript",
+        "java": "java",
     }
 
     def __init__(self) -> None:
@@ -23,6 +25,7 @@ class ExecutionCatalog:
         self.register_executor(PythonExecutor())
         self.register_executor(NodeExecutor())
         self.register_executor(CSharpExecutor())
+        self.register_executor(JavaExecutor())
 
     def register_executor(self, executor: BaseExecutor) -> None:
         self._executors[executor.language_name.lower()] = executor

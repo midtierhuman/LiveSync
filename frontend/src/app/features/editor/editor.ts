@@ -45,6 +45,7 @@ import {
 import { foldKeymap, StreamLanguage } from '@codemirror/language';
 import { csharp } from '@codemirror/legacy-modes/mode/clike';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
 import { json } from '@codemirror/lang-json';
@@ -516,6 +517,8 @@ export class Editor implements OnInit {
 
   private getLanguageExtension(language: string) {
     switch ((language || '').toLowerCase()) {
+      case 'java':
+        return java();
       case 'csharp':
       case 'cs':
         return StreamLanguage.define(csharp);
@@ -720,7 +723,7 @@ export class Editor implements OnInit {
       return;
     }
 
-    if (lang === 'csharp' || lang === 'cs') {
+    if (lang === 'csharp' || lang === 'cs' || lang === 'java') {
       const formatted = this.formatCSharpCode(source);
       if (formatted !== source) {
         this.codeSignal.set(formatted);
@@ -1014,6 +1017,10 @@ export class Editor implements OnInit {
       return 'csharp';
     }
 
+    if (loweredName.endsWith('.java')) {
+      return 'java';
+    }
+
     if (
       loweredName.endsWith('.js') ||
       loweredName.endsWith('.mjs') ||
@@ -1054,6 +1061,10 @@ export class Editor implements OnInit {
 
     if (/\busing\s+System|\bnamespace\s+\w+|\bConsole\.Write/i.test(trimmed)) {
       return 'csharp';
+    }
+
+    if (/\bpublic\s+class\b|\bpublic\s+static\s+void\s+main\b|\bSystem\.out\.print/i.test(trimmed)) {
+      return 'java';
     }
 
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {

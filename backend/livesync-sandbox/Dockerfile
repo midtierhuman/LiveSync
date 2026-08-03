@@ -1,12 +1,13 @@
 FROM python:3.14-slim
 
-# Install system dependencies (curl, Node.js runtime, .NET SDK)
+# Install system dependencies (curl, Node.js runtime, OpenJDK, .NET SDK)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     ca-certificates \
     wget \
     libicu76 \
+    default-jdk-headless \
     && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
