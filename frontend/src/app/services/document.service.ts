@@ -213,12 +213,16 @@ export class DocumentService {
     id: string,
     action: string,
     language: string,
+    code?: string,
+    prompt?: string,
   ): Promise<AiAnalysisResponse> {
     try {
       return await firstValueFrom(
         this.http.post<AiAnalysisResponse>(`${this.apiUrl}/${id}/ai-assistant`, {
           action,
           language,
+          code,
+          prompt,
         }),
       );
     } catch (error) {

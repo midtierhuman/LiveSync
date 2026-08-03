@@ -852,28 +852,33 @@ export class Editor implements OnInit {
   private startY = 0;
   private startHeight = 280;
 
-  startResizingTerminal(event: MouseEvent): void {
-    event.preventDefault();
+  startResizingTerminal(event: MouseEvent | TouchEvent): void {
+    const clientY = 'touches' in event ? event.touches[0].clientY : (event as MouseEvent).clientY;
     this.isResizingTerminal = true;
-    this.startY = event.clientY;
+    this.startY = clientY;
     this.startHeight = this.terminalHeight();
 
-    const onMouseMove = (moveEvent: MouseEvent) => {
+    const onMove = (moveEvent: MouseEvent | TouchEvent) => {
       if (!this.isResizingTerminal) return;
-      const deltaY = this.startY - moveEvent.clientY;
+      const currentY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : (moveEvent as MouseEvent).clientY;
+      const deltaY = this.startY - currentY;
       const maxHeight = Math.max(window.innerHeight - 160, 300);
       const newHeight = Math.min(Math.max(this.startHeight + deltaY, 120), maxHeight);
       this.terminalHeight.set(newHeight);
     };
 
-    const onMouseUp = () => {
+    const onEnd = () => {
       this.isResizingTerminal = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
     };
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('touchend', onEnd);
   }
 
   resetTerminalHeight(): void {
@@ -1172,6 +1177,8 @@ export class Editor implements OnInit {
   readonly isAiLoading = signal<boolean>(false);
   readonly aiResult = signal<import('../../services/document.service').AiAnalysisResponse | null>(null);
   readonly aiError = signal<string>('');
+  readonly userCustomPrompt = signal<string>('');
+  readonly aiCopiedState = signal<boolean>(false);
 
   toggleAiDrawer(): void {
     this.showAiDrawer.update((v) => !v);
@@ -1180,7 +1187,19 @@ export class Editor implements OnInit {
     }
   }
 
-  async runAiAnalysis(action: string): Promise<void> {
+  refreshAiAnalysis(): void {
+    void this.runAiAnalysis(this.aiAction());
+  }
+
+  async sendCustomAiPrompt(): Promise<void> {
+    const customPrompt = this.userCustomPrompt().trim();
+    if (!customPrompt || this.isAiLoading()) return;
+
+    this.userCustomPrompt.set('');
+    await this.runAiAnalysis('chat', customPrompt);
+  }
+
+  async runAiAnalysis(action: string, customPrompt?: string): Promise<void> {
     const docId = this.docId();
     if (!docId) return;
 
@@ -1189,13 +1208,23 @@ export class Editor implements OnInit {
     this.aiError.set('');
 
     try {
-      const language = this.selectedExecutionLanguage() || 'python';
-      const result = await this.documentService.aiAssistant(docId, action, language);
+      const language = this.selectedExecutionLanguage() || this.currentLanguage() || 'python';
+      const code = this.codeSignal();
+      const result = await this.documentService.aiAssistant(docId, action, language, code, customPrompt);
       this.aiResult.set(result);
     } catch (error: unknown) {
       this.aiError.set('AI assistant request failed. Please try again.');
     } finally {
       this.isAiLoading.set(false);
+    }
+  }
+
+  copyAiExplanation(): void {
+    const exp = this.aiResult()?.explanation;
+    if (exp) {
+      navigator.clipboard.writeText(exp);
+      this.aiCopiedState.set(true);
+      setTimeout(() => this.aiCopiedState.set(false), 2000);
     }
   }
 

@@ -12,8 +12,8 @@ router = APIRouter(prefix="/api/ai", tags=["AI Assistant"])
     summary="AST AI Code Assistant & Code Suggestions",
 )
 async def analyze_code(request: AiAnalysisRequest):
-    """Provides AST-driven code explanations, refactoring tips, auto-generated unit tests, and completion suggestions."""
-    res = ai_assistant_service.analyze(request.action, request.language, request.code)
+    """Provides AST-driven code explanations, refactoring tips, auto-generated unit tests, and interactive chat responses."""
+    res = ai_assistant_service.analyze(request.action, request.language, request.code, custom_prompt=request.prompt)
     return AiAnalysisResponse(
         action=res.action,
         language=res.language,

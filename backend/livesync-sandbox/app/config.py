@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "LiveSync Polyglot Sandbox Service"
     environment: str = "Development"
     default_timeout_ms: int = 15000
+    gemini_api_key: str | None = None
     cors_allowed_origins: list[str] = [
         "http://localhost:4200",
         "http://localhost:4000",

@@ -5,9 +5,10 @@ from pydantic.alias_generators import to_camel
 class AiAnalysisRequest(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    action: str = Field(default="explain")  # explain, refactor, generate-tests, suggest
+    action: str = Field(default="explain")  # explain, refactor, generate-tests, suggest, chat
     language: str = Field(default="python")
     code: str
+    prompt: str | None = None
 
 
 class AiAnalysisResponse(BaseModel):

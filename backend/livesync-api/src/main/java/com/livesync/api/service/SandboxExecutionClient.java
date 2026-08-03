@@ -62,9 +62,15 @@ public class SandboxExecutionClient {
         } catch (Exception exception) { throw new IllegalStateException("Sandbox execution request failed.", exception); }
     }
 
-    public com.livesync.api.dto.DocumentDtos.AiAnalysisResponse analyzeAi(String action, String language, String code) {
+    public com.livesync.api.dto.DocumentDtos.AiAnalysisResponse analyzeAi(String action, String language, String code, String prompt) {
         try {
-            var payload = java.util.Map.of("action", action, "language", language, "code", code);
+            var payload = new java.util.HashMap<String, String>();
+            payload.put("action", action);
+            payload.put("language", language);
+            payload.put("code", code);
+            if (prompt != null && !prompt.isBlank()) {
+                payload.put("prompt", prompt);
+            }
             String body = json.writeValueAsString(payload);
             var request = HttpRequest.newBuilder(base.resolve("api/ai/analyze"))
                 .version(HttpClient.Version.HTTP_1_1)

@@ -229,10 +229,15 @@
     @if (showAiDrawer()) {
       <aside class="ai-assistant-drawer">
         <div class="drawer-header">
-          <h3><mat-icon>psychology</mat-icon> AI Code Assistant</h3>
-          <button mat-icon-button (click)="toggleAiDrawer()">
-            <mat-icon>close</mat-icon>
-          </button>
+          <h3><mat-icon>psychology</mat-icon> AI Pair Assistant</h3>
+          <div class="header-actions">
+            <button mat-icon-button (click)="refreshAiAnalysis()" [disabled]="isAiLoading()" matTooltip="Refresh AI Analysis">
+              <mat-icon [class.spinning]="isAiLoading()">refresh</mat-icon>
+            </button>
+            <button mat-icon-button (click)="toggleAiDrawer()" matTooltip="Close Panel">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
         </div>
 
         <div class="ai-action-tabs">
@@ -253,12 +258,21 @@
         <div class="ai-drawer-body">
           @if (isAiLoading()) {
             <div class="ai-loading">
-              <span class="spinner-icon">⚡</span> Analyzing AST & generating suggestions...
+              <span class="spinner-icon">⚡</span> Analyzing code & generating AI insights...
             </div>
           } @else if (aiError()) {
-            <div class="ai-error-box">{{ aiError() }}</div>
+            <div class="ai-error-box">
+              <span>{{ aiError() }}</span>
+              <button mat-button color="primary" (click)="refreshAiAnalysis()">Retry</button>
+            </div>
           } @else if (aiResult()) {
             <div class="ai-result-content">
+              <div class="explanation-box-header">
+                <button mat-button class="copy-exp-btn" (click)="copyAiExplanation()">
+                  <mat-icon>{{ aiCopiedState() ? 'check' : 'content_copy' }}</mat-icon>
+                  {{ aiCopiedState() ? 'Copied' : 'Copy Response' }}
+                </button>
+              </div>
               <pre class="ai-explanation">{{ aiResult()?.explanation }}</pre>
 
               @if (aiResult()?.suggestions && aiResult()!.suggestions.length > 0) {
@@ -286,6 +300,20 @@
             </div>
           }
         </div>
+
+        <div class="ai-chat-input-bar">
+          <input
+            type="text"
+            placeholder="Ask AI question or custom instruction..."
+            [value]="userCustomPrompt()"
+            (input)="userCustomPrompt.set($any($event.target).value)"
+            (keyup.enter)="sendCustomAiPrompt()"
+            [disabled]="isAiLoading()"
+          />
+          <button mat-icon-button color="primary" (click)="sendCustomAiPrompt()" [disabled]="!userCustomPrompt().trim() || isAiLoading()">
+            <mat-icon>send</mat-icon>
+          </button>
+        </div>
       </aside>
     }
   </div>
@@ -295,6 +323,7 @@
       <div
         class="terminal-resize-handle"
         (mousedown)="startResizingTerminal($event)"
+        (touchstart)="startResizingTerminal($event)"
         (dblclick)="resetTerminalHeight()"
         matTooltip="Drag up/down to resize terminal (Double-click to reset)"
       >
@@ -375,6 +404,7 @@
       <div
         class="terminal-resize-handle"
         (mousedown)="startResizingTerminal($event)"
+        (touchstart)="startResizingTerminal($event)"
         (dblclick)="resetTerminalHeight()"
         matTooltip="Drag up/down to resize panel (Double-click to reset)"
       >

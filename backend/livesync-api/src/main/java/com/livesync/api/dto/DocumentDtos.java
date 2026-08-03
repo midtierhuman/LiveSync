@@ -55,7 +55,7 @@ public final class DocumentDtos {
                                             Instant requestedAt, Instant completedAt) {
     }
 
-    public record AiAnalysisRequest(String action, String language) {
+    public record AiAnalysisRequest(String action, String language, String code, String prompt) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

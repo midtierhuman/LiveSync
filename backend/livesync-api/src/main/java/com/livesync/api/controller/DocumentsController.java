@@ -136,10 +136,14 @@ public class DocumentsController {
     public ResponseEntity<?> aiAssistant(@PathVariable String id, @RequestBody AiAnalysisRequest request, Authentication auth) {
         var document = documents.find(id, user(auth));
         if (document.isEmpty()) return ResponseEntity.notFound().build();
+        String codeToAnalyze = (request.code() != null && !request.code().isBlank())
+            ? request.code()
+            : document.get().content();
         var result = sandbox.analyzeAi(
             request.action() == null ? "explain" : request.action(),
             request.language() == null ? "python" : request.language(),
-            document.get().content()
+            codeToAnalyze,
+            request.prompt()
         );
         return ResponseEntity.ok(result);
     }
