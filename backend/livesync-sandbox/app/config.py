@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "LiveSync Polyglot Sandbox Service"
     environment: str = "Development"
-    default_timeout_ms: int = 10000
+    default_timeout_ms: int = 15000
     cors_allowed_origins: list[str] = [
         "http://localhost:4200",
         "http://localhost:4000",

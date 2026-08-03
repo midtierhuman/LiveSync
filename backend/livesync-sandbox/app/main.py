@@ -1,8 +1,23 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.config import settings
 from app.routers import execution, ai
+from app.services.csharp_warmup import csharp_warmup_service
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Pre-warming polyglot code execution runtimes...")
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, csharp_warmup_service.initialize)
+    yield
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -10,7 +25,9 @@ app = FastAPI(
     description="Polyglot Code Execution Sandbox microservice for LiveSync built with Python and FastAPI",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
+
 
 # CORS middleware
 app.add_middleware(

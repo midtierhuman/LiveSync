@@ -11,6 +11,7 @@ public class JsonConfiguration {
     @Bean
     ObjectMapper objectMapper() {
         return new ObjectMapper().registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 }
+

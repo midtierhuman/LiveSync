@@ -58,6 +58,10 @@ class StreamingExecutorService:
                 return
 
             temp_dir = tempfile.mkdtemp(prefix=f"livesync_stream_{language}_")
+            if language in ("csharp", "cs"):
+                from app.services.csharp_warmup import csharp_warmup_service
+                csharp_warmup_service.prepare_csharp_dir(temp_dir)
+
             script_path = os.path.join(temp_dir, file_name)
 
             with open(script_path, "w", encoding="utf-8") as f:
@@ -65,6 +69,7 @@ class StreamingExecutorService:
 
             # Insert target file into command args if applicable
             full_cmd = [executable] + [arg.format(file=script_path, dir=temp_dir) for arg in command_args]
+
 
             # Spawn interactive subprocess
             process = await asyncio.create_subprocess_exec(
@@ -198,7 +203,8 @@ class StreamingExecutorService:
             return node_path, "script.js", ["{file}"]
         elif language in ("csharp", "cs"):
             dotnet_path = shutil.which("dotnet")
-            return dotnet_path, "Program.cs", ["run", "--project", "{dir}", "--nologo"]
+            return dotnet_path, "Program.cs", ["run", "--project", "{dir}", "--no-restore", "--nologo"]
+
         return None, "", []
 
 

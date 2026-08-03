@@ -1,5 +1,6 @@
 package com.livesync.api.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.livesync.api.dto.DocumentDtos.ExecutionLanguageDescriptor;
@@ -19,7 +20,9 @@ import org.slf4j.LoggerFactory;
 public class SandboxExecutionClient {
     private static final Logger log = LoggerFactory.getLogger(SandboxExecutionClient.class);
     public record SandboxRequest(String language, String code, String standardInput) {}
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record SandboxResponse(String language, String status, boolean isSuccess, String message, String standardOutput, String standardError, Integer exitCode, Double executionDurationMs, Long peakMemoryBytes, Double cpuTimeMs, String timeComplexity, String spaceComplexity, String complexityExplanation, Instant requestedAt, Instant completedAt) {}
+
     private final HttpClient client = HttpClient.newHttpClient();
     private final ObjectMapper json; private final URI base;
     public SandboxExecutionClient(ObjectMapper json, @Value("${livesync.sandbox.base-url}") String baseUrl) { this.json = json; this.base = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/"); }

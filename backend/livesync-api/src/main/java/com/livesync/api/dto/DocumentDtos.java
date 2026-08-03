@@ -1,5 +1,8 @@
 package com.livesync.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -55,6 +58,14 @@ public final class DocumentDtos {
     public record AiAnalysisRequest(String action, String language) {
     }
 
-    public record AiAnalysisResponse(String action, String language, String explanation, List<String> suggestions, String generatedCode) {
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record AiAnalysisResponse(
+            String action,
+            String language,
+            String explanation,
+            List<String> suggestions,
+            @JsonProperty("generatedCode") @JsonAlias({"generated_code", "generatedCode"}) String generatedCode
+    ) {
     }
 }
+

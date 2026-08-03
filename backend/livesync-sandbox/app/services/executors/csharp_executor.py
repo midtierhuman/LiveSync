@@ -16,6 +16,9 @@ from app.services.metrics import (
 )
 
 
+from app.services.csharp_warmup import csharp_warmup_service
+
+
 class CSharpExecutor(BaseExecutor):
     @property
     def language_name(self) -> str:
@@ -50,22 +53,10 @@ class CSharpExecutor(BaseExecutor):
             )
 
         temp_dir = tempfile.mkdtemp(prefix="livesync_cs_")
+        csharp_warmup_service.prepare_csharp_dir(temp_dir)
         file_path = os.path.join(temp_dir, "Program.cs")
-        proj_path = os.path.join(temp_dir, "SandboxApp.csproj")
-
-        cs_proj_content = """<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-</Project>"""
 
         try:
-            with open(proj_path, "w", encoding="utf-8") as f:
-                f.write(cs_proj_content)
-
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(request.code)
 
@@ -74,11 +65,13 @@ class CSharpExecutor(BaseExecutor):
                 "run",
                 "--project",
                 temp_dir,
+                "--no-restore",
                 "--nologo",
                 stdin=asyncio.subprocess.PIPE if request.standard_input else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+
 
             stdin_data = request.standard_input.encode("utf-8") if request.standard_input else None
 

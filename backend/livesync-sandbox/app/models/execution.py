@@ -16,7 +16,7 @@ class SandboxExecutionRequest(BaseModel):
     language: str
     code: str
     standard_input: str | None = Field(default=None)
-    timeout_ms: int = Field(default=10000)
+    timeout_ms: int = Field(default=15000)
 
 
 class SandboxExecutionResponse(BaseModel):
