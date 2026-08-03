@@ -788,29 +788,6 @@ button.active-mode {
   border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.standard-input {
-  flex-shrink: 0;
-  display: grid;
-  gap: 4px;
-  padding: 8px 12px;
-  background: #252526;
-  color: #cccccc;
-  border-top: 1px solid #3c3c3c;
-  font-size: 12px;
-
-  textarea {
-    resize: vertical;
-    min-height: 32px;
-    max-height: 100px;
-    padding: 6px 8px;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    border: 1px solid #555;
-    border-radius: 3px;
-    font: inherit;
-  }
-}
-
 .interactive-terminal-panel {
   flex-shrink: 0;
   max-height: 240px;

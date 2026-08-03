@@ -301,16 +301,6 @@
     }
   </div>
 
-  <label class="standard-input">
-    <span>Standard input for C# execution</span>
-    <textarea
-      [value]="standardInput()"
-      (input)="setStandardInput($event)"
-      placeholder="Optional input passed to the program"
-      rows="2"
-    ></textarea>
-  </label>
-
   @if (streamService.isStreaming() || streamService.streamOutput() || streamService.streamErrorOutput() || streamService.finalExecutionResult()) {
     <section class="interactive-terminal-panel">
       <div class="terminal-header">

@@ -48,10 +48,10 @@ LiveSync is a polyglot system:
 |------|-------------|
 | [AWS_DEPLOYMENT_GUIDE.md](./deployment/AWS_DEPLOYMENT_GUIDE.md) | Guide for deploying to AWS |
 
-## Architecture & Roadmap
+## Architecture & Readiness
 
 | File | Description |
 |------|-------------|
 | [CONFLICT_RESOLUTION_DESIGN.md](./CONFLICT_RESOLUTION_DESIGN.md) | Real-time conflict resolution design |
-| [FAANG_READINESS_CHECKLIST.md](./FAANG_READINESS_CHECKLIST.md) | Production & FAANG readiness checklist |
+| [FAANG_READINESS_CHECKLIST.md](./FAANG_READINESS_CHECKLIST.md) | FAANG & production readiness checklist |
 | [PROJECT_ROADMAP.md](./PROJECT_ROADMAP.md) | Project roadmap & feature milestones |

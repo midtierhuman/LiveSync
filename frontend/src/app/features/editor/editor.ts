@@ -105,7 +105,6 @@ export class Editor implements OnInit {
   readonly isExecuting = signal(false);
   readonly executionResult = signal<DocumentExecutionResponse | null>(null);
   readonly executionError = signal('');
-  readonly standardInput = signal('');
   readonly executionLanguages = signal<ExecutionLanguageOption[]>([]);
   readonly selectedExecutionLanguage = signal('');
   readonly isLoadingExecutionLanguages = signal(false);
@@ -692,10 +691,6 @@ export class Editor implements OnInit {
 
   closeTerminal(): void {
     this.streamService.closeTerminal();
-  }
-
-  setStandardInput(event: Event): void {
-    this.standardInput.set((event.target as HTMLTextAreaElement).value);
   }
 
   toggleAutoMode(): void {
