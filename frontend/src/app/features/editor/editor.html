@@ -54,6 +54,14 @@
         >
           <mat-icon>{{ isExecuting() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
         </button>
+        <button
+          mat-icon-button
+          (click)="runCodeStream()"
+          [disabled]="!isEditable() || streamService.isStreaming() || !selectedExecutionLanguage()"
+          [matTooltip]="'Interactive REPL Stream (' + (selectedExecutionLanguage() || 'language') + ')'"
+        >
+          <mat-icon>{{ streamService.isStreaming() ? 'sync' : 'terminal' }}</mat-icon>
+        </button>
         <button mat-icon-button (click)="toggleWordWrap()" matTooltip="Toggle Word Wrap">
           <mat-icon>{{ isWordWrapEnabled() ? 'wrap_text' : 'notes' }}</mat-icon>
         </button>
@@ -65,6 +73,53 @@
         </button>
         <button mat-icon-button (click)="copyCode()" matTooltip="Copy Code">
           <mat-icon>content_copy</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          (click)="startTimeTravelSession()"
+          [class.active-mode]="timeTravelService.isTimeTravelActive()"
+          matTooltip="Time-Travel Replay & Revision Diff"
+        >
+          <mat-icon>history</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          (click)="toggleAiDrawer()"
+          [class.active-mode]="showAiDrawer()"
+          matTooltip="AI Code Assistant & Suggestions"
+        >
+          <mat-icon>psychology</mat-icon>
+        </button>
+
+        <!-- Active Collaborators Follow Mode Avatars -->
+        <div class="collaborator-avatars">
+          @for (collaborator of realtimeService.activeCollaborators(); track collaborator.userId) {
+            <button
+              class="collaborator-badge"
+              [class.following]="realtimeService.followedUserId() === collaborator.userId"
+              [style.borderColor]="collaborator.color"
+              (click)="toggleFollowUser(collaborator.userId)"
+              [matTooltip]="(realtimeService.followedUserId() === collaborator.userId ? 'Unfollow ' : 'Follow Mode: ') + (collaborator.userName || 'Collaborator')"
+            >
+              <span class="user-avatar" [style.backgroundColor]="collaborator.color">
+                {{ (collaborator.userName || 'C').substring(0, 1).toUpperCase() }}
+              </span>
+              @if (realtimeService.followedUserId() === collaborator.userId) {
+                <span class="eye-icon">👁️</span>
+              }
+            </button>
+          }
+        </div>
+
+        <button
+          mat-icon-button
+          (click)="toggleCommentsSidebar()"
+          [matTooltip]="'Threaded Code Comments (' + realtimeService.comments().length + ')'"
+        >
+          <mat-icon>chat_bubble_outline</mat-icon>
+          @if (realtimeService.comments().length > 0) {
+            <span class="comment-count-badge">{{ realtimeService.comments().length }}</span>
+          }
         </button>
       </div>
     </div>
@@ -80,8 +135,164 @@
     </div>
   }
 
+  @if (realtimeService.followedUserId()) {
+    <div class="spectator-banner">
+      <span class="spectator-text">
+        👁️ <strong>Spectator Mode</strong>: Following <strong>{{ followedUserName() }}</strong> (Line {{ followedLineNumber() }})
+      </span>
+      <button mat-button class="unfollow-btn" (click)="realtimeService.unfollowUser()">Stop Following</button>
+    </div>
+  }
+
   <div class="editor-container">
     <div #editorHost class="monaco-host"></div>
+
+    @if (showCommentsSidebar()) {
+      <aside class="comments-sidebar">
+        <div class="sidebar-header">
+          <h3><mat-icon>chat</mat-icon> Threaded Code Comments</h3>
+          <button mat-icon-button (click)="toggleCommentsSidebar()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <!-- Add Comment Box for Selected Line -->
+        <div class="add-comment-box">
+          <label>Add comment on Line {{ selectedLineForComment() }}</label>
+          <textarea
+            [value]="newCommentText()"
+            (input)="newCommentText.set($any($event.target).value)"
+            placeholder="Type your comment..."
+            rows="2"
+          ></textarea>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="addCommentOnCurrentLine()"
+            [disabled]="!newCommentText().trim()"
+          >
+            Post Comment
+          </button>
+        </div>
+
+        <!-- Threaded Comments List -->
+        <div class="comments-list">
+          @for (comment of realtimeService.comments(); track comment.id) {
+            <div class="comment-card" [class.resolved]="comment.resolved">
+              <div class="comment-card-header">
+                <span class="author-name">{{ comment.authorName }}</span>
+                <button class="line-badge" (click)="scrollToCommentLine(comment.lineNumber)">
+                  Line {{ comment.lineNumber }}
+                </button>
+                <span class="comment-time">{{ comment.createdAt }}</span>
+              </div>
+
+              <p class="comment-body">{{ comment.text }}</p>
+
+              <!-- Replies List -->
+              @if (comment.replies && comment.replies.length > 0) {
+                <div class="replies-list">
+                  @for (reply of comment.replies; track reply.id) {
+                    <div class="reply-card">
+                      <strong class="reply-author">{{ reply.authorName }}:</strong>
+                      <span class="reply-text">{{ reply.text }}</span>
+                      <span class="reply-time">{{ reply.createdAt }}</span>
+                    </div>
+                  }
+                </div>
+              }
+
+              <!-- Reply Input -->
+              <div class="reply-input-box">
+                <input
+                  type="text"
+                  [value]="replyDrafts()[comment.id] || ''"
+                  (input)="updateReplyDraft(comment.id, $any($event.target).value)"
+                  (keyup.enter)="addReplyToComment(comment.id)"
+                  placeholder="Reply to thread..."
+                />
+                <button mat-icon-button (click)="addReplyToComment(comment.id)">
+                  <mat-icon>send</mat-icon>
+                </button>
+              </div>
+
+              <div class="comment-actions">
+                <button mat-button (click)="toggleResolveComment(comment.id)">
+                  {{ comment.resolved ? 'Reopen' : 'Resolve' }}
+                </button>
+                <button mat-button color="warn" (click)="deleteComment(comment.id)">Delete</button>
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-comments">No comments on this document yet. Type above to add a comment on line {{ selectedLineForComment() }}.</div>
+          }
+        </div>
+      </aside>
+    }
+
+    <!-- AI Code Assistant Drawer -->
+    @if (showAiDrawer()) {
+      <aside class="ai-assistant-drawer">
+        <div class="drawer-header">
+          <h3><mat-icon>psychology</mat-icon> AI Code Assistant</h3>
+          <button mat-icon-button (click)="toggleAiDrawer()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="ai-action-tabs">
+          <button [class.active]="aiAction() === 'explain'" (click)="runAiAnalysis('explain')">
+            💡 Explain
+          </button>
+          <button [class.active]="aiAction() === 'refactor'" (click)="runAiAnalysis('refactor')">
+            ⚡ Refactor
+          </button>
+          <button [class.active]="aiAction() === 'generate-tests'" (click)="runAiAnalysis('generate-tests')">
+            🛠️ Tests
+          </button>
+          <button [class.active]="aiAction() === 'suggest'" (click)="runAiAnalysis('suggest')">
+            ✨ Suggest
+          </button>
+        </div>
+
+        <div class="ai-drawer-body">
+          @if (isAiLoading()) {
+            <div class="ai-loading">
+              <span class="spinner-icon">⚡</span> Analyzing AST & generating suggestions...
+            </div>
+          } @else if (aiError()) {
+            <div class="ai-error-box">{{ aiError() }}</div>
+          } @else if (aiResult()) {
+            <div class="ai-result-content">
+              <pre class="ai-explanation">{{ aiResult()?.explanation }}</pre>
+
+              @if (aiResult()?.suggestions && aiResult()!.suggestions.length > 0) {
+                <div class="suggestions-list">
+                  <h4>Key Recommendations:</h4>
+                  <ul>
+                    @for (sug of aiResult()!.suggestions; track sug) {
+                      <li>{{ sug }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              @if (aiResult()?.generatedCode) {
+                <div class="generated-code-box">
+                  <div class="code-box-header">
+                    <span>Generated Snippet</span>
+                    <button mat-raised-button color="primary" (click)="applyAiGeneratedCode()">
+                      Apply to Editor
+                    </button>
+                  </div>
+                  <pre class="code-preview">{{ aiResult()?.generatedCode }}</pre>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </aside>
+    }
   </div>
 
   <label class="standard-input">
@@ -94,6 +305,68 @@
     ></textarea>
   </label>
 
+  @if (streamService.isStreaming() || streamService.streamOutput() || streamService.streamErrorOutput() || streamService.finalExecutionResult()) {
+    <section class="interactive-terminal-panel">
+      <div class="terminal-header">
+        <span class="terminal-title">
+          <mat-icon>terminal</mat-icon> Live REPL Session [{{ streamService.streamStatus() }}]
+        </span>
+        @if (streamService.isStreaming()) {
+          <button mat-button color="warn" (click)="stopStream()" class="stop-stream-btn">
+            <mat-icon>stop</mat-icon> Stop Session
+          </button>
+        }
+      </div>
+
+      @if (streamService.finalExecutionResult()?.executionDurationMs !== undefined || streamService.finalExecutionResult()?.timeComplexity) {
+        <div class="execution-metrics-bar">
+          @if (streamService.finalExecutionResult()?.executionDurationMs) {
+            <span class="metric-chip duration" title="Execution duration in milliseconds">
+              <span class="chip-icon">⏱️</span> {{ streamService.finalExecutionResult()?.executionDurationMs }} ms
+            </span>
+          }
+          @if (streamService.finalExecutionResult()?.peakMemoryBytes) {
+            <span class="metric-chip memory" title="Peak RAM memory usage">
+              <span class="chip-icon">💾</span> {{ (streamService.finalExecutionResult()?.peakMemoryBytes || 0) / 1024 / 1024 | number:'1.1-2' }} MB
+            </span>
+          }
+          @if (streamService.finalExecutionResult()?.timeComplexity) {
+            <span class="metric-chip complexity-time" title="Estimated Time Complexity">
+              <span class="chip-icon">⚡</span> Time: <strong>{{ streamService.finalExecutionResult()?.timeComplexity }}</strong>
+            </span>
+          }
+          @if (streamService.finalExecutionResult()?.spaceComplexity) {
+            <span class="metric-chip complexity-space" title="Estimated Space Complexity">
+              <span class="chip-icon">📦</span> Space: <strong>{{ streamService.finalExecutionResult()?.spaceComplexity }}</strong>
+            </span>
+          }
+        </div>
+      }
+
+      @if (streamService.finalExecutionResult()?.complexityExplanation) {
+        <div class="complexity-insight">
+          <span class="insight-icon">💡</span> {{ streamService.finalExecutionResult()?.complexityExplanation }}
+        </div>
+      }
+
+      <pre class="terminal-body">{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
+
+      @if (streamService.isStreaming()) {
+        <div class="terminal-input-bar">
+          <span class="prompt-symbol">&gt;</span>
+          <input
+            type="text"
+            [value]="interactiveInput()"
+            (input)="interactiveInput.set($any($event.target).value)"
+            (keyup.enter)="sendInteractiveInput()"
+            placeholder="Type stdin input and press Enter..."
+          />
+          <button mat-raised-button color="primary" (click)="sendInteractiveInput()">Send</button>
+        </div>
+      }
+    </section>
+  }
+
   @if (executionResult() || executionError()) {
     <section
       class="execution-panel"
@@ -103,12 +376,107 @@
         <strong>Execution {{ executionResult()?.status || 'failed' }}</strong>
         <span>{{ executionResult()?.message || executionError() }}</span>
       </div>
+
+      @if (executionResult()?.executionDurationMs !== undefined || executionResult()?.timeComplexity) {
+        <div class="execution-metrics-bar">
+          @if (executionResult()?.executionDurationMs !== undefined && executionResult()?.executionDurationMs !== null) {
+            <span class="metric-chip duration" title="Execution duration in milliseconds">
+              <span class="chip-icon">⏱️</span> {{ executionResult()?.executionDurationMs }} ms
+            </span>
+          }
+          @if (executionResult()?.peakMemoryBytes) {
+            <span class="metric-chip memory" title="Peak RAM memory usage">
+              <span class="chip-icon">💾</span> {{ (executionResult()?.peakMemoryBytes || 0) / 1024 / 1024 | number:'1.1-2' }} MB
+            </span>
+          }
+          @if (executionResult()?.timeComplexity) {
+            <span class="metric-chip complexity-time" title="Estimated Time Complexity">
+              <span class="chip-icon">⚡</span> Time: <strong>{{ executionResult()?.timeComplexity }}</strong>
+            </span>
+          }
+          @if (executionResult()?.spaceComplexity) {
+            <span class="metric-chip complexity-space" title="Estimated Space Complexity">
+              <span class="chip-icon">📦</span> Space: <strong>{{ executionResult()?.spaceComplexity }}</strong>
+            </span>
+          }
+        </div>
+      }
+
+      @if (executionResult()?.complexityExplanation) {
+        <div class="complexity-insight">
+          <span class="insight-icon">💡</span> {{ executionResult()?.complexityExplanation }}
+        </div>
+      }
+
       @if (executionResult()?.standardOutput) {
         <pre class="execution-output">{{ executionResult()?.standardOutput }}</pre>
       }
       @if (executionResult()?.standardError) {
         <pre class="execution-output execution-error">{{ executionResult()?.standardError }}</pre>
       }
+    </section>
+  }
+
+  <!-- Time-Travel Replay Bar -->
+  @if (timeTravelService.isTimeTravelActive()) {
+    <section class="time-travel-bar">
+      <div class="time-travel-controls">
+        <button mat-icon-button (click)="timeTravelService.stepBackward()" [disabled]="timeTravelService.currentRevisionIndex() <= 0" matTooltip="Step Back">
+          <mat-icon>skip_previous</mat-icon>
+        </button>
+        <button mat-icon-button (click)="timeTravelService.togglePlay()" matTooltip="Play/Pause Timeline">
+          <mat-icon>{{ timeTravelService.isPlaying() ? 'pause' : 'play_arrow' }}</mat-icon>
+        </button>
+        <button mat-icon-button (click)="timeTravelService.stepForward()" [disabled]="timeTravelService.currentRevisionIndex() >= timeTravelService.totalRevisions() - 1" matTooltip="Step Forward">
+          <mat-icon>skip_next</mat-icon>
+        </button>
+
+        <div class="speed-selector">
+          <button [class.active]="timeTravelService.playbackSpeed() === 1" (click)="timeTravelService.setSpeed(1)">1x</button>
+          <button [class.active]="timeTravelService.playbackSpeed() === 2" (click)="timeTravelService.setSpeed(2)">2x</button>
+          <button [class.active]="timeTravelService.playbackSpeed() === 5" (click)="timeTravelService.setSpeed(5)">5x</button>
+        </div>
+      </div>
+
+      <div class="time-travel-scrubber">
+        <input
+          type="range"
+          min="0"
+          [max]="timeTravelService.totalRevisions() > 0 ? timeTravelService.totalRevisions() - 1 : 0"
+          [value]="timeTravelService.currentRevisionIndex()"
+          (input)="seekRevision($event)"
+        />
+        <span class="revision-counter">
+          Rev {{ timeTravelService.currentRevisionIndex() + 1 }} / {{ timeTravelService.totalRevisions() }}
+        </span>
+      </div>
+
+      <div class="time-travel-actions">
+        <button mat-button (click)="toggleVisualDiff()" [class.active-diff]="showVisualDiff()">
+          <mat-icon>difference</mat-icon> {{ showVisualDiff() ? 'Hide Diff' : 'Visual Diff' }}
+        </button>
+        <button mat-icon-button (click)="exitTimeTravelSession()" matTooltip="Exit Time-Travel">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </section>
+  }
+
+  <!-- Visual Revision Line Diff Panel -->
+  @if (timeTravelService.isTimeTravelActive() && showVisualDiff()) {
+    <section class="visual-diff-panel">
+      <div class="diff-header">
+        <span><mat-icon>difference</mat-icon> Revision Visual Line Diff</span>
+      </div>
+      <div class="diff-body">
+        @for (line of timeTravelService.diffLines(); track $index) {
+          <div class="diff-line" [class]="line.type">
+            <span class="line-no">{{ line.lineNumber }}</span>
+            <span class="diff-prefix">{{ line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ' }}</span>
+            <span class="diff-text">{{ line.text }}</span>
+          </div>
+        }
+      </div>
     </section>
   }
 

@@ -61,8 +61,22 @@ export interface DocumentExecutionResponse {
   message: string;
   standardOutput?: string;
   standardError?: string;
+  executionDurationMs?: number;
+  peakMemoryBytes?: number;
+  cpuTimeMs?: number;
+  timeComplexity?: string;
+  spaceComplexity?: string;
+  complexityExplanation?: string;
   requestedAt: string;
   completedAt: string;
+}
+
+export interface AiAnalysisResponse {
+  action: string;
+  language: string;
+  explanation: string;
+  suggestions: string[];
+  generatedCode?: string;
 }
 
 interface MessageResponse {
@@ -184,6 +198,24 @@ export class DocumentService {
       return await firstValueFrom(this.http.get<string[]>(`${this.apiUrl}/execution-languages`));
     } catch (error) {
       console.error('Error fetching execution languages:', error);
+      throw error;
+    }
+  }
+
+  async aiAssistant(
+    id: string,
+    action: string,
+    language: string,
+  ): Promise<AiAnalysisResponse> {
+    try {
+      return await firstValueFrom(
+        this.http.post<AiAnalysisResponse>(`${this.apiUrl}/${id}/ai-assistant`, {
+          action,
+          language,
+        }),
+      );
+    } catch (error) {
+      console.error('Error running AI assistant:', error);
       throw error;
     }
   }

@@ -47,16 +47,20 @@ import { html } from '@codemirror/lang-html';
 import { markdown } from '@codemirror/lang-markdown';
 import { css } from '@codemirror/lang-css';
 import { RealtimeService } from '../../services/realtime.service';
+import { DecimalPipe } from '@angular/common';
 import {
   DocumentDto,
   DocumentExecutionResponse,
   DocumentService,
 } from '../../services/document.service';
+import { AuthService } from '../../services/auth.service';
+import { ExecutionStreamService } from '../../services/execution-stream.service';
+import { TimeTravelService } from '../../services/time-travel.service';
 
 @Component({
   selector: 'app-editor',
   standalone: true,
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, DecimalPipe],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
@@ -68,7 +72,10 @@ export class Editor implements OnInit {
 
   readonly realtimeService = inject(RealtimeService);
   readonly signalRService = this.realtimeService;
+  public readonly streamService = inject(ExecutionStreamService);
+  public readonly timeTravelService = inject(TimeTravelService);
   private readonly documentService = inject(DocumentService);
+  private readonly authService = inject(AuthService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -161,11 +168,27 @@ export class Editor implements OnInit {
     });
 
     effect(() => {
-      const editable = this.isEditable();
-      if (this.editorView) {
-        this.editorView.dispatch({
-          effects: this.readOnlyCompartment.reconfigure(EditorState.readOnly.of(!editable)),
-        });
+      const update = this.realtimeService.cursorUpdate();
+      const followedId = this.realtimeService.followedUserId();
+
+      if (update && followedId && update.userId === followedId && this.editorView) {
+        const targetLineNumber = update.lineNumber || 1;
+        const doc = this.editorView.state.doc;
+        if (targetLineNumber <= doc.lines) {
+          const line = doc.line(targetLineNumber);
+          this.editorView.dispatch({
+            selection: { anchor: line.from, head: line.from },
+            scrollIntoView: true,
+          });
+        }
+      }
+    });
+
+    effect(() => {
+      const snapContent = this.timeTravelService.currentSnapshotContent();
+      const isActive = this.timeTravelService.isTimeTravelActive();
+      if (isActive && snapContent !== undefined && this.editorView) {
+        this.updateEditorDocument(snapContent);
       }
     });
 
@@ -303,11 +326,111 @@ export class Editor implements OnInit {
     });
   }
 
+  readonly showCommentsSidebar = signal<boolean>(false);
+  readonly selectedLineForComment = signal<number>(1);
+  readonly newCommentText = signal<string>('');
+  readonly replyDrafts = signal<{ [commentId: string]: string }>({});
+
   private updateCursorLabel(state: EditorState) {
     const pos = state.selection.main.head;
     const line = state.doc.lineAt(pos);
     const col = pos - line.from + 1;
     this.cursorPosition.set(`Ln ${line.number}, Col ${col}`);
+    this.selectedLineForComment.set(line.number);
+
+    const currentDocId = this.docId();
+    if (currentDocId) {
+      void this.realtimeService.sendCursorPosition(
+        currentDocId,
+        pos,
+        line.number,
+        line.number,
+        this.authService.user()?.userName || 'Collaborator',
+      );
+    }
+  }
+
+  toggleCommentsSidebar(): void {
+    this.showCommentsSidebar.update((v) => !v);
+  }
+
+  toggleFollowUser(userId: string): void {
+    if (this.realtimeService.followedUserId() === userId) {
+      this.realtimeService.unfollowUser();
+    } else {
+      this.realtimeService.followUser(userId);
+    }
+  }
+
+  followedUserName(): string {
+    const id = this.realtimeService.followedUserId();
+    if (!id) return '';
+    const collaborator = this.realtimeService.activeCollaborators().find((c) => c.userId === id);
+    return collaborator?.userName || collaborator?.userId || id;
+  }
+
+  followedLineNumber(): number {
+    const id = this.realtimeService.followedUserId();
+    if (!id) return 1;
+    const collaborator = this.realtimeService.activeCollaborators().find((c) => c.userId === id);
+    return collaborator?.lineNumber || 1;
+  }
+
+  addCommentOnCurrentLine(): void {
+    const text = this.newCommentText().trim();
+    const docId = this.docId();
+    if (!text || !docId) return;
+
+    this.realtimeService.addComment(
+      docId,
+      this.selectedLineForComment(),
+      text,
+      this.authService.user()?.userName || 'Anonymous',
+    );
+    this.newCommentText.set('');
+  }
+
+  addReplyToComment(commentId: string): void {
+    const text = (this.replyDrafts()[commentId] || '').trim();
+    const docId = this.docId();
+    if (!text || !docId) return;
+
+    this.realtimeService.addCommentReply(
+      docId,
+      commentId,
+      text,
+      this.authService.user()?.userName || 'Anonymous',
+    );
+
+    this.replyDrafts.update((prev) => ({ ...prev, [commentId]: '' }));
+  }
+
+  updateReplyDraft(commentId: string, text: string): void {
+    this.replyDrafts.update((prev) => ({ ...prev, [commentId]: text }));
+  }
+
+  toggleResolveComment(commentId: string): void {
+    const docId = this.docId();
+    if (docId) {
+      this.realtimeService.resolveComment(docId, commentId);
+    }
+  }
+
+  deleteComment(commentId: string): void {
+    const docId = this.docId();
+    if (docId) {
+      this.realtimeService.deleteComment(docId, commentId);
+    }
+  }
+
+  scrollToCommentLine(lineNumber: number): void {
+    if (this.editorView && lineNumber > 0 && lineNumber <= this.editorView.state.doc.lines) {
+      const line = this.editorView.state.doc.line(lineNumber);
+      this.editorView.dispatch({
+        selection: { anchor: line.from, head: line.from },
+        scrollIntoView: true,
+      });
+    }
   }
 
   private getLanguageExtension(language: string) {
@@ -331,9 +454,7 @@ export class Editor implements OnInit {
   }
 
   private async setupSignalR() {
-    this.signalRService.addContentUpdateListener();
-    this.signalRService.addUserJoinedListener();
-    this.signalRService.addUserLeftListener();
+    // Socket.IO event handlers are automatically managed by RealtimeService signals
   }
 
   private scheduleDebounce(value: string) {
@@ -505,6 +626,50 @@ export class Editor implements OnInit {
     } finally {
       this.isExecuting.set(false);
     }
+  }
+
+  readonly interactiveInput = signal<string>('');
+
+  async runCodeStream(): Promise<void> {
+    const currentDocId = this.docId();
+    if (!currentDocId || !this.isEditable()) {
+      return;
+    }
+
+    if (!this.selectedExecutionLanguage()) {
+      this.executionError.set('No execution language available for this document.');
+      return;
+    }
+
+    this.executionError.set('');
+    this.executionResult.set(null);
+
+    try {
+      await this.documentService.updateContent(currentDocId, {
+        content: this.codeSignal(),
+        lastEditedBy: 'Live REPL stream',
+      });
+      this.lastSaved.set(new Date());
+
+      this.streamService.startExecution(
+        this.selectedExecutionLanguage(),
+        this.codeSignal(),
+      );
+    } catch (error: unknown) {
+      this.executionError.set(this.getErrorMessage(error, 'Streaming execution setup failed.'));
+    }
+  }
+
+  sendInteractiveInput(): void {
+    const text = this.interactiveInput();
+    if (text) {
+      this.streamService.sendStdin(text);
+      this.interactiveInput.set('');
+    }
+  }
+
+  stopStream(): void {
+    this.streamService.stopExecution();
   }
 
   setStandardInput(event: Event): void {
@@ -694,5 +859,80 @@ export class Editor implements OnInit {
     }
 
     return fallback;
+  }
+
+  readonly showVisualDiff = signal<boolean>(false);
+
+  startTimeTravelSession(): void {
+    if (this.timeTravelService.isTimeTravelActive()) {
+      this.exitTimeTravelSession();
+    } else {
+      this.timeTravelService.startSession(this.codeSignal());
+    }
+  }
+
+  exitTimeTravelSession(): void {
+    this.timeTravelService.exitSession();
+    this.updateEditorDocument(this.codeSignal());
+  }
+
+  seekRevision(event: Event): void {
+    const val = parseInt((event.target as HTMLInputElement).value, 10);
+    this.timeTravelService.seekTo(val);
+  }
+
+  toggleVisualDiff(): void {
+    this.showVisualDiff.update((v) => !v);
+  }
+
+  readonly showAiDrawer = signal<boolean>(false);
+  readonly aiAction = signal<string>('explain');
+  readonly isAiLoading = signal<boolean>(false);
+  readonly aiResult = signal<import('../../services/document.service').AiAnalysisResponse | null>(null);
+  readonly aiError = signal<string>('');
+
+  toggleAiDrawer(): void {
+    this.showAiDrawer.update((v) => !v);
+    if (this.showAiDrawer() && !this.aiResult()) {
+      void this.runAiAnalysis('explain');
+    }
+  }
+
+  async runAiAnalysis(action: string): Promise<void> {
+    const docId = this.docId();
+    if (!docId) return;
+
+    this.aiAction.set(action);
+    this.isAiLoading.set(true);
+    this.aiError.set('');
+
+    try {
+      const language = this.selectedExecutionLanguage() || 'python';
+      const result = await this.documentService.aiAssistant(docId, action, language);
+      this.aiResult.set(result);
+    } catch (error: unknown) {
+      this.aiError.set('AI assistant request failed. Please try again.');
+    } finally {
+      this.isAiLoading.set(false);
+    }
+  }
+
+  applyAiGeneratedCode(): void {
+    const code = this.aiResult()?.generatedCode;
+    if (!code) return;
+
+    const currentDocId = this.docId();
+    if (!currentDocId || !this.isEditable()) return;
+
+    let updatedCode = this.codeSignal();
+    if (this.aiAction() === 'generate-tests' || this.aiAction() === 'suggest') {
+      updatedCode += `\n\n${code}`;
+    } else {
+      updatedCode = code;
+    }
+
+    this.codeSignal.set(updatedCode);
+    this.updateEditorDocument(updatedCode);
+    this.scheduleDebounce(updatedCode);
   }
 }

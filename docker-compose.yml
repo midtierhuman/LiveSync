@@ -17,7 +17,7 @@ services:
   # 2a. Java Spring Boot REST API
   livesync-api:
     build:
-      context: ./backend/livesync/livesync-api
+      context: ./backend/livesync-api
       dockerfile: Dockerfile
     depends_on:
       - livesync-sandbox
@@ -35,7 +35,7 @@ services:
   # 2b. Python FastAPI Code Execution Sandbox
   livesync-sandbox:
     build:
-      context: ./backend/livesync/livesync-sandbox
+      context: ./backend/livesync-sandbox
       dockerfile: Dockerfile
     environment:
       - ENVIRONMENT=Development
@@ -44,7 +44,7 @@ services:
   # 2c. Node.js Socket.IO Realtime Engine
   livesync-realtime:
     build:
-      context: ./backend/livesync/livesync-realtime
+      context: ./backend/livesync-realtime
       dockerfile: Dockerfile
     deploy:
       replicas: 2
@@ -55,56 +55,6 @@ services:
       - CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-  # =========================================================================
-  # 3. OLD .NET BACKEND MICROSERVICES (COMMENTED OUT FOR EASY SWITCHING)
-  # =========================================================================
-  # livesync-api-dotnet:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: LiveSync.Api/Dockerfile
-  #   depends_on:
-  #     - livesync-sandbox-dotnet
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Development
-  #     - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=livesync;Username=devuser;Password=devpassword
-  #     - Redis__ConnectionString=host.docker.internal:6379,password=LocalDevPassword123!,abortConnect=false
-  #     - Services__SandboxBaseUrl=http://livesync-sandbox-dotnet:8080/
-  #     - Cors__AllowedOrigins__0=http://localhost:4200
-  #     - Cors__AllowedOrigins__1=http://localhost:4000
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-
-  # livesync-sandbox-dotnet:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: LiveSync.Sandbox/Dockerfile
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Development
-  #     - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=livesync;Username=devuser;Password=devpassword
-  #     - Redis__ConnectionString=host.docker.internal:6379,password=LocalDevPassword123!,abortConnect=false
-  #     - Cors__AllowedOrigins__0=http://localhost:4200
-  #     - Cors__AllowedOrigins__1=http://localhost:4000
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-
-  # livesync-signalr-dotnet:
-  #   build:
-  #     context: ./backend/LiveSync.SignalR
-  #     dockerfile: Dockerfile
-  #   deploy:
-  #     replicas: 2
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Development
-  #     - Redis__ConnectionString=host.docker.internal:6379,password=LocalDevPassword123!,abortConnect=false
-  #     - Services__ApiBaseUrl=http://api-loadbalancer:80/
-  #     - Jwt__Secret=LiveSync-Development-Only-Secret-Change-Me!
-  #     - Jwt__Issuer=LiveSyncAuthAPI
-  #     - Jwt__Audience=LiveSyncClient
-  #     - Cors__AllowedOrigins__0=http://localhost:4200
-  #     - Cors__AllowedOrigins__1=http://localhost:4000
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
 
   # =========================================================================
   # 4. NGINX LOAD BALANCER
@@ -119,3 +69,26 @@ services:
       - livesync-api
       - livesync-realtime
       - livesync-sandbox
+
+  # =========================================================================
+  # 5. OBSERVABILITY (PROMETHEUS & GRAFANA)
+  # =========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: livesync-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./backend/livesync-infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - livesync-sandbox
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: livesync-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
