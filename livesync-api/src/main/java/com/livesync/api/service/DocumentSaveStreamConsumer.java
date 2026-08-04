@@ -30,12 +30,18 @@ public class DocumentSaveStreamConsumer {
     private void ensureConsumerGroup() {
         if (groupCreated) return;
         try {
-            redisTemplate.opsForStream().createGroup(STREAM_KEY, CONSUMER_GROUP);
-            log.info("Created Redis Stream consumer group '{}' on '{}'", CONSUMER_GROUP, STREAM_KEY);
-            groupCreated = true;
+            Boolean hasKey = redisTemplate.hasKey(STREAM_KEY);
+            if (Boolean.TRUE.equals(hasKey)) {
+                try {
+                    redisTemplate.opsForStream().createGroup(STREAM_KEY, ReadOffset.from("0-0"), CONSUMER_GROUP);
+                    log.info("Created Redis Stream consumer group '{}' on '{}'", CONSUMER_GROUP, STREAM_KEY);
+                } catch (Exception e) {
+                    // Group already exists
+                }
+                groupCreated = true;
+            }
         } catch (Exception e) {
-            // Group already exists or stream initialized
-            groupCreated = true;
+            log.warn("Notice checking Redis stream consumer group: {}", e.getMessage());
         }
     }
 
@@ -44,11 +50,30 @@ public class DocumentSaveStreamConsumer {
         try {
             ensureConsumerGroup();
 
-            List<MapRecord<String, Object, Object>> records = redisTemplate.opsForStream().read(
-                    Consumer.from(CONSUMER_GROUP, CONSUMER_NAME),
-                    StreamReadOptions.empty().count(50).block(Duration.ofMillis(500)),
-                    StreamOffset.create(STREAM_KEY, ReadOffset.lastConsumed())
-            );
+            List<MapRecord<String, Object, Object>> records = null;
+
+            if (groupCreated) {
+                try {
+                    records = redisTemplate.opsForStream().read(
+                            Consumer.from(CONSUMER_GROUP, CONSUMER_NAME),
+                            StreamReadOptions.empty().count(50).block(Duration.ofMillis(500)),
+                            StreamOffset.create(STREAM_KEY, ReadOffset.lastConsumed())
+                    );
+                } catch (Exception groupErr) {
+                    log.debug("Consumer group read failed, falling back to direct stream read: {}", groupErr.getMessage());
+                    groupCreated = false;
+                }
+            }
+
+            if (records == null) {
+                Boolean hasKey = redisTemplate.hasKey(STREAM_KEY);
+                if (Boolean.TRUE.equals(hasKey)) {
+                    records = redisTemplate.opsForStream().read(
+                            StreamReadOptions.empty().count(50),
+                            StreamOffset.fromStart(STREAM_KEY)
+                    );
+                }
+            }
 
             if (records == null || records.isEmpty()) {
                 return;
@@ -67,8 +92,11 @@ public class DocumentSaveStreamConsumer {
                     }
                 }
 
-                // Acknowledge processed message
-                redisTemplate.opsForStream().acknowledge(STREAM_KEY, CONSUMER_GROUP, record.getId());
+                if (groupCreated) {
+                    redisTemplate.opsForStream().acknowledge(STREAM_KEY, CONSUMER_GROUP, record.getId());
+                }
+                // Delete processed stream message to keep Redis stream lean
+                redisTemplate.opsForStream().delete(STREAM_KEY, record.getId());
             }
         } catch (Exception e) {
             log.debug("Redis stream polling notice: {}", e.getMessage());

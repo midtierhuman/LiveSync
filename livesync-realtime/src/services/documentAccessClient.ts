@@ -35,4 +35,36 @@ export class DocumentAccessClient {
       return null;
     }
   }
+
+  public async saveDocumentContent(documentId: string, content: string, accessToken: string): Promise<boolean> {
+    if (!accessToken || !accessToken.trim() || !documentId) {
+      return false;
+    }
+
+    const url = `${this.baseUrl}/api/documents/${encodeURIComponent(documentId)}/content`;
+    try {
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          lastEditedBy: 'Realtime Service Write-Back',
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to save document content ${documentId}. Status: ${response.status}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`Error saving document content for ${documentId}:`, error);
+      return false;
+    }
+  }
 }

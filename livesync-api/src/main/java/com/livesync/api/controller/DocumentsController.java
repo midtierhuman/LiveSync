@@ -147,14 +147,4 @@ public class DocumentsController {
     private boolean valid(String value) {
         return "View".equals(value) || "Edit".equals(value);
     }
-
-    private String rootCauseMessage(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-
-        String message = current.getMessage();
-        return (message == null || message.isBlank()) ? "Sandbox execution request failed." : message;
-    }
 }
