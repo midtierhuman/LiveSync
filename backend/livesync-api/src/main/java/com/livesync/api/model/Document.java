@@ -22,6 +22,12 @@ public class Document {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "OwnerId", insertable = false, updatable = false)
     private ApplicationUser owner;
+    @Column(name = "FolderId")
+    private String folderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "FolderId", insertable = false, updatable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Folder folder;
     @Column(name = "ShareCode", unique = true, length = 50)
     private String shareCode;
     @Column(name = "DefaultAccessLevel", nullable = false, length = 50)
@@ -123,6 +129,22 @@ public class Document {
 
     public List<SharedDocument> getSharedWith() {
         return sharedWith;
+    }
+
+    public String getFolderId() {
+        return folderId;
+    }
+
+    public void setFolderId(String value) {
+        folderId = value;
+    }
+
+    public Folder getFolder() {
+        return folder;
+    }
+
+    public void setFolder(Folder value) {
+        folder = value;
     }
 }
 

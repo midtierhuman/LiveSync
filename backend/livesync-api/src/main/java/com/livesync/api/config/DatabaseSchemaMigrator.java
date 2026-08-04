@@ -29,5 +29,12 @@ public class DatabaseSchemaMigrator implements CommandLineRunner {
                 log.warn("Schema migration notice: Could not alter Content column automatically: {}", e2.getMessage());
             }
         }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE \"Documents\" ADD COLUMN IF NOT EXISTS \"FolderId\" VARCHAR(255);");
+            log.info("Successfully ensured 'Documents.FolderId' column exists.");
+        } catch (Exception e) {
+            log.warn("Schema migration notice for FolderId column: {}", e.getMessage());
+        }
     }
 }

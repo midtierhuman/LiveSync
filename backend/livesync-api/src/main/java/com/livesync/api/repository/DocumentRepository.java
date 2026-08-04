@@ -15,6 +15,15 @@ public interface DocumentRepository extends JpaRepository<Document, String> {
     List<Document> findByOwnerIdOrderByUpdatedAtDesc(String ownerId);
 
     @EntityGraph(attributePaths = {"owner", "sharedWith", "sharedWith.user"})
+    List<Document> findByOwnerIdAndFolderIdOrderByUpdatedAtDesc(String ownerId, String folderId);
+
+    @EntityGraph(attributePaths = {"owner", "sharedWith", "sharedWith.user"})
+    List<Document> findByOwnerIdAndFolderIdIsNullOrderByUpdatedAtDesc(String ownerId);
+
+    @EntityGraph(attributePaths = {"owner", "sharedWith", "sharedWith.user"})
+    List<Document> findByFolderIdOrderByUpdatedAtDesc(String folderId);
+
+    @EntityGraph(attributePaths = {"owner", "sharedWith", "sharedWith.user"})
     Optional<Document> findByShareCode(String shareCode);
 
     boolean existsByShareCode(String shareCode);

@@ -906,3 +906,124 @@
     }
   }
 }
+
+// Breadcrumbs Bar
+.breadcrumbs-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  font-size: 0.85rem;
+
+  .breadcrumbs-list {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    .crumb-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #94a3b8;
+      cursor: pointer;
+      font-weight: 500;
+      transition: color 0.15s ease;
+
+      .crumb-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #38bdf8;
+      }
+
+      &:hover {
+        color: #38bdf8;
+      }
+
+      &.active {
+        color: #f8fafc;
+        font-weight: 700;
+        cursor: default;
+      }
+    }
+
+    .crumb-separator {
+      color: #475569;
+    }
+  }
+}
+
+.btn-create-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.85rem 1.5rem;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+  }
+}
+
+.folder-card {
+  border-color: rgba(16, 185, 129, 0.25) !important;
+
+  &:hover {
+    border-color: rgba(16, 185, 129, 0.5) !important;
+  }
+
+  .folder-tag {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #10b981 !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  }
+}
+
+.count-badge.folder-badge {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  color: #10b981 !important;
+}
+
+.folder-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 1rem 0;
+  max-height: 240px;
+  overflow-y: auto;
+
+  .folder-select-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    mat-icon {
+      color: #10b981;
+    }
+
+    &:hover {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #ffffff;
+    }
+  }
+}

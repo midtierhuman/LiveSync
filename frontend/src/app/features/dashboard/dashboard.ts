@@ -11,8 +11,10 @@ import { MatCardModule } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatListModule } from '@angular/material/list';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../services/auth.service';
 import { DocumentService, DocumentDto, SharedDocumentDto } from '../../services/document.service';
+import { FolderService, FolderDto, SharedFolderDto } from '../../services/folder.service';
 import { Editor } from '../editor/editor';
 
 @Component({
@@ -30,6 +32,7 @@ import { Editor } from '../editor/editor';
     MatInputModule,
     MatDialogModule,
     MatListModule,
+    MatTooltipModule,
     Editor,
     DatePipe,
   ],
@@ -39,13 +42,36 @@ import { Editor } from '../editor/editor';
 export class Dashboard implements OnInit {
   protected readonly authService = inject(AuthService);
   private readonly documentService = inject(DocumentService);
+  private readonly folderService = inject(FolderService);
   private readonly router = inject(Router);
 
   myDocuments = signal<DocumentDto[]>([]);
   sharedDocuments = signal<SharedDocumentDto[]>([]);
+  myFolders = signal<FolderDto[]>([]);
+  sharedFolders = signal<SharedFolderDto[]>([]);
+
+  currentFolderId = signal<string | null>(null);
+  currentFolder = signal<FolderDto | null>(null);
+  folderBreadcrumbs = signal<{ id: string | null; name: string }[]>([
+    { id: null, name: 'Root Workspace' },
+  ]);
+
   isLoading = signal(false);
   isCreating = signal(false);
   newDocTitle = signal('');
+
+  // Folder Modals
+  showCreateFolderModal = signal(false);
+  newFolderName = signal('');
+
+  showMoveModal = signal(false);
+  selectedDocForMove = signal<DocumentDto | null>(null);
+
+  showShareFolderModal = signal(false);
+  selectedFolderForShare = signal<FolderDto | null>(null);
+  folderShareCode = signal('');
+
+  // Share Document Modal
   showShareModal = signal(false);
   selectedDocForShare = signal<DocumentDto | null>(null);
   shareCode = signal('');
@@ -56,9 +82,9 @@ export class Dashboard implements OnInit {
   defaultAccessLevel = signal<string>('View');
   editingAccessLevelFor = signal<string | null>(null);
 
-  // Modern Dashboard Enhancements
+  // Search & Views
   searchQuery = signal<string>('');
-  activeTab = signal<'all' | 'mine' | 'shared' | 'favorites'>('all');
+  activeTab = signal<'all' | 'folders' | 'mine' | 'shared' | 'favorites'>('all');
   layoutView = signal<'grid' | 'list'>('grid');
   starredDocIds = signal<Set<string>>(new Set(['starred_sample']));
 
@@ -101,6 +127,11 @@ export class Dashboard implements OnInit {
     });
   }
 
+  getFilteredFolders(): FolderDto[] {
+    const q = this.searchQuery().toLowerCase().trim();
+    return this.myFolders().filter((f) => !q || f.name.toLowerCase().includes(q));
+  }
+
   getLanguageBadge(title: string): { name: string; class: string; icon: string } {
     const lowered = (title || '').toLowerCase();
     if (lowered.endsWith('.py')) return { name: 'Python', class: 'python', icon: 'code' };
@@ -111,22 +142,138 @@ export class Dashboard implements OnInit {
   }
 
   async ngOnInit() {
-    await this.loadDocuments();
+    await this.loadWorkspace();
   }
 
-  async loadDocuments() {
+  async loadWorkspace() {
     this.isLoading.set(true);
     try {
-      const [myDocs, sharedDocs] = await Promise.all([
+      const [myDocs, sharedDocs, folders, sharedF] = await Promise.all([
         this.documentService.getMyDocuments(),
         this.documentService.getSharedDocuments(),
+        this.folderService.getMyFolders(),
+        this.folderService.getSharedFolders(),
       ]);
       this.myDocuments.set(myDocs);
       this.sharedDocuments.set(sharedDocs);
+      this.myFolders.set(folders);
+      this.sharedFolders.set(sharedF);
     } catch (error) {
-      console.error('Error loading documents:', error);
+      console.error('Error loading workspace:', error);
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  async openFolder(folder: FolderDto) {
+    this.isLoading.set(true);
+    try {
+      const details = await this.folderService.getFolder(folder.id);
+      this.currentFolder.set(details);
+      this.currentFolderId.set(folder.id);
+      this.myDocuments.set(details.documents || []);
+      this.myFolders.set(details.subfolders || []);
+
+      const breadcrumbs = this.folderBreadcrumbs();
+      this.folderBreadcrumbs.set([...breadcrumbs, { id: folder.id, name: folder.name }]);
+    } catch (err) {
+      console.error('Error opening folder:', err);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async navigateToBreadcrumb(index: number) {
+    const target = this.folderBreadcrumbs()[index];
+    const newBreadcrumbs = this.folderBreadcrumbs().slice(0, index + 1);
+    this.folderBreadcrumbs.set(newBreadcrumbs);
+
+    if (target.id === null) {
+      this.currentFolderId.set(null);
+      this.currentFolder.set(null);
+      await this.loadWorkspace();
+    } else {
+      const details = await this.folderService.getFolder(target.id);
+      this.currentFolder.set(details);
+      this.currentFolderId.set(target.id);
+      this.myDocuments.set(details.documents || []);
+      this.myFolders.set(details.subfolders || []);
+    }
+  }
+
+  openCreateFolderModal() {
+    this.newFolderName.set('');
+    this.showCreateFolderModal.set(true);
+  }
+
+  async createFolder() {
+    const name = this.newFolderName().trim();
+    if (!name) return;
+
+    try {
+      await this.folderService.createFolder(name, this.currentFolderId() || undefined);
+      this.showCreateFolderModal.set(false);
+      this.newFolderName.set('');
+
+      if (this.currentFolderId()) {
+        const details = await this.folderService.getFolder(this.currentFolderId()!);
+        this.myFolders.set(details.subfolders || []);
+      } else {
+        const rootFolders = await this.folderService.getMyFolders();
+        this.myFolders.set(rootFolders);
+      }
+    } catch (err) {
+      console.error('Error creating folder:', err);
+      alert('Failed to create folder');
+    }
+  }
+
+  async deleteFolder(folderId: string, event?: Event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Delete this folder? Documents inside will be moved to root workspace.')) return;
+
+    try {
+      await this.folderService.deleteFolder(folderId);
+      this.myFolders.update((f) => f.filter((item) => item.id !== folderId));
+    } catch (err) {
+      console.error('Error deleting folder:', err);
+      alert('Failed to delete folder');
+    }
+  }
+
+  openMoveModal(doc: DocumentDto, event?: Event) {
+    if (event) event.stopPropagation();
+    this.selectedDocForMove.set(doc);
+    this.showMoveModal.set(true);
+  }
+
+  async moveDocumentToFolder(targetFolderId: string | null) {
+    const doc = this.selectedDocForMove();
+    if (!doc) return;
+
+    try {
+      await this.folderService.moveDocument(doc.id, targetFolderId);
+      this.showMoveModal.set(false);
+      this.selectedDocForMove.set(null);
+      await this.loadWorkspace();
+    } catch (err) {
+      console.error('Error moving document:', err);
+      alert('Failed to move document');
+    }
+  }
+
+  async openShareFolderModal(folder: FolderDto, event?: Event) {
+    if (event) event.stopPropagation();
+    this.selectedFolderForShare.set(folder);
+    this.folderShareCode.set(folder.shareCode);
+    this.showShareFolderModal.set(true);
+  }
+
+  copyFolderShareCode() {
+    const code = this.folderShareCode();
+    if (code) {
+      navigator.clipboard.writeText(code);
+      alert('Folder share code copied to clipboard!');
     }
   }
 
@@ -142,6 +289,11 @@ export class Dashboard implements OnInit {
         title: this.newDocTitle(),
         content: '',
       });
+
+      if (this.currentFolderId()) {
+        await this.folderService.moveDocument(doc.id, this.currentFolderId());
+      }
+
       this.openDocument(doc.id);
     } catch (error) {
       console.error('Error creating document:', error);
@@ -164,8 +316,7 @@ export class Dashboard implements OnInit {
   closeEditor() {
     this.showEditorModal.set(false);
     this.selectedDocId.set('');
-    // Reload documents to reflect any changes
-    this.loadDocuments();
+    this.loadWorkspace();
   }
 
   async openShareModal(doc: DocumentDto) {
@@ -257,7 +408,6 @@ export class Dashboard implements OnInit {
 
     try {
       await this.documentService.updateShareCodeAccessLevel(doc.id, this.defaultAccessLevel());
-      // Update local state
       const updatedDocs = this.myDocuments().map((d) =>
         d.id === doc.id ? { ...d, defaultAccessLevel: this.defaultAccessLevel() } : d,
       );

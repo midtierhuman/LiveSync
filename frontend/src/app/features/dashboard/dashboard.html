@@ -37,15 +37,19 @@
     <section class="hero-stats-banner">
       <div class="banner-info">
         <h1>Welcome back, <span class="gradient-text">{{ authService.user()?.userName }}</span> 👋</h1>
-        <p>Collaborate in real-time, execute code statelessly across 4 languages, and leverage Gemini AI.</p>
+        <p>Collaborate in real-time, organize nested folders, execute code statelessly across 4 languages, and leverage Gemini AI.</p>
       </div>
       <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value">{{ myFolders().length }}</span>
+          <span class="stat-label">Active Folders</span>
+        </div>
         <div class="stat-card">
           <span class="stat-value">{{ myDocuments().length + sharedDocuments().length }}</span>
           <span class="stat-label">Total Documents</span>
         </div>
         <div class="stat-card">
-          <span class="stat-value">{{ sharedDocuments().length }}</span>
+          <span class="stat-value">{{ sharedDocuments().length + sharedFolders().length }}</span>
           <span class="stat-label">Shared Workspaces</span>
         </div>
         <div class="stat-card status-card">
@@ -56,11 +60,11 @@
       </div>
     </section>
 
-    <!-- Create New Document Card -->
+    <!-- Create New Document & Folder Card -->
     <section class="create-card">
       <div class="create-header">
-        <mat-icon>note_add</mat-icon>
-        <h3>Create New Document</h3>
+        <mat-icon>create_new_folder</mat-icon>
+        <h3>Create Document or Folder</h3>
       </div>
       <div class="create-form">
         <input
@@ -74,10 +78,39 @@
           <mat-icon>add</mat-icon>
           {{ isCreating() ? 'Creating...' : 'New Document' }}
         </button>
+
+        <button (click)="openCreateFolderModal()" class="btn-create-folder">
+          <mat-icon>folder_open</mat-icon>
+          New Folder
+        </button>
+
         <button (click)="goToAddShared()" class="btn-join-shared">
           <mat-icon>group_add</mat-icon>
-          Join Shared Code
+          Join Shared Code / Folder
         </button>
+      </div>
+    </section>
+
+    <!-- Breadcrumbs & Navigation Bar -->
+    <section class="breadcrumbs-bar">
+      <div class="breadcrumbs-list">
+        @for (crumb of folderBreadcrumbs(); track $index) {
+          <span
+            class="crumb-item"
+            [class.active]="$last"
+            (click)="navigateToBreadcrumb($index)"
+          >
+            @if ($first) {
+              <mat-icon class="crumb-icon">home</mat-icon>
+            } @else {
+              <mat-icon class="crumb-icon">folder</mat-icon>
+            }
+            {{ crumb.name }}
+          </span>
+          @if (!$last) {
+            <span class="crumb-separator">/</span>
+          }
+        }
       </div>
     </section>
 
@@ -85,13 +118,16 @@
     <section class="controls-bar">
       <div class="tabs-group">
         <button [class.active]="activeTab() === 'all'" (click)="activeTab.set('all')">
-          🌐 All ({{ myDocuments().length + sharedDocuments().length }})
+          🌐 All Workspace
+        </button>
+        <button [class.active]="activeTab() === 'folders'" (click)="activeTab.set('folders')">
+          📁 Folders ({{ getFilteredFolders().length }})
         </button>
         <button [class.active]="activeTab() === 'mine'" (click)="activeTab.set('mine')">
-          📁 My Documents ({{ myDocuments().length }})
+          📄 My Documents ({{ getFilteredMyDocs().length }})
         </button>
         <button [class.active]="activeTab() === 'shared'" (click)="activeTab.set('shared')">
-          👥 Shared With Me ({{ sharedDocuments().length }})
+          👥 Shared With Me ({{ getFilteredSharedDocs().length }})
         </button>
         <button [class.active]="activeTab() === 'favorites'" (click)="activeTab.set('favorites')">
           ⭐ Favorites ({{ starredDocIds().size }})
@@ -103,7 +139,7 @@
           <mat-icon>search</mat-icon>
           <input
             type="text"
-            placeholder="Search documents by title or owner..."
+            placeholder="Search folders & documents..."
             [value]="searchQuery()"
             (input)="searchQuery.set($any($event.target).value)"
           />
@@ -120,23 +156,75 @@
       </div>
     </section>
 
-    <!-- Documents Container -->
+    <!-- Workspace Content Container -->
     @if (isLoading()) {
       <div class="loading-state">
-        <span class="spinner">⚡</span> Loading your workspace documents...
+        <span class="spinner">⚡</span> Loading your workspace folders & documents...
       </div>
     } @else {
+      <!-- Folders Section -->
+      @if ((activeTab() === 'all' || activeTab() === 'folders') && getFilteredFolders().length > 0) {
+        <section class="documents-section folders-section">
+          <div class="section-title">
+            <h2>📁 Folders</h2>
+            <span class="count-badge folder-badge">{{ getFilteredFolders().length }}</span>
+          </div>
+
+          <div [class.documents-grid]="layoutView() === 'grid'" [class.documents-list]="layoutView() === 'list'">
+            @for (folder of getFilteredFolders(); track folder.id) {
+              <div class="document-card folder-card" (click)="openFolder(folder)">
+                <div class="doc-card-top">
+                  <span class="lang-badge folder-tag">
+                    <mat-icon>folder</mat-icon>
+                    Folder
+                  </span>
+                  <div class="card-actions" (click)="$event.stopPropagation()">
+                    <button mat-icon-button [matMenuTriggerFor]="folderMenu">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #folderMenu="matMenu">
+                      <button mat-menu-item (click)="openShareFolderModal(folder, $event)">
+                        <mat-icon>share</mat-icon>
+                        <span>Share Whole Folder</span>
+                      </button>
+                      <button mat-menu-item (click)="deleteFolder(folder.id, $event)">
+                        <mat-icon>delete</mat-icon>
+                        <span>Delete Folder</span>
+                      </button>
+                    </mat-menu>
+                  </div>
+                </div>
+
+                <h3 class="doc-title">{{ folder.name }}</h3>
+
+                <div class="doc-meta-info">
+                  <span>📁 {{ folder.subfoldersCount }} Subfolders</span>
+                  <span>📄 {{ folder.documentsCount }} Documents</span>
+                </div>
+
+                <div class="doc-footer">
+                  <span class="private-chip">🔒 {{ folder.defaultAccessLevel }}</span>
+                  <button class="btn-open-card" (click)="openFolder(folder)">
+                    Explore Folder <mat-icon>arrow_forward</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
       <!-- My Documents Section -->
       @if (activeTab() === 'all' || activeTab() === 'mine' || activeTab() === 'favorites') {
         <section class="documents-section">
           <div class="section-title">
-            <h2>📁 My Workspaces</h2>
+            <h2>📄 Documents</h2>
             <span class="count-badge">{{ getFilteredMyDocs().length }}</span>
           </div>
 
           @if (getFilteredMyDocs().length === 0) {
             <div class="empty-card">
-              <p>No documents found matching current filter.</p>
+              <p>No documents found in this folder workspace.</p>
             </div>
           } @else {
             <div [class.documents-grid]="layoutView() === 'grid'" [class.documents-list]="layoutView() === 'list'">
@@ -159,6 +247,10 @@
                           <mat-icon>share</mat-icon>
                           <span>Share Access & Code</span>
                         </button>
+                        <button mat-menu-item (click)="openMoveModal(doc, $event)">
+                          <mat-icon>drive_file_move</mat-icon>
+                          <span>Move to Folder</span>
+                        </button>
                         <button mat-menu-item (click)="confirmDelete(doc.id)">
                           <mat-icon>delete</mat-icon>
                           <span>Delete Document</span>
@@ -168,7 +260,7 @@
                   </div>
 
                   <h3 class="doc-title">{{ doc.title }}</h3>
-                  
+
                   <div class="doc-meta-info">
                     <span>📅 {{ doc.createdAt | date : 'mediumDate' }}</span>
                     @if (doc.lastEditedBy) {
@@ -198,12 +290,12 @@
         <section class="documents-section">
           <div class="section-title">
             <h2>👥 Shared With Me</h2>
-            <span class="count-badge shared">{{ getFilteredSharedDocs().length }}</span>
+            <span class="count-badge shared">{{ getFilteredSharedDocs().length + sharedFolders().length }}</span>
           </div>
 
-          @if (getFilteredSharedDocs().length === 0) {
+          @if (getFilteredSharedDocs().length === 0 && sharedFolders().length === 0) {
             <div class="empty-card">
-              <p>No shared documents matching filter.</p>
+              <p>No shared documents or folders matching filter.</p>
             </div>
           } @else {
             <div [class.documents-grid]="layoutView() === 'grid'" [class.documents-list]="layoutView() === 'list'">
@@ -239,151 +331,177 @@
         </section>
       }
     }
-
-    <!-- Platform Roadmap & Pending Feature Modules -->
-    <section class="roadmap-section">
-      <div class="section-title">
-        <h2>⚡ Platform Feature Roadmap (Pending Modules)</h2>
-        <span class="roadmap-pill">Under Active Development</span>
-      </div>
-
-      <div class="roadmap-grid">
-        <div class="roadmap-card">
-          <div class="card-icon">🤖</div>
-          <h3>AI Automated Unit Test Generator</h3>
-          <p>Automatic 1-click test generation using AST parsing and Gemini Flash for Python, Node.js, C#, and Java.</p>
-          <span class="status-tag pending">In Progress</span>
-        </div>
-
-        <div class="roadmap-card">
-          <div class="card-icon">🔄</div>
-          <h3>GitHub Repository Sync</h3>
-          <p>Connect your GitHub account to sync LiveSync documents directly to Git repositories and pull requests.</p>
-          <span class="status-tag planned">Planned</span>
-        </div>
-
-        <div class="roadmap-card">
-          <div class="card-icon">🎙️</div>
-          <h3>Voice & Video Pair Rooms</h3>
-          <p>Integrated WebRTC audio & video calling directly inside the collaborative code editor space.</p>
-          <span class="status-tag planned">Planned</span>
-        </div>
-
-        <div class="roadmap-card">
-          <div class="card-icon">🛡️</div>
-          <h3>nsjail / WASM Micro-Sandboxing</h3>
-          <p>Zero-network WebAssembly & container jail execution for ultra-secure public multi-tenant code running.</p>
-          <span class="status-tag in-progress">In Progress</span>
-        </div>
-      </div>
-    </section>
   </main>
 
-  <!-- Share Modal -->
-  @if (showShareModal()) {
-  <div class="modal-overlay" (click)="closeShareModal()">
-    <div class="modal" (click)="$event.stopPropagation()">
-      <h2>Share Document: {{ selectedDocForShare()?.title }}</h2>
-      <div class="share-code-section">
-        <p>Share this code with others to let them access your document:</p>
-        <div class="share-code-display">
-          <input type="text" [value]="shareCode()" readonly class="share-code-input" />
-          <button (click)="copyShareCode()" class="btn-copy">Copy Code</button>
+  <!-- Create Folder Modal -->
+  @if (showCreateFolderModal()) {
+    <div class="modal-overlay" (click)="showCreateFolderModal.set(false)">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h2>Create New Folder</h2>
+        <div class="form-group">
+          <label for="folderName">Folder Name:</label>
+          <input
+            id="folderName"
+            type="text"
+            [(ngModel)]="newFolderName"
+            placeholder="e.g. Projects, Backend Specs, Algorithmic Challenges..."
+            (keyup.enter)="createFolder()"
+            class="doc-input"
+          />
         </div>
-
-        <div class="default-access-level">
-          <label for="defaultAccessLevel"><strong>Default Access Level:</strong></label>
-          <select
-            id="defaultAccessLevel"
-            [(ngModel)]="defaultAccessLevel"
-            (change)="updateDefaultAccessLevel()"
-            class="access-select"
-          >
-            <option value="View">View Only</option>
-            <option value="Edit">Can Edit</option>
-          </select>
-          <p class="access-hint">
-            @if (defaultAccessLevel() === 'View') {
-            <span>📖 People using this code will have <strong>view-only</strong> access.</span>
-            } @else {
-            <span>✏️ People using this code will be able to <strong>view and edit</strong>.</span>
-            }
-          </p>
+        <div class="modal-actions">
+          <button (click)="showCreateFolderModal.set(false)" class="btn-cancel">Cancel</button>
+          <button (click)="createFolder()" class="btn-create">Create Folder</button>
         </div>
-
-        <button (click)="regenerateShareCode()" class="btn-regenerate">Generate New Code</button>
       </div>
+    </div>
+  }
 
-      @if (selectedDocForShare()?.sharedWith?.length! > 0) {
-      <div class="shared-users">
-        <h3>Shared With:</h3>
-        @for (user of selectedDocForShare()?.sharedWith; track user.userId) {
-        <div class="user-item">
-          <div class="user-info">
-            <span class="user-name">{{ user.userName }}</span>
-            @if (editingAccessLevelFor() === user.userId) {
+  <!-- Share Folder Modal -->
+  @if (showShareFolderModal()) {
+    <div class="modal-overlay" (click)="showShareFolderModal.set(false)">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h2>Share Folder: {{ selectedFolderForShare()?.name }}</h2>
+        <div class="share-code-section">
+          <p>Share this folder code to give collaborators access to all documents inside:</p>
+          <div class="share-code-display">
+            <input type="text" [value]="folderShareCode()" readonly class="share-code-input" />
+            <button (click)="copyFolderShareCode()" class="btn-copy">Copy Code</button>
+          </div>
+        </div>
+        <button (click)="showShareFolderModal.set(false)" class="btn-close">Close</button>
+      </div>
+    </div>
+  }
+
+  <!-- Move Document Modal -->
+  @if (showMoveModal()) {
+    <div class="modal-overlay" (click)="showMoveModal.set(false)">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h2>Move Document: {{ selectedDocForMove()?.title }}</h2>
+        <p>Select target destination folder:</p>
+        <div class="folder-select-list">
+          <div
+            class="folder-select-item"
+            (click)="moveDocumentToFolder(null)"
+          >
+            <mat-icon>home</mat-icon>
+            <span>Root Workspace</span>
+          </div>
+
+          @for (f of myFolders(); track f.id) {
+            <div
+              class="folder-select-item"
+              (click)="moveDocumentToFolder(f.id)"
+            >
+              <mat-icon>folder</mat-icon>
+              <span>{{ f.name }}</span>
+            </div>
+          }
+        </div>
+        <div class="modal-actions">
+          <button (click)="showMoveModal.set(false)" class="btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Share Document Modal -->
+  @if (showShareModal()) {
+    <div class="modal-overlay" (click)="closeShareModal()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h2>Share Document: {{ selectedDocForShare()?.title }}</h2>
+        <div class="share-code-section">
+          <p>Share this code with others to let them access your document:</p>
+          <div class="share-code-display">
+            <input type="text" [value]="shareCode()" readonly class="share-code-input" />
+            <button (click)="copyShareCode()" class="btn-copy">Copy Code</button>
+          </div>
+
+          <div class="default-access-level">
+            <label for="defaultAccessLevel"><strong>Default Access Level:</strong></label>
             <select
-              [(ngModel)]="user.accessLevel"
-              class="access-select-inline"
-              (change)="
-                updateSharedAccessLevel(selectedDocForShare()!.id, user.userId, user.accessLevel)
-              "
+              id="defaultAccessLevel"
+              [(ngModel)]="defaultAccessLevel"
+              (change)="updateDefaultAccessLevel()"
+              class="access-select"
             >
               <option value="View">View Only</option>
               <option value="Edit">Can Edit</option>
             </select>
-            } @else {
-            <span class="access-badge" [class.edit-access]="user.accessLevel === 'Edit'">
-              {{ user.accessLevel === 'Edit' ? '✏️ Can Edit' : '📖 View Only' }}
-            </span>
-            <button
-              (click)="editingAccessLevelFor.set(user.userId)"
-              class="btn-change-access"
-              title="Change access level"
-            >
-              Change
-            </button>
+            <p class="access-hint">
+              @if (defaultAccessLevel() === 'View') {
+                <span>📖 People using this code will have <strong>view-only</strong> access.</span>
+              } @else {
+                <span>✏️ People using this code will be able to <strong>view and edit</strong>.</span>
+              }
+            </p>
+          </div>
+
+          <button (click)="regenerateShareCode()" class="btn-regenerate">Generate New Code</button>
+        </div>
+
+        @if (selectedDocForShare()?.sharedWith?.length! > 0) {
+          <div class="shared-users">
+            <h3>Shared With:</h3>
+            @for (user of selectedDocForShare()?.sharedWith; track user.userId) {
+              <div class="user-item">
+                <div class="user-info">
+                  <span class="user-name">{{ user.userName }}</span>
+                  @if (editingAccessLevelFor() === user.userId) {
+                    <select
+                      [(ngModel)]="user.accessLevel"
+                      class="access-select-inline"
+                      (change)="updateSharedAccessLevel(selectedDocForShare()!.id, user.userId, user.accessLevel)"
+                    >
+                      <option value="View">View Only</option>
+                      <option value="Edit">Can Edit</option>
+                    </select>
+                  } @else {
+                    <span class="access-badge" [class.edit-access]="user.accessLevel === 'Edit'">
+                      {{ user.accessLevel === 'Edit' ? '✏️ Can Edit' : '📖 View Only' }}
+                    </span>
+                    <button (click)="editingAccessLevelFor.set(user.userId)" class="btn-change-access" title="Change access level">
+                      Change
+                    </button>
+                  }
+                </div>
+                <button (click)="removeSharedAccess(selectedDocForShare()!.id, user.userId)" class="btn-remove">
+                  Remove
+                </button>
+              </div>
             }
           </div>
-          <button
-            (click)="removeSharedAccess(selectedDocForShare()!.id, user.userId)"
-            class="btn-remove"
-          >
-            Remove
-          </button>
-        </div>
         }
-      </div>
-      }
 
-      <button (click)="closeShareModal()" class="btn-close">Close</button>
+        <button (click)="closeShareModal()" class="btn-close">Close</button>
+      </div>
     </div>
-  </div>
   }
 
   <!-- Delete Confirmation Modal -->
   @if (showDeleteConfirm()) {
-  <div class="modal-overlay" (click)="showDeleteConfirm.set(false)">
-    <div class="modal-small" (click)="$event.stopPropagation()">
-      <h2>Delete Document?</h2>
-      <p>This action cannot be undone.</p>
-      <div class="modal-actions">
-        <button (click)="showDeleteConfirm.set(false)" class="btn-cancel">Cancel</button>
-        <button (click)="deleteDocument()" class="btn-delete">Delete</button>
+    <div class="modal-overlay" (click)="showDeleteConfirm.set(false)">
+      <div class="modal-small" (click)="$event.stopPropagation()">
+        <h2>Delete Document?</h2>
+        <p>This action cannot be undone.</p>
+        <div class="modal-actions">
+          <button (click)="showDeleteConfirm.set(false)" class="btn-cancel">Cancel</button>
+          <button (click)="deleteDocument()" class="btn-delete">Delete</button>
+        </div>
       </div>
     </div>
-  </div>
   }
 
   <!-- Editor Modal -->
   @if (showEditorModal()) {
-  <div class="editor-modal-overlay">
-    <div class="editor-modal-container">
-      <button class="editor-close-btn" (click)="closeEditor()" mat-icon-button>
-        <mat-icon>close</mat-icon>
-      </button>
-      <app-editor [documentId]="selectedDocId()" [isModal]="true"></app-editor>
+    <div class="editor-modal-overlay">
+      <div class="editor-modal-container">
+        <button class="editor-close-btn" (click)="closeEditor()" mat-icon-button>
+          <mat-icon>close</mat-icon>
+        </button>
+        <app-editor [documentId]="selectedDocId()" [isModal]="true"></app-editor>
+      </div>
     </div>
-  </div>
   }
 </div>
