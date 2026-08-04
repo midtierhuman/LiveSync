@@ -38,8 +38,7 @@ export class ExecutionStreamService {
     this.streamStatus.set('Connecting...');
     this.finalExecutionResult.set(null);
 
-    // Determine WebSocket URL
-    const httpBase = appEndpoints.apiBaseUrl || 'http://localhost:5038';
+    const httpBase = appEndpoints.apiBaseUrl || window.location.origin;
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = httpBase.replace(/^https?:\/\//, '');
     const wsUrl = `${wsProtocol}//${host}/api/execution/stream`;

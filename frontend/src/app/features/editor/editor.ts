@@ -83,7 +83,6 @@ export class Editor implements OnInit {
   readonly editorHost = viewChild.required<ElementRef<HTMLDivElement>>('editorHost');
 
   readonly realtimeService = inject(RealtimeService);
-  readonly signalRService = this.realtimeService;
   public readonly streamService = inject(ExecutionStreamService);
   public readonly timeTravelService = inject(TimeTravelService);
   private readonly documentService = inject(DocumentService);
@@ -159,7 +158,7 @@ export class Editor implements OnInit {
 
       const currentDocId = this.docId();
       if (currentDocId) {
-        await this.signalRService.leaveDocument(currentDocId);
+        await this.realtimeService.leaveDocument(currentDocId);
       }
 
       this.streamService.closeTerminal();
@@ -170,24 +169,10 @@ export class Editor implements OnInit {
 
   constructor() {
     effect(() => {
-      const newContent = this.signalRService.contentUpdate();
+      const newContent = this.realtimeService.contentUpdate();
       if (newContent) {
         this.codeSignal.set(newContent);
         this.updateEditorDocument(newContent);
-      }
-    });
-
-    effect(() => {
-      const connectionId = this.signalRService.userJoined();
-      if (connectionId) {
-        console.log('User joined:', connectionId);
-      }
-    });
-
-    effect(() => {
-      const connectionId = this.signalRService.userLeft();
-      if (connectionId) {
-        console.log('User left:', connectionId);
       }
     });
 
@@ -215,9 +200,9 @@ export class Editor implements OnInit {
 
       const el = this.terminalBodyElement()?.nativeElement;
       if (el) {
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           el.scrollTop = el.scrollHeight;
-        }, 0);
+        });
       }
     });
 
@@ -231,7 +216,6 @@ export class Editor implements OnInit {
 
     afterNextRender(() => {
       this.initializeEditor();
-      void this.setupSignalR();
     });
   }
 
@@ -262,8 +246,8 @@ export class Editor implements OnInit {
 
       await this.loadExecutionLanguages();
 
-      await this.signalRService.startConnection();
-      await this.signalRService.joinDocument(id);
+      await this.realtimeService.startConnection();
+      await this.realtimeService.joinDocument(id);
     } catch (loadError) {
       console.error('Error loading document:', loadError);
       this.error.set('Failed to load document. Redirecting...');
@@ -574,18 +558,14 @@ export class Editor implements OnInit {
     }
   }
 
-  private async setupSignalR() {
-    // Socket.IO event handlers are automatically managed by RealtimeService signals
-  }
-
   private scheduleDebounce(value: string) {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
 
     this.debounceTimer = setTimeout(() => {
-      if (this.signalRService.connectionState() === 'connected') {
-        void this.signalRService.sendUpdate(this.docId(), value).catch((sendError) => {
+      if (this.realtimeService.connectionState() === 'connected') {
+        void this.realtimeService.sendUpdate(this.docId(), value).catch((sendError) => {
           console.error('Error sending real-time update:', sendError);
         });
       }
@@ -618,7 +598,7 @@ export class Editor implements OnInit {
       await this.documentService.updateContent(currentDocId, {
         content,
         lastEditedBy:
-          this.signalRService.connectionState() === 'connected' ? 'Real-time user' : 'Offline user',
+          this.realtimeService.connectionState() === 'connected' ? 'Real-time user' : 'Offline user',
       });
       this.lastSaved.set(new Date());
     } catch (saveError: any) {
@@ -920,6 +900,11 @@ export class Editor implements OnInit {
 
   closeTerminal(): void {
     this.streamService.closeTerminal();
+  }
+
+  clearExecutionResult(): void {
+    this.executionResult.set(null);
+    this.executionError.set('');
   }
 
   private isResizingTerminal = false;

@@ -997,6 +997,31 @@ button.active-mode {
   }
 }
 
+.execution-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .close-execution-btn {
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    color: inherit;
+    opacity: 0.85;
+
+    &:hover {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
 .execution-heading {
   display: flex;
   gap: 10px;

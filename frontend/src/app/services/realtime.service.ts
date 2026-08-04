@@ -68,7 +68,7 @@ export class RealtimeService {
       }
     });
 
-    const serverUrl = appEndpoints.realtimeBaseUrl || appEndpoints.signalRBaseUrl || 'http://localhost:5038';
+    const serverUrl = appEndpoints.realtimeBaseUrl || window.location.origin;
     this.socket = io(serverUrl, {
       autoConnect: false,
       transports: ['websocket', 'polling'],

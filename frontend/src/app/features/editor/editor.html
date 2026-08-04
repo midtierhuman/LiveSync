@@ -11,21 +11,21 @@
           </div>
         }
 
-        <div class="connection-badge" [class]="signalRService.connectionState()">
+        <div class="connection-badge" [class]="realtimeService.connectionState()">
           <mat-icon class="status-icon">
-            @if (signalRService.connectionState() === 'connected') {
+            @if (realtimeService.connectionState() === 'connected') {
               check_circle
             } @else {
               radio_button_unchecked
             }
           </mat-icon>
-          <span>{{ signalRService.connectionState() }}</span>
+          <span>{{ realtimeService.connectionState() }}</span>
         </div>
 
-        @if (signalRService.activeUserCount() > 0) {
+        @if (realtimeService.activeUserCount() > 0) {
           <div class="active-users">
             <mat-icon>people</mat-icon>
-            <span>{{ signalRService.activeUserCount() }} active</span>
+            <span>{{ realtimeService.activeUserCount() }} active</span>
           </div>
         }
       </div>
@@ -411,9 +411,14 @@
         <div class="resize-grip"></div>
       </div>
 
-      <div class="execution-heading">
-        <strong>Execution {{ executionResult()?.status || 'failed' }}</strong>
-        <span>{{ executionResult()?.message || executionError() }}</span>
+      <div class="execution-header">
+        <div class="execution-heading">
+          <strong>Execution {{ executionResult()?.status || 'failed' }}</strong>
+          <span>{{ executionResult()?.message || executionError() }}</span>
+        </div>
+        <button mat-icon-button (click)="clearExecutionResult()" class="close-execution-btn" matTooltip="Close Output">
+          <mat-icon>close</mat-icon>
+        </button>
       </div>
 
       @if (executionResult()?.executionDurationMs !== undefined || executionResult()?.timeComplexity) {

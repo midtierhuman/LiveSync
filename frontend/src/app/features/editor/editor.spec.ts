@@ -12,7 +12,7 @@ describe('Editor', () => {
   let fixture: ComponentFixture<Editor>;
 
   beforeEach(async () => {
-    const signalRStub = {
+    const realtimeStub = {
       contentUpdate: signal(''),
       userJoined: signal(''),
       userLeft: signal(''),
@@ -33,7 +33,7 @@ describe('Editor', () => {
         provideZonelessChangeDetection(),
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { params: of({}) } },
-        { provide: RealtimeService, useValue: signalRStub },
+        { provide: RealtimeService, useValue: realtimeStub },
         { provide: DocumentService, useValue: {} },
       ],
     })
