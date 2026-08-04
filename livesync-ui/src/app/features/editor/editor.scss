@@ -645,6 +645,7 @@ button.active-mode {
       border: none;
       color: #888888;
     }
+  }
 }
 
 /* Package Manager Toolbar Button & Modal Styles */
@@ -674,35 +675,39 @@ button.active-mode {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(8px);
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
 }
 
 .package-modal-card {
+  position: relative;
   width: 100%;
-  max-width: 680px;
-  max-height: 85vh;
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  max-width: 1080px;
+  width: min(1080px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  background: linear-gradient(180deg, #0f172a 0%, #0b1120 100%);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 16px;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.65);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   color: #c9d1d9;
+  min-height: 0;
 
   .package-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid #21262d;
-    background: #161b22;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.35);
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(12px);
 
     .header-title {
       display: flex;
@@ -716,33 +721,207 @@ button.active-mode {
         color: #38bdf8;
       }
     }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .language-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(71, 85, 105, 0.5);
+        background: rgba(15, 23, 42, 0.9);
+        color: #cbd5e1;
+        font-size: 11px;
+        font-weight: 600;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #38bdf8;
+        }
+      }
+    }
+  }
+
+  .package-nav-tabs {
+    display: flex;
+    background: rgba(15, 23, 42, 0.72);
+    border-bottom: 1px solid rgba(71, 85, 105, 0.35);
+    padding: 0 12px;
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 14px 16px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s ease;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &:hover {
+        color: #c9d1d9;
+      }
+
+      &.active {
+        color: #58a6ff;
+        border-bottom-color: #58a6ff;
+        background: rgba(59, 130, 246, 0.1);
+      }
+    }
   }
 
   .package-modal-body {
-    padding: 20px;
+    padding: 18px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    flex: 1;
+    min-height: 0;
   }
 
-  .package-install-bar {
+  .package-unavailable-state {
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    color: #cbd5e1;
+    border: 1px dashed rgba(71, 85, 105, 0.5);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.48);
+    padding: 24px;
+
+    mat-icon {
+      font-size: 34px;
+      width: 34px;
+      height: 34px;
+      color: #f59e0b;
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #f8fafc;
+    }
+
+    p {
+      margin: 0;
+      max-width: 420px;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  }
+
+  .category-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+
+    .cat-pill {
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        border-color: #58a6ff;
+        color: #c9d1d9;
+      }
+
+      &.active {
+        background: rgba(88, 166, 255, 0.15);
+        border-color: #58a6ff;
+        color: #58a6ff;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .package-install-bar, .installed-filter-bar {
     display: flex;
     gap: 10px;
+    align-items: stretch;
+    flex-wrap: wrap;
+    padding: 12px;
+    border: 1px solid rgba(71, 85, 105, 0.35);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.68);
 
-    .package-input {
+    .search-input-wrapper {
       flex: 1;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 10px 14px;
-      color: #f0f6fc;
-      font-size: 13px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-width: 0;
 
-      &:focus {
-        outline: none;
-        border-color: #58a6ff;
-        box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+      .search-icon {
+        position: absolute;
+        left: 12px;
+        color: #8b949e;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      .search-spinner {
+        position: absolute;
+        right: 12px;
+        color: #38bdf8;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      .package-input {
+        width: 100%;
+        background: linear-gradient(180deg, #0f1520 0%, #0b1017 100%);
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 12px 42px 12px 40px;
+        color: #f8fafc;
+        font-size: 13px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+
+        &:focus {
+          outline: none;
+          border-color: #38bdf8;
+          box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+          background: #0f172a;
+        }
+
+        &::placeholder {
+          color: #64748b;
+        }
       }
     }
 
@@ -756,6 +935,245 @@ button.active-mode {
         animation: spin 1s linear infinite;
       }
     }
+
+    .install-package-btn,
+    .refresh-installed-btn {
+      border-radius: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .install-package-btn {
+      min-width: 110px;
+      background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);
+      color: #082f49;
+      box-shadow: 0 10px 18px rgba(14, 165, 233, 0.2);
+    }
+
+    .refresh-installed-btn {
+      min-width: 104px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.85);
+      color: #cbd5e1;
+    }
+  }
+
+  .package-grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .grid-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      color: #8b949e;
+
+      .count-badge {
+        font-size: 11px;
+        color: #58a6ff;
+        text-transform: none;
+      }
+    }
+
+    .package-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px;
+
+      .package-card-item {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(71, 85, 105, 0.35);
+        border-radius: 14px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 10px;
+        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 8px 20px rgba(2, 6, 23, 0.18);
+
+        &:hover {
+          border-color: rgba(56, 189, 248, 0.45);
+          transform: translateY(-1px);
+          box-shadow: 0 12px 24px rgba(2, 6, 23, 0.28);
+        }
+
+        .card-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+
+          .pkg-title {
+            display: flex;
+            flex-direction: column;
+
+            .pkg-name {
+              font-weight: 600;
+              font-size: 14px;
+              color: #58a6ff;
+            }
+
+            .pkg-cat {
+              font-size: 10px;
+              color: #8b949e;
+              text-transform: uppercase;
+            }
+          }
+
+          .installed-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(46, 160, 67, 0.15);
+            border: 1px solid rgba(46, 160, 67, 0.4);
+            color: #3fb950;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 12px;
+
+            mat-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+            }
+          }
+
+          .quick-install-btn {
+            height: 30px !important;
+            line-height: 30px !important;
+            padding: 0 12px !important;
+            font-size: 11px !important;
+            border-radius: 999px;
+            border-color: rgba(56, 189, 248, 0.4) !important;
+
+            mat-icon {
+              font-size: 14px !important;
+              width: 14px !important;
+              height: 14px !important;
+            }
+          }
+        }
+
+        .pkg-desc {
+          margin: 0;
+          font-size: 12px;
+          color: #8b949e;
+          line-height: 1.4;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      }
+    }
+  }
+
+  .package-toast-banner {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #161b22;
+    border: 1px solid #30363d;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6);
+    padding: 10px 18px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #f0f6fc;
+    z-index: 100;
+    animation: fadeInUp 0.25s ease-out;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    &.success {
+      border-color: #2ea043;
+      mat-icon { color: #3fb950; }
+    }
+
+    &.error {
+      border-color: #f85149;
+      mat-icon { color: #ff7b72; }
+    }
+
+    &.info {
+      border-color: #38bdf8;
+      mat-icon { color: #38bdf8; }
+    }
+  }
+  .installed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+
+    .installed-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(71, 85, 105, 0.35);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      box-shadow: 0 8px 20px rgba(2, 6, 23, 0.16);
+
+      .pkg-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+
+        .pkg-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #58a6ff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .pkg-ver {
+          font-size: 11px;
+          color: #8b949e;
+        }
+      }
+
+      .uninstall-btn {
+        width: 36px;
+        height: 36px;
+        line-height: 36px;
+        flex-shrink: 0;
+        border-radius: 999px;
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+      }
+    }
+  }
+
+  .console-log-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .package-alert {
@@ -777,7 +1195,7 @@ button.active-mode {
     background: #010409;
     border: 1px solid #21262d;
     border-radius: 6px;
-    padding: 12px;
+    padding: 14px;
 
     .box-title {
       font-size: 11px;
@@ -792,64 +1210,25 @@ button.active-mode {
       font-family: 'Fira Code', 'Cascadia Code', monospace;
       font-size: 12px;
       color: #7ee787;
-      max-height: 180px;
+      max-height: 260px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
   }
 
-  .installed-packages-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    .section-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 13px;
-      font-weight: 600;
-      color: #8b949e;
-    }
-
-    .package-chips-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      max-height: 220px;
-      overflow-y: auto;
-      padding: 4px;
-
-      .package-chip {
-        background: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 20px;
-        padding: 4px 12px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        color: #c9d1d9;
-
-        .chip-name {
-          font-weight: 500;
-          color: #58a6ff;
-        }
-
-        .chip-version {
-          font-size: 11px;
-          color: #8b949e;
-        }
-      }
-
-      .empty-packages-state {
-        font-size: 13px;
-        color: #8b949e;
-        font-style: italic;
-        padding: 12px 0;
-      }
-    }
+  .empty-packages-state {
+    grid-column: 1 / -1;
+    font-size: 13px;
+    color: #8b949e;
+    font-style: italic;
+    padding: 16px 0;
+    text-align: center;
   }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 @keyframes spin {
@@ -1024,7 +1403,6 @@ button.active-mode {
       }
     }
   }
-}
 
 .editor-statusbar {
   height: 28px;
