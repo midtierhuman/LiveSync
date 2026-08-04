@@ -128,7 +128,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./backend/livesync-infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./livesync-infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
       - livesync-sandbox
 
