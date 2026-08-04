@@ -57,9 +57,15 @@ class NodeExecutor(BaseExecutor):
                 f.write(request.code)
 
             from app.utils.env_sanitizer import get_sanitized_env
+            from app.utils.process_killer import kill_process_tree
+
+            preload_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "utils", "node_preload.js"))
 
             process = await asyncio.create_subprocess_exec(
                 node_path,
+                "--max-old-space-size=256",
+                "--require",
+                preload_path,
                 file_path,
                 stdin=asyncio.subprocess.PIPE if request.standard_input else None,
                 stdout=asyncio.subprocess.PIPE,
@@ -113,7 +119,7 @@ class NodeExecutor(BaseExecutor):
                 completed_at = datetime.now(timezone.utc)
                 duration_ms = round((time.perf_counter_ns() - start_ns) / 1_000_000.0, 2)
                 try:
-                    process.kill()
+                    kill_process_tree(process.pid)
                     await process.wait()
                 except Exception:
                     pass

@@ -1,4 +1,4 @@
-# 🐍 LiveSync Polyglot Sandbox Service
+# LiveSync Polyglot Sandbox Service (`livesync-sandbox`)
 
 A modern, high-performance polyglot code execution microservice built with **Python 3.14** and **FastAPI**.
 
@@ -28,6 +28,7 @@ A modern, high-performance polyglot code execution microservice built with **Pyt
 
 1. Install dependencies:
    ```bash
+   cd livesync-sandbox
    pip install -r requirements.txt
    ```
 

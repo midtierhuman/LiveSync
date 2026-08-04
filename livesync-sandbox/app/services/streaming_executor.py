@@ -72,6 +72,7 @@ class StreamingExecutorService:
 
 
             from app.utils.env_sanitizer import get_sanitized_env
+            from app.utils.process_killer import kill_process_tree
 
             # Spawn interactive subprocess with sanitized environment
             process = await asyncio.create_subprocess_exec(
@@ -122,11 +123,11 @@ class StreamingExecutorService:
                                 await process.stdin.drain()
                         elif msg_action == "kill":
                             if process:
-                                process.kill()
+                                kill_process_tree(process.pid)
                             break
                 except WebSocketDisconnect:
                     if process:
-                        process.kill()
+                        kill_process_tree(process.pid)
                 except Exception:
                     pass
 
@@ -138,7 +139,7 @@ class StreamingExecutorService:
                 await asyncio.wait_for(process.wait(), timeout=timeout_seconds)
             except asyncio.TimeoutError:
                 if process:
-                    process.kill()
+                    kill_process_tree(process.pid)
                     await process.wait()
                 await websocket.send_json({
                     "type": "stderr",
@@ -185,7 +186,7 @@ class StreamingExecutorService:
             ACTIVE_EXECUTIONS_GAUGE.dec()
             if process and process.returncode is None:
                 try:
-                    process.kill()
+                    kill_process_tree(process.pid)
                 except Exception:
                     pass
             if temp_dir and os.path.exists(temp_dir):
@@ -203,7 +204,8 @@ class StreamingExecutorService:
             return sys.executable, "script.py", ["-u", "{file}"]
         elif language in ("javascript", "js", "node"):
             node_path = shutil.which("node")
-            return node_path, "script.js", ["{file}"]
+            preload_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "utils", "node_preload.js"))
+            return node_path, "script.js", ["--max-old-space-size=256", "--require", preload_path, "{file}"]
         elif language in ("csharp", "cs"):
             dotnet_path = shutil.which("dotnet")
             return dotnet_path, "Program.cs", ["run", "--project", "{dir}", "--no-restore", "--nologo"]

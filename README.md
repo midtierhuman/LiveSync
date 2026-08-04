@@ -9,15 +9,19 @@ LiveSync is a high-performance, real-time collaborative code editor built using 
 ## 🚀 Key Features
 
 * **🤝 Real-Time Collaboration**: Micro-second code synchronization with operational position tracking powered by Socket.IO & Redis backplane.
+* **💾 Hybrid Write-Back Caching**: Sub-millisecond state updates in Redis with debounced periodic/disconnect PostgreSQL persistence and AOF crash recovery.
 * **💻 Polyglot Sandbox Execution Engine**: Safe, isolated code execution supporting:
-  * 🐍 **Python 3**
-  * 🟨 **JavaScript / Node.js**
-  * 🔷 **C# / .NET**
+  * 🐍 **Python 3.14**
+  * 🟨 **JavaScript / Node.js 24**
+  * ☕ **Java 21**
+  * 🔷 **C# / .NET 8**
+  * ⚙️ **C++ / GCC**
+* **🔒 Enterprise Security & Hardware Masking**: Process tree killing (`psutil`), V8 heap memory caps (256MB), hardware specification obfuscation (`node_preload.js`), container CPU/RAM quotas, and `null`-origin sandboxed HTML previews.
 * **📺 Interactive REPL Terminal Stream**: Real-time bi-directional `stdin`/`stdout` streaming over WebSockets for terminal games, CLI scripts, and interactive applications.
 * **📊 AST Big-O Complexity Analyzer**: Automated static analysis of code AST to compute Time Complexity ($\mathcal{O}(N)$, $\mathcal{O}(N \log N)$, $\mathcal{O}(N^2)$, etc.) and Space Complexity with detailed explanations.
-* **🔐 Enterprise RBAC & Security**: Fine-grained permissions (Owner, Editor, Viewer) with real-time permission enforcement banner and isolated execution directories.
+* **🔐 Enterprise RBAC & Security**: Fine-grained permissions (Owner, Editor, Viewer) with folder hierarchy access inheritance.
 * **🕰️ Time Travel & Version History**: Snapshot timeline restoration allowing developers to view and restore previous document revisions.
-* **🎨 Modern UI/UX**: Built with Angular 19, CodeMirror 6, and Google Material Design with light/dark theme toggle, word wrap, and automatic formatting (Prettier).
+* **🎨 Modern UI/UX**: Built with Angular 22, CodeMirror 6, and Google Material Design with light/dark theme toggle, word wrap, and automatic formatting (Prettier).
 
 ---
 
@@ -27,7 +31,7 @@ LiveSync uses a decoupled, polyglot microservice stack designed for high through
 
 ```
                       ┌────────────────────────────────────────┐
-                      │            Angular 19 UI               │
+                      │            Angular 22 UI               │
                       │  (CodeMirror 6 + Terminal + Material)  │
                       └──────────────────┬─────────────────────┘
                                          │
@@ -43,19 +47,20 @@ LiveSync uses a decoupled, polyglot microservice stack designed for high through
 └──────┬───────┘                         │                                │
        │                                 ▼                                ▼
        ▼                             Redis Bus                    Process Isolation &
-   PostgreSQL                                                    AST Complexity Analyzer
+   PostgreSQL                      (Write-Back)                 AST Complexity Analyzer
 ```
 
 ### Microservice Breakdown
 
 | Service | Stack | Description | Default Port |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | Angular 19, TypeScript, CodeMirror 6 | Modern code editor interface with live cursor tracking & terminal | `4200` / `80` |
-| **API Backend** | Java 21, Spring Boot, Flyway | Auth, user sessions, document metadata, RBAC, version history | `5038` |
-| **Realtime Service**| Node.js, TypeScript, Socket.IO, Redis | Low-latency room broadcasting & real-time operation sync | `3000` |
-| **Sandbox Engine** | Python 3, FastAPI, AsyncIO | Polyglot code execution, interactive WebSocket REPL, AST analysis | `4000` |
-| **Database** | PostgreSQL 16 | Relational store for users, documents, permissions, and audit logs | `5432` |
-| **Pub/Sub Cache** | Redis 7 | Distributed message bus for real-time Socket.IO room coordination | `6379` |
+| **Frontend (`livesync-ui`)** | Angular 22, TypeScript, CodeMirror 6 | Modern code editor interface with live cursor tracking & terminal | `4200` / `4000` |
+| **API Backend (`livesync-api`)** | Java 21, Spring Boot 3 | Auth, user sessions, document & folder metadata, RBAC, version history | `5038` |
+| **Realtime Service (`livesync-realtime`)**| Node.js 24, TypeScript, Socket.IO 4.8, Redis | Low-latency room broadcasting & real-time operation sync | `5000` |
+| **Sandbox Engine (`livesync-sandbox`)** | Python 3.14, FastAPI, AsyncIO | Polyglot code execution, interactive WebSocket REPL, AST analysis | `8080` |
+| **Database (`livesync-postgres`)** | PostgreSQL 18 | Relational store for users, documents, folders, and permissions | `5432` |
+| **Pub/Sub & Cache (`livesync-redis`)** | Redis 7-alpine (AOF enabled) | Write-back state cache & distributed message bus for Socket.IO | `6379` |
+| **Observability (`livesync-infra`)** | Prometheus & Grafana | Real-time system metrics, execution counters, and health monitoring | `9090` / `3000` |
 
 ---
 
@@ -65,17 +70,17 @@ LiveSync uses a decoupled, polyglot microservice stack designed for high through
 
 * **Docker & Docker Compose** (Recommended)
 * **PowerShell** (for Windows local setup script)
-* **Node.js 20+** & **Python 3.10+** & **JDK 21** (for standalone local dev)
+* **Node.js 24+** & **Python 3.14+** & **JDK 21** (for standalone local dev)
 
 ### Option A: Running with Docker Compose (Recommended)
 
-To start the full polyglot stack (Postgres, Redis, Java API, Node Realtime, Python Sandbox, Frontend, and Nginx):
+To start the full polyglot stack (Postgres, Redis, Java API, Node Realtime, Python Sandbox, Frontend, Nginx, Prometheus, and Grafana):
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-Access the UI in your browser at `http://localhost`.
+Access the UI in your browser at `http://localhost:4000` (or `http://localhost:5038` via load balancer).
 
 ### Option B: Local PowerShell Starter Script
 
@@ -121,17 +126,14 @@ LiveSync features a custom AST (Abstract Syntax Tree) analyzer for Python, JavaS
 
 ```
 LiveSync/
-├── backend/
-│   ├── livesync-api/        # Java 21 Spring Boot API (Auth, Documents, History)
-│   ├── livesync-realtime/   # Node.js + Socket.IO Realtime Collaboration Gateway
-│   ├── livesync-sandbox/    # Python FastAPI Polyglot Sandbox & AST Analyzer
-│   ├── livesync-common/     # Shared DTOs and contracts
-│   └── livesync-infra/      # Docker configuration & deployment manifests
-├── frontend/                # Angular 19 CodeMirror Workspace App
-├── docs/                    # Architecture guides, API specs & migration docs
-├── docker-compose.yml       # Complete multi-container deployment configuration
-├── nginx.conf               # Reverse proxy routing rules
-└── run-dev.ps1              # Development launcher script
+├── livesync-api/        # Java 21 Spring Boot API (Auth, Documents, Folders, History)
+├── livesync-realtime/   # Node.js 24 + Socket.IO Realtime Collaboration Gateway
+├── livesync-sandbox/    # Python 3.14 FastAPI Polyglot Sandbox & AST Analyzer
+├── livesync-ui/         # Angular 22 CodeMirror Workspace App
+├── livesync-common/     # Shared DTOs and contracts
+├── livesync-infra/      # Nginx proxy configuration, Prometheus & Grafana monitoring
+├── docker-compose.yml   # Complete multi-container deployment configuration
+└── run-dev.ps1          # Development launcher script
 ```
 
 ---
@@ -141,7 +143,6 @@ LiveSync/
 Additional design docs and references are available in the [`docs/`](./docs/README.md) folder:
 
 * [Conflict Resolution Design](./docs/CONFLICT_RESOLUTION_DESIGN.md)
-* [FAANG Readiness Checklist](./docs/FAANG_READINESS_CHECKLIST.md)
 * [Project Roadmap](./docs/PROJECT_ROADMAP.md)
 * [AWS Deployment Guide](./docs/deployment/AWS_DEPLOYMENT_GUIDE.md)
 

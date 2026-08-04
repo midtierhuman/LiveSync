@@ -5,7 +5,6 @@ declare global {
     __LIVE_SYNC_CONFIG__?: {
       apiBaseUrl?: string;
       realtimeBaseUrl?: string;
-      signalRBaseUrl?: string;
     };
   }
 }
@@ -16,6 +15,6 @@ const normalize = (url?: string): string => (url || '').replace(/\/$/, '');
 export const appEndpoints = {
   apiBaseUrl: normalize(runtimeConfig.apiBaseUrl || environment.apiBaseUrl),
   realtimeBaseUrl: normalize(
-    runtimeConfig.realtimeBaseUrl || runtimeConfig.signalRBaseUrl || environment.realtimeBaseUrl
+    runtimeConfig.realtimeBaseUrl || environment.realtimeBaseUrl
   ),
 };

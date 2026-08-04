@@ -1,57 +1,57 @@
 # LiveSync Documentation
 
-LiveSync is a polyglot system:
+LiveSync is a high-performance polyglot real-time collaborative code editor and execution engine. The documentation structure mirrors the project's root microservice architecture:
 
-- **Frontend**: Angular 19 + TypeScript + CodeMirror 6
-- **Auth / Document API**: Java 21 + Spring Boot + PostgreSQL
-- **Realtime Service**: Node.js + TypeScript + Socket.IO + Redis
-- **Execution Sandbox**: Python 3 + FastAPI + WebSockets + AST Complexity Analyzer
+## 📁 Documentation Structure
 
-## Main Project Overview
+```
+docs/
+├── livesync-api/        # Java 21 Spring Boot 3 REST API documentation & auto-migration guide
+├── livesync-realtime/   # Node.js 24 Socket.IO realtime service & write-back caching architecture
+├── livesync-sandbox/    # Python 3.14 FastAPI execution engine, sandboxing & AST analyzer
+├── livesync-ui/         # Angular 22 CodeMirror 6 frontend workspace documentation
+├── livesync-infra/      # AWS deployment guide, Docker manifests, Prometheus & Grafana
+├── CONFLICT_RESOLUTION_DESIGN.md  # Real-time conflict resolution & operational position tracking
+├── PROJECT_ROADMAP.md             # Feature roadmap & milestones
+└── README.md                      # Documentation index
+```
 
-- [Main Root README.md](../README.md) - Full repository overview, architecture diagrams, and quick start guide.
+---
 
-## Backend Documentation
+## 📄 Service Documentation Index
 
+### ☕ API Backend (`livesync-api`)
 | File | Description |
 |------|-------------|
-| [AUTO_MIGRATION_GUIDE.md](./backend/AUTO_MIGRATION_GUIDE.md) | How auto-migrations work on startup |
-| [BACKEND_CHANGES_SUMMARY.md](./backend/BACKEND_CHANGES_SUMMARY.md) | Summary of backend changes |
-| [TESTING_GUIDE.md](./backend/TESTING_GUIDE.md) | Guide for running and writing backend tests |
+| [README.md](./livesync-api/README.md) | Java auth, document, folder CRUD, and RBAC API overview |
+| [AUTO_MIGRATION_GUIDE.md](./livesync-api/AUTO_MIGRATION_GUIDE.md) | Automatic DDL database migrations on startup |
+| [TESTING_GUIDE.md](./livesync-api/TESTING_GUIDE.md) | Unit and integration testing guide |
 
-### API (`livesync-api`)
-
+### 🟨 Realtime Service (`livesync-realtime`)
 | File | Description |
 |------|-------------|
-| [README.md](./backend/api/README.md) | Java auth and document API overview |
-| [DATABASE_QUICK_REFERENCE.md](./backend/api/DATABASE_QUICK_REFERENCE.md) | PostgreSQL quick command reference |
+| [README.md](./livesync-realtime/README.md) | Socket.IO realtime service & hybrid write-back caching |
+| [QUICK_START.md](./livesync-realtime/QUICK_START.md) | Development quick start guide |
+| [QUICK_REFERENCE.md](./livesync-realtime/QUICK_REFERENCE.md) | Service URLs, ports, and Socket.IO events reference |
+| [README_AUTH.md](./livesync-realtime/README_AUTH.md) | Socket.IO JWT authentication and authorization integration |
 
-### Realtime Service (`livesync-realtime`)
-
+### 🐍 Execution Sandbox (`livesync-sandbox`)
 | File | Description |
 |------|-------------|
-| [README_BACKEND.md](./backend/signalr/README_BACKEND.md) | Node/Socket.IO realtime service overview |
-| [README_AUTH.md](./backend/signalr/README_AUTH.md) | How realtime auth integrates with the Java API |
-| [QUICK_REFERENCE.md](./backend/signalr/QUICK_REFERENCE.md) | Quick command/endpoint reference |
-| [QUICK_START.md](./backend/signalr/QUICK_START.md) | Getting started with the realtime service |
-| [LAUNCH_CONFIGURATION.md](./backend/signalr/LAUNCH_CONFIGURATION.md) | Launch profiles and configuration |
+| [README.md](./livesync-sandbox/README.md) | Polyglot execution sandbox, AST complexity analyzer & streaming REPL |
 
-### Sandbox (`livesync-sandbox`)
-
+### 🅰️ Frontend UI (`livesync-ui`)
 | File | Description |
 |------|-------------|
-| [README.md](../backend/livesync-sandbox/README.md) | Python FastAPI sandbox, AST complexity analyzer & streaming REPL |
+| [README.md](./livesync-ui/README.md) | Angular 22 CodeMirror workspace, terminal UI & signals performance |
 
-## Deployment
-
+### ⚙️ Infrastructure & Monitoring (`livesync-infra`)
 | File | Description |
 |------|-------------|
-| [AWS_DEPLOYMENT_GUIDE.md](./deployment/AWS_DEPLOYMENT_GUIDE.md) | Guide for deploying to AWS |
+| [AWS_DEPLOYMENT_GUIDE.md](./livesync-infra/AWS_DEPLOYMENT_GUIDE.md) | AWS ECS/EC2 container deployment guide |
 
-## Architecture & Readiness
-
+### 🧠 Architecture & Design
 | File | Description |
 |------|-------------|
-| [CONFLICT_RESOLUTION_DESIGN.md](./CONFLICT_RESOLUTION_DESIGN.md) | Real-time conflict resolution design |
-| [FAANG_READINESS_CHECKLIST.md](./FAANG_READINESS_CHECKLIST.md) | FAANG & production readiness checklist |
+| [CONFLICT_RESOLUTION_DESIGN.md](./CONFLICT_RESOLUTION_DESIGN.md) | Real-time conflict resolution & operational position tracking |
 | [PROJECT_ROADMAP.md](./PROJECT_ROADMAP.md) | Project roadmap & feature milestones |

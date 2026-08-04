@@ -20,7 +20,7 @@ export class EditorHub {
     this.state.setColor(socket.id, color).catch((err: unknown) => console.error('Error setting cursor color:', err));
     console.log(`Connection established: ${socket.id}`);
 
-    // Handler registrations supporting both SignalR style casing (JoinDocument) and JS style (joinDocument)
+    // Handler registrations supporting both PascalCase (JoinDocument) and camelCase (joinDocument)
     socket.on('JoinDocument', (docId: string) => this.handleJoinDocument(socket, docId));
     socket.on('joinDocument', (docId: string) => this.handleJoinDocument(socket, docId));
 

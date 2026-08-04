@@ -213,7 +213,7 @@ This combines benefits of both: simplicity of CRDTs with efficiency of OT.
 ## Code Structure
 
 ```
-backend/livesync/livesync-realtime/src/
+livesync-realtime/src/
 ├── models/
 │   ├── operation.ts              # Operation shape and IDs
 │   └── operationId.ts            # Operation ID helpers
@@ -227,5 +227,5 @@ backend/livesync/livesync-realtime/src/
 
 ---
 
-**Last Updated**: 2024
+**Last Updated**: 2026
 **Status**: Implemented & Tested ✅
