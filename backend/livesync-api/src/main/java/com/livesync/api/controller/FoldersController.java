@@ -53,9 +53,14 @@ public class FoldersController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable String id, @Valid @RequestBody UpdateFolderRequest request, Authentication auth) {
-        return folderService.update(id, user(auth), request)
+        var userId = user(auth);
+        if (folderService.find(id, userId).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return folderService.update(id, userId, request)
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "You don't have edit access to this folder")));
     }
 
     @DeleteMapping("/{id}")

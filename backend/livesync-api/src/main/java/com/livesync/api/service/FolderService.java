@@ -8,15 +8,18 @@ import com.livesync.api.model.SharedFolder;
 import com.livesync.api.repository.DocumentRepository;
 import com.livesync.api.repository.FolderRepository;
 import com.livesync.api.repository.SharedFolderRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
 
 @Service
 @Transactional
 public class FolderService {
+    private static final String SHARE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private final FolderRepository folders;
     private final SharedFolderRepository sharedFolders;
     private final DocumentRepository documents;
@@ -34,7 +37,12 @@ public class FolderService {
         folder.setName(request.name().trim());
         folder.setOwnerId(userId);
         if (request.parentFolderId() != null && !request.parentFolderId().isBlank()) {
-            folder.setParentFolderId(request.parentFolderId());
+            var parent = folders.findById(request.parentFolderId())
+                    .orElseThrow(() -> new IllegalArgumentException("Parent folder not found"));
+            if (!"Edit".equals(accessLevel(parent, userId))) {
+                throw new AccessDeniedException("No edit access to parent folder.");
+            }
+            folder.setParentFolderId(parent.getId());
         }
         folder.setShareCode(generateUniqueShareCode());
         folder.setCreatedAt(Instant.now());
@@ -103,15 +111,30 @@ public class FolderService {
             return false;
         }
 
-        // Unassign documents inside folder to root or delete
-        var docsInside = documents.findByFolderIdOrderByUpdatedAtDesc(folderId);
-        for (var doc : docsInside) {
-            doc.setFolderId(null);
-            documents.save(doc);
+        // Unassign documents inside folder and all nested subfolders to root
+        List<String> allFolderIds = collectSubfolderIds(folderId);
+        allFolderIds.add(folderId);
+
+        for (String fId : allFolderIds) {
+            var docsInside = documents.findByFolderIdOrderByUpdatedAtDesc(fId);
+            for (var doc : docsInside) {
+                doc.setFolderId(null);
+                documents.save(doc);
+            }
         }
 
         folders.delete(folder);
         return true;
+    }
+
+    private List<String> collectSubfolderIds(String parentId) {
+        List<String> ids = new ArrayList<>();
+        var children = folders.findByParentFolderIdOrderByUpdatedAtDesc(parentId);
+        for (var child : children) {
+            ids.add(child.getId());
+            ids.addAll(collectSubfolderIds(child.getId()));
+        }
+        return ids;
     }
 
     public boolean moveDocument(String documentId, String userId, String targetFolderId) {
@@ -126,6 +149,8 @@ public class FolderService {
         if (targetFolderId != null && !targetFolderId.isBlank()) {
             var targetOpt = folders.findById(targetFolderId);
             if (targetOpt.isEmpty()) return false;
+            var target = targetOpt.get();
+            if (!"Edit".equals(accessLevel(target, userId))) return false;
             doc.setFolderId(targetFolderId);
         } else {
             doc.setFolderId(null);
@@ -178,9 +203,14 @@ public class FolderService {
     }
 
     private String generateUniqueShareCode() {
+        var random = new SecureRandom();
         String code;
         do {
-            code = UUID.randomUUID().toString().substring(0, 8);
+            var sb = new StringBuilder(10);
+            for (int i = 0; i < 10; i++) {
+                sb.append(SHARE_CHARS.charAt(random.nextInt(SHARE_CHARS.length())));
+            }
+            code = sb.toString();
         } while (folders.existsByShareCode(code));
         return code;
     }
@@ -190,7 +220,7 @@ public class FolderService {
                 folders.findByParentFolderIdOrderByUpdatedAtDesc(f.getId()).stream().map(sf -> toDto(sf, true)).toList()
                 : Collections.<FolderDto>emptyList();
 
-        int docCount = documents.findByFolderIdOrderByUpdatedAtDesc(f.getId()).size();
+        long docCount = documents.countByFolderId(f.getId());
 
         return new FolderDto(
                 f.getId(),
@@ -202,7 +232,7 @@ public class FolderService {
                 f.getCreatedAt(),
                 f.getUpdatedAt(),
                 subfolders.size(),
-                docCount,
+                (int) docCount,
                 subfolders,
                 Collections.emptyList()
         );

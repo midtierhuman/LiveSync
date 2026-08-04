@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SharedFolderRepository extends JpaRepository<SharedFolder, String> {
-    @EntityGraph(attributePaths = {"folder", "user"})
+    @EntityGraph(attributePaths = {"folder", "folder.owner", "user"})
     List<SharedFolder> findByUserIdOrderBySharedAtDesc(String userId);
 
-    @EntityGraph(attributePaths = {"folder", "user"})
+    @EntityGraph(attributePaths = {"folder", "folder.owner", "user"})
     Optional<SharedFolder> findByFolderIdAndUserId(String folderId, String userId);
 
     @EntityGraph(attributePaths = {"user"})

@@ -27,5 +27,7 @@ public interface DocumentRepository extends JpaRepository<Document, String> {
     Optional<Document> findByShareCode(String shareCode);
 
     boolean existsByShareCode(String shareCode);
+
+    long countByFolderId(String folderId);
 }
 
