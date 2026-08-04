@@ -17,15 +17,54 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 const API_BASE_URL = process.env.API_BASE_URL || process.env.Services__ApiBaseUrl || 'http://localhost:8080';
 const REDIS_URL = process.env.REDIS_URL || process.env.Redis__ConnectionString || 'redis://localhost:6379';
+const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || '';
+
+const parseAllowedOrigins = (rawValue: string): Set<string> => {
+  const raw = (rawValue || '').trim();
+  if (!raw) return new Set<string>();
+
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        return new Set(
+          parsed.filter((value): value is string => typeof value === 'string').map((value) => value.trim()).filter(Boolean)
+        );
+      }
+    } catch {
+      return new Set<string>();
+    }
+  }
+
+  return new Set(raw.split(',').map((value) => value.trim()).filter(Boolean));
+};
+
+const allowedOrigins = parseAllowedOrigins(CORS_ALLOWED_ORIGINS);
+if (allowedOrigins.size === 0) {
+  ['http://localhost:4200', 'http://localhost:4000', 'http://localhost:5038'].forEach((origin) =>
+    allowedOrigins.add(origin)
+  );
+}
+
+const isOriginAllowed = (origin?: string): boolean => {
+  if (!origin) return true;
+  return allowedOrigins.has(origin);
+};
 
 const app = express();
 
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('CORS origin denied'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['*'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
   })
 );
 
@@ -56,8 +95,12 @@ const conflictResolver = new ConflictResolver();
 // Configure Socket.IO Server
 const io = new Server(server, {
   cors: {
-    origin: (_origin, callback) => {
-      callback(null, true);
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Socket.IO origin denied'));
     },
     methods: ['GET', 'POST'],
     credentials: true,

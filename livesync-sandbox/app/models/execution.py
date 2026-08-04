@@ -16,7 +16,7 @@ class SandboxExecutionRequest(BaseModel):
     language: str
     code: str
     standard_input: str | None = Field(default=None)
-    timeout_ms: int = Field(default=15000)
+    timeout_ms: int = Field(default=15000, ge=1, le=120000)
 
 
 class SandboxExecutionResponse(BaseModel):
@@ -37,4 +37,3 @@ class SandboxExecutionResponse(BaseModel):
     complexity_explanation: str | None = None
     requested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-

@@ -58,7 +58,8 @@ export class EditorHub {
     socket.on('disconnect', () => this.handleDisconnect(socket));
   }
 
-  private readonly documentTokens = new Map<string, string>();
+  private readonly documentTokens = new Map<string, Map<string, string>>();
+  private readonly lastEditorByDocument = new Map<string, string>();
   private readonly lastSavedContent = new Map<string, string>();
   private sweeperTimer: NodeJS.Timeout | null = null;
   private flusherTimer: NodeJS.Timeout | null = null;
@@ -114,7 +115,7 @@ export class EditorHub {
 
     for (const documentId of documentIds) {
       const activeContent = await concreteState.getContent(documentId);
-      const accessToken = this.documentTokens.get(documentId);
+      const accessToken = this.getTokenForDocumentSave(documentId);
 
       if (activeContent !== null) {
         const lastSaved = this.lastSavedContent.get(documentId);
@@ -158,7 +159,7 @@ export class EditorHub {
 
           if (count === 0) {
             const finalContent = await this.state.getContent(documentId);
-            const accessToken = this.documentTokens.get(documentId);
+            const accessToken = this.getTokenForDocumentSave(documentId);
             if (finalContent !== null && finalContent !== this.lastSavedContent.get(documentId)) {
               await concreteState.publishSaveEvent(documentId, finalContent);
               if (accessToken) {
@@ -171,9 +172,11 @@ export class EditorHub {
             const operationLog = this.state.getOperationLog();
             await operationLog.deleteOperations(documentId);
             this.documentTokens.delete(documentId);
+            this.lastEditorByDocument.delete(documentId);
             this.lastSavedContent.delete(documentId);
           }
 
+          this.removeDocumentToken(documentId, connectionId);
           this.io.to(documentId).emit('UserLeft', connectionId, count);
           await this.state.removeConnection(connectionId);
           swept++;
@@ -187,11 +190,6 @@ export class EditorHub {
   }
 
   private getAccessToken(socket: Socket): string {
-    const queryToken = socket.handshake.query.access_token;
-    if (typeof queryToken === 'string' && queryToken.trim()) {
-      return queryToken.trim();
-    }
-
     const authHeader = socket.handshake.headers.authorization;
     if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
       return authHeader.substring(7).trim();
@@ -221,7 +219,7 @@ export class EditorHub {
       }
 
       if (accessToken && accessLevel === 'Edit') {
-        this.documentTokens.set(documentId, accessToken);
+        this.setDocumentToken(documentId, socket.id, accessToken);
       }
 
       const wasAdded = await this.state.addUserToDocument(documentId, socket.id, accessLevel);
@@ -260,7 +258,7 @@ export class EditorHub {
       if (activeCount === 0) {
         const concreteState = this.state as RedisDocumentStateService;
         const finalContent = await this.state.getContent(documentId);
-        const accessToken = this.documentTokens.get(documentId);
+        const accessToken = this.getTokenForDocumentSave(documentId);
         if (finalContent !== null && finalContent !== this.lastSavedContent.get(documentId)) {
           await concreteState.publishSaveEvent(documentId, finalContent);
           if (accessToken) {
@@ -273,10 +271,12 @@ export class EditorHub {
         const operationLog = this.state.getOperationLog();
         await operationLog.deleteOperations(documentId);
         this.documentTokens.delete(documentId);
+        this.lastEditorByDocument.delete(documentId);
         this.lastSavedContent.delete(documentId);
       }
 
       this.io.to(documentId).emit('UserLeft', socket.id, activeCount);
+      this.removeDocumentToken(documentId, socket.id);
     } catch (error: any) {
       console.error(`Error leaving document ${documentId}:`, error);
     }
@@ -302,6 +302,7 @@ export class EditorHub {
       }
 
       await this.state.setContent(documentId, content);
+      this.lastEditorByDocument.set(documentId, socket.id);
       socket.to(documentId).emit('ReceiveContentUpdate', content);
     } catch (error: any) {
       console.error(`Error sending content update for document ${documentId}:`, error);
@@ -354,6 +355,7 @@ export class EditorHub {
       const currentContent = (await this.state.getContent(documentId)) || '';
       const updatedContent = this.conflictResolver.applyOperation(currentContent, committedOp);
       await this.state.setContent(documentId, updatedContent);
+      this.lastEditorByDocument.set(documentId, socket.id);
 
       console.log(
         `Operation applied for document ${documentId} by ${socket.id}. ServerRevision: ${committedOp.serverRevision}`
@@ -500,7 +502,7 @@ export class EditorHub {
 
         if (count === 0) {
           const finalContent = await this.state.getContent(documentId);
-          const accessToken = this.documentTokens.get(documentId);
+          const accessToken = this.getTokenForDocumentSave(documentId);
           if (finalContent !== null && finalContent !== this.lastSavedContent.get(documentId)) {
             if (this.state instanceof RedisDocumentStateService) {
               await (this.state as RedisDocumentStateService).publishSaveEvent(documentId, finalContent);
@@ -514,15 +516,56 @@ export class EditorHub {
           await this.state.deleteContent(documentId);
           await operationLog.deleteOperations(documentId);
           this.documentTokens.delete(documentId);
+          this.lastEditorByDocument.delete(documentId);
           this.lastSavedContent.delete(documentId);
         }
 
         this.io.to(documentId).emit('UserLeft', socket.id, count);
+        this.removeDocumentToken(documentId, socket.id);
       }
 
       await this.state.removeConnection(socket.id);
     } catch (error: any) {
       console.error(`Error during disconnect cleanup for ${socket.id}:`, error);
     }
+  }
+
+  private setDocumentToken(documentId: string, socketId: string, accessToken: string): void {
+    const tokenBySocket = this.documentTokens.get(documentId) ?? new Map<string, string>();
+    tokenBySocket.set(socketId, accessToken);
+    this.documentTokens.set(documentId, tokenBySocket);
+  }
+
+  private removeDocumentToken(documentId: string, socketId: string): void {
+    const tokenBySocket = this.documentTokens.get(documentId);
+    if (!tokenBySocket) return;
+
+    tokenBySocket.delete(socketId);
+    if (tokenBySocket.size === 0) {
+      this.documentTokens.delete(documentId);
+    } else {
+      this.documentTokens.set(documentId, tokenBySocket);
+    }
+
+    if (this.lastEditorByDocument.get(documentId) === socketId) {
+      this.lastEditorByDocument.delete(documentId);
+    }
+  }
+
+  private getTokenForDocumentSave(documentId: string): string | undefined {
+    const tokenBySocket = this.documentTokens.get(documentId);
+    if (!tokenBySocket || tokenBySocket.size === 0) {
+      return undefined;
+    }
+
+    const preferredSocketId = this.lastEditorByDocument.get(documentId);
+    if (preferredSocketId) {
+      const preferredToken = tokenBySocket.get(preferredSocketId);
+      if (preferredToken) {
+        return preferredToken;
+      }
+    }
+
+    return tokenBySocket.values().next().value;
   }
 }

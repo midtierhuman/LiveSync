@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 import shutil
 import sys
@@ -7,6 +8,7 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from fastapi import WebSocket, WebSocketDisconnect
+from app.config import settings
 from app.services.complexity_analyzer import complexity_analyzer
 from app.services.metrics import (
     EXECUTION_COUNTER,
@@ -16,9 +18,17 @@ from app.services.metrics import (
     get_process_metrics,
 )
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+logger = logging.getLogger(__name__)
+
+
 
 class StreamingExecutorService:
-    async def handle_websocket_session(self, websocket: WebSocket):
+    async def handle_websocket_session(self, websocket: WebSocket, auth_service):
         await websocket.accept()
         ACTIVE_EXECUTIONS_GAUGE.inc()
         start_ns = time.perf_counter_ns()
@@ -39,9 +49,40 @@ class StreamingExecutorService:
                 await websocket.close()
                 return
 
+            access_token = auth_service.get_websocket_token(init_data)
+            try:
+                if not auth_service.validate_token(access_token):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Unauthorized.",
+                    })
+                    await websocket.close(code=1008)
+                    return
+            except ValueError as ex:
+                logger.error(str(ex))
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Sandbox auth is not configured.",
+                })
+                await websocket.close(code=1011)
+                return
+
             language = (init_data.get("language") or "").lower().strip()
             code = init_data.get("code") or ""
-            timeout_ms = int(init_data.get("timeoutMs") or 120000)
+            requested_timeout = init_data.get("timeoutMs")
+            if requested_timeout is None or requested_timeout == "":
+                timeout_ms = settings.default_timeout_ms
+            else:
+                try:
+                    timeout_ms = int(requested_timeout)
+                except (TypeError, ValueError):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Invalid timeout value.",
+                    })
+                    await websocket.close(code=1003)
+                    return
+            timeout_ms = max(1, min(timeout_ms, settings.max_timeout_ms))
             timeout_seconds = timeout_ms / 1000.0
 
             # Analyze Big-O Complexity
@@ -103,7 +144,7 @@ class StreamingExecutorService:
                         text = chunk.decode("utf-8", errors="replace")
                         await websocket.send_json({"type": stream_type, "data": text})
                 except Exception:
-                    pass
+                    return
 
             stdout_task = asyncio.create_task(read_stream(process.stdout, "stdout"))
             stderr_task = asyncio.create_task(read_stream(process.stderr, "stderr"))
@@ -113,41 +154,55 @@ class StreamingExecutorService:
                 try:
                     while True:
                         msg_text = await websocket.receive_text()
-                        msg = json.loads(msg_text)
+                        try:
+                            msg = json.loads(msg_text)
+                        except (json.JSONDecodeError, TypeError, ValueError):
+                            continue
+
                         msg_action = msg.get("action")
 
                         if msg_action == "stdin":
                             stdin_data = msg.get("data", "")
                             if process and process.stdin and not process.stdin.is_closing():
-                                process.stdin.write(stdin_data.encode("utf-8"))
-                                await process.stdin.drain()
+                                try:
+                                    process.stdin.write(stdin_data.encode("utf-8"))
+                                    await process.stdin.drain()
+                                except (BrokenPipeError, OSError, RuntimeError):
+                                    pass
                         elif msg_action == "kill":
                             if process:
                                 kill_process_tree(process.pid)
                             break
-                except WebSocketDisconnect:
-                    if process:
+                except (WebSocketDisconnect, RuntimeError, asyncio.CancelledError):
+                    if process and process.returncode is None:
                         kill_process_tree(process.pid)
-                except Exception:
-                    pass
+                except Exception as ex:
+                    logger.warning(f"Error in listen_client_input: {ex}")
+                    if process and process.returncode is None:
+                        kill_process_tree(process.pid)
 
             input_task = asyncio.create_task(listen_client_input())
 
             # Wait for process exit or timeout
+            peak_mem_bytes = 0
+            cpu_time_ms = 0.0
             try:
-                peak_mem_bytes, cpu_time_ms = get_process_metrics(process.pid)
                 await asyncio.wait_for(process.wait(), timeout=timeout_seconds)
+                peak_mem_bytes, cpu_time_ms = get_process_metrics(process.pid)
             except asyncio.TimeoutError:
                 if process:
                     kill_process_tree(process.pid)
                     await process.wait()
-                await websocket.send_json({
-                    "type": "stderr",
-                    "data": f"\n[Execution Timed Out after {timeout_ms}ms]\n",
-                })
+                try:
+                    await websocket.send_json({
+                        "type": "stderr",
+                        "data": f"\n[Execution Timed Out after {timeout_ms}ms]\n",
+                    })
+                except Exception:
+                    pass
 
             input_task.cancel()
-            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+            await asyncio.gather(stdout_task, stderr_task, input_task, return_exceptions=True)
 
             completed_at = datetime.now(timezone.utc)
             duration_ms = round((time.perf_counter_ns() - start_ns) / 1_000_000.0, 2)
@@ -161,25 +216,29 @@ class StreamingExecutorService:
             EXECUTION_MEMORY_HISTOGRAM.labels(language=language).observe(peak_mem_bytes)
 
             # Send final exit payload with full resource metrics
-            await websocket.send_json({
-                "type": "exit",
-                "exitCode": exit_code,
-                "status": status,
-                "isSuccess": is_success,
-                "executionDurationMs": duration_ms,
-                "peakMemoryBytes": peak_mem_bytes,
-                "cpuTimeMs": round(cpu_time_ms, 2),
-                "timeComplexity": complexity.time_complexity,
-                "spaceComplexity": complexity.space_complexity,
-                "complexityExplanation": complexity.explanation,
-                "completedAt": completed_at.isoformat(),
-            })
+            try:
+                await websocket.send_json({
+                    "type": "exit",
+                    "exitCode": exit_code,
+                    "status": status,
+                    "isSuccess": is_success,
+                    "executionDurationMs": duration_ms,
+                    "peakMemoryBytes": peak_mem_bytes,
+                    "cpuTimeMs": round(cpu_time_ms, 2),
+                    "timeComplexity": complexity.time_complexity,
+                    "spaceComplexity": complexity.space_complexity,
+                    "complexityExplanation": complexity.explanation,
+                    "completedAt": completed_at.isoformat(),
+                })
+            except Exception:
+                pass
 
         except WebSocketDisconnect:
-            pass
+            logger.debug("WebSocket disconnected by client.")
         except Exception as ex:
+            logger.exception("Streaming execution failed")
             try:
-                await websocket.send_json({"type": "error", "message": str(ex)})
+                await websocket.send_json({"type": "error", "message": "Internal execution error."})
             except Exception:
                 pass
         finally:
@@ -201,7 +260,12 @@ class StreamingExecutorService:
 
     def _resolve_execution_cmd(self, language: str) -> tuple[str | None, str, list[str]]:
         if language in ("python", "py"):
-            return sys.executable, "script.py", ["-u", "{file}"]
+            exec_path = sys.executable
+            if "WindowsApps" in exec_path or not os.path.exists(exec_path):
+                real_py = shutil.which("py") or shutil.which("python3") or shutil.which("python")
+                if real_py:
+                    exec_path = real_py
+            return exec_path, "script.py", ["-u", "{file}"]
         elif language in ("javascript", "js", "node"):
             node_path = shutil.which("node")
             preload_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "utils", "node_preload.js"))

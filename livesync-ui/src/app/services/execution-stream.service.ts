@@ -1,6 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { appEndpoints } from '../app-endpoints';
 import { DocumentExecutionResponse } from './document.service';
+import { AuthService } from './auth.service';
 
 export interface StreamEvent {
   type: 'status' | 'stdout' | 'stderr' | 'exit' | 'error';
@@ -21,6 +22,7 @@ export interface StreamEvent {
   providedIn: 'root',
 })
 export class ExecutionStreamService {
+  private readonly authService = inject(AuthService);
   private socket: WebSocket | null = null;
 
   readonly isStreaming = signal<boolean>(false);
@@ -55,6 +57,7 @@ export class ExecutionStreamService {
             language,
             code,
             timeoutMs,
+            token: this.authService.token() || '',
           }),
         );
       };

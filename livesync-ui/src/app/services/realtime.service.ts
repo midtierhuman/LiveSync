@@ -72,8 +72,8 @@ export class RealtimeService {
     this.socket = io(serverUrl, {
       autoConnect: false,
       transports: ['websocket', 'polling'],
-      query: {
-        access_token: this.authService.token() || '',
+      auth: {
+        token: this.authService.token() || '',
       },
     });
 
@@ -174,7 +174,7 @@ export class RealtimeService {
 
     try {
       const token = this.authService.token() || '';
-      (this.socket as any).io.opts.query = { access_token: token };
+      this.socket.auth = { token };
 
       this.socket.connect();
     } catch (err) {

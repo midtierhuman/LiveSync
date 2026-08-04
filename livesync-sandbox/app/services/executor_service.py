@@ -36,6 +36,7 @@ class SandboxExecutionService:
             )
 
         timeout = request.timeout_ms if request.timeout_ms > 0 else settings.default_timeout_ms
+        timeout = min(timeout, settings.max_timeout_ms)
         normalized_request = SandboxExecutionRequest(
             language=executor.language_name,
             code=request.code,

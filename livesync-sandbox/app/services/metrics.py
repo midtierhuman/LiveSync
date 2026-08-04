@@ -42,4 +42,4 @@ def get_process_metrics(pid: int) -> tuple[int, float]:
         cpu_ms = (cpu_times.user + cpu_times.system) * 1000.0
         return peak_mem, cpu_ms
     except Exception:
-        return 1024 * 1024, 0.0  # Fallback 1MB default estimate if process terminated
+        return 0, 0.0

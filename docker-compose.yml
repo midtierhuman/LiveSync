@@ -9,14 +9,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: devuser
-      POSTGRES_PASSWORD: devpassword
+      POSTGRES_USER: ${LIVESYNC_POSTGRES_USERNAME:-devuser}
+      POSTGRES_PASSWORD: ${LIVESYNC_POSTGRES_PASSWORD:-devpassword}
       POSTGRES_DB: livesync
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - livesync-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devuser -d livesync"]
+      test: ["CMD-SHELL", "pg_isready -U ${LIVESYNC_POSTGRES_USERNAME:-devuser} -d livesync"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,14 +30,14 @@ services:
       - "6379:6379"
     command: >
       redis-server
-      --requirepass LocalDevPassword123!
+      --requirepass ${LIVESYNC_REDIS_PASSWORD:-LocalDevPassword123!}
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy noeviction
     volumes:
       - livesync-redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "LocalDevPassword123!", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${LIVESYNC_REDIS_PASSWORD:-LocalDevPassword123!}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -71,9 +71,9 @@ services:
       - SPRING_PROFILES_ACTIVE=development
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - LIVESYNC_DATABASE_URL=jdbc:postgresql://livesync-postgres:5432/livesync?options=-c%20timezone=UTC
-      - LIVESYNC_DATABASE_USERNAME=devuser
-      - LIVESYNC_DATABASE_PASSWORD=devpassword
-      - LIVESYNC_JWT_SECRET=LiveSync-Development-Only-Secret-Change-Me!
+      - LIVESYNC_DATABASE_USERNAME=${LIVESYNC_POSTGRES_USERNAME:-devuser}
+      - LIVESYNC_DATABASE_PASSWORD=${LIVESYNC_POSTGRES_PASSWORD:-devpassword}
+      - LIVESYNC_JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
       - LIVESYNC_SANDBOX_BASE_URL=http://livesync-sandbox:8080/
       - LIVESYNC_CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
 
@@ -92,6 +92,10 @@ services:
     environment:
       - ENVIRONMENT=Development
       - DEFAULT_TIMEOUT_MS=15000
+      - MAX_TIMEOUT_MS=120000
+      - JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
+      - JWT_ISSUER=LiveSyncAuthAPI
+      - JWT_AUDIENCE=LiveSyncClient
       - CORS_ALLOWED_ORIGINS=["http://localhost:4200","http://localhost:4000","http://localhost:5038"]
 
   # 2c. Node.js Socket.IO Realtime Engine
@@ -106,7 +110,7 @@ services:
         condition: service_healthy
     environment:
       - PORT=5000
-      - REDIS_URL=redis://:LocalDevPassword123!@livesync-redis:6379
+      - REDIS_URL=redis://:${LIVESYNC_REDIS_PASSWORD:-LocalDevPassword123!}@livesync-redis:6379
       - API_BASE_URL=http://api-loadbalancer:80/
       - CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
 
@@ -143,7 +147,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     depends_on:
       - prometheus
 

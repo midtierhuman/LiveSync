@@ -42,6 +42,11 @@ class PythonExecutor(BaseExecutor):
                 f.write(request.code)
 
             python_executable = sys.executable
+            if "WindowsApps" in python_executable or not os.path.exists(python_executable):
+                real_py = shutil.which("py") or shutil.which("python3") or shutil.which("python")
+                if real_py:
+                    python_executable = real_py
+
 
             from app.utils.env_sanitizer import get_sanitized_env
 
@@ -57,13 +62,11 @@ class PythonExecutor(BaseExecutor):
             stdin_data = request.standard_input.encode("utf-8") if request.standard_input else None
 
             try:
-                # Capture process resource usage before communication finishes
-                peak_mem_bytes, cpu_time_ms = get_process_metrics(process.pid)
-
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     process.communicate(input=stdin_data),
                     timeout=timeout_seconds,
                 )
+                peak_mem_bytes, cpu_time_ms = get_process_metrics(process.pid)
                 completed_at = datetime.now(timezone.utc)
                 duration_ms = round((time.perf_counter_ns() - start_ns) / 1_000_000.0, 2)
 
@@ -124,7 +127,7 @@ class PythonExecutor(BaseExecutor):
                     standard_error=f"Timeout limit of {request.timeout_ms}ms exceeded.",
                     exit_code=-1,
                     execution_duration_ms=duration_ms,
-                    peak_memory_bytes=1024 * 1024,
+                    peak_memory_bytes=0,
                     cpu_time_ms=0.0,
                     time_complexity=complexity.time_complexity,
                     space_complexity=complexity.space_complexity,

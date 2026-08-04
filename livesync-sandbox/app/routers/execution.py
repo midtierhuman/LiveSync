@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, WebSocket, status
+from fastapi import APIRouter, HTTPException, Request, WebSocket, status
 import logging
 from pydantic import ValidationError
 from app.models.execution import (
@@ -8,6 +8,7 @@ from app.models.execution import (
 )
 from app.services.executor_service import executor_service
 from app.services.streaming_executor import streaming_executor_service
+from app.services.auth_service import auth_service
 
 router = APIRouter(prefix="/api/execution", tags=["Execution"])
 logger = logging.getLogger(__name__)
@@ -32,8 +33,15 @@ async def get_languages():
 )
 async def execute_code(request: Request):
     """Executes code snippet securely and returns standard output, error, exit code, and execution metrics."""
+    token = auth_service.get_bearer_token(request.headers.get("Authorization"))
+    try:
+        if not auth_service.validate_token(token):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    except ValueError as ex:
+        logger.error(str(ex))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sandbox auth is not configured.")
+
     raw_body = await request.body()
-    print(f"Execution request raw body length={len(raw_body)}", flush=True)
     if not raw_body:
         return SandboxExecutionResponse(
             language="",
@@ -62,5 +70,4 @@ async def execute_code(request: Request):
 @router.websocket("/stream")
 async def websocket_execution_stream(websocket: WebSocket):
     """Interactive streaming execution WebSocket endpoint."""
-    await streaming_executor_service.handle_websocket_session(websocket)
-
+    await streaming_executor_service.handle_websocket_session(websocket, auth_service)
