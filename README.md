@@ -9,7 +9,7 @@ LiveSync is a high-performance, real-time collaborative code editor built using 
 ## 🚀 Key Features
 
 * **🤝 Real-Time Collaboration**: Micro-second code synchronization with operational position tracking powered by Socket.IO & Redis backplane.
-* **⚡ Event-Driven Write-Behind Architecture**: Asynchronous Redis Streams log (`livesync:stream:document-saves`) decoupling realtime editing from PostgreSQL persistence with consumer groups (`api-save-group`) and backpressure protection.
+* **⚡ Event-Driven Persistence**: Realtime publishes document saves to Redis Streams (`livesync:stream:document-saves`); the Java API consumes them and persists to PostgreSQL with consumer groups (`api-save-group`).
 * **💻 Polyglot Sandbox Execution Engine**: Safe, isolated code execution supporting:
   * 🐍 **Python 3.14**
   * 🟨 **JavaScript / Node.js 24**
@@ -47,7 +47,7 @@ LiveSync uses a decoupled, polyglot microservice stack designed for high through
 └──────┬───────┘                         │ (XADD Event)                   │
        │                                 ▼                                ▼
        ▼                         Redis Streams Log               Process Isolation &
-   PostgreSQL                      (Write-Behind)              AST Complexity Analyzer
+   PostgreSQL                      (single writer)              AST Complexity Analyzer
 ```
 
 ### Microservice Breakdown
@@ -56,7 +56,7 @@ LiveSync uses a decoupled, polyglot microservice stack designed for high through
 | :--- | :--- | :--- | :--- |
 | **Frontend (`livesync-ui`)** | Angular 22, TypeScript, CodeMirror 6 | Modern code editor interface with live cursor tracking & terminal | `4200` / `4000` |
 | **API Backend (`livesync-api`)** | Java 21, Spring Boot 3, Spring Data Redis | Auth, user sessions, document & folder metadata, Redis Streams Consumer | `5038` |
-| **Realtime Service (`livesync-realtime`)**| Node.js 24, TypeScript, Socket.IO 4.8, Redis | Low-latency room broadcasting, OT engine & Redis Streams Producer | `5000` |
+| **Realtime Service (`livesync-realtime`)**| Node.js 24, TypeScript, Socket.IO 4.8, Redis | Low-latency room broadcasting, OT engine, Redis state & stream publisher | `5000` |
 | **Sandbox Engine (`livesync-sandbox`)** | Python 3.14, FastAPI, AsyncIO | Polyglot code execution, interactive WebSocket REPL, AST analysis | `8080` |
 | **Database (`livesync-postgres`)** | PostgreSQL 18 | Relational store for users, documents, folders, and permissions | `5432` |
 | **Streams & Cache (`livesync-redis`)** | Redis 7-alpine (AOF enabled) | Write-behind streams log & distributed message bus for Socket.IO | `6379` |
@@ -107,6 +107,8 @@ LiveSync handles both static batch runs and interactive CLI programs seamlessly:
    - Enables character-by-character real-time streaming to the UI console.
    - Accepts interactive `stdin` input (e.g., Python `input()`, C# `Console.ReadLine()`).
    - Timeout boundary: **120 seconds**.
+
+Both execution modes are called **directly by the UI against the sandbox service**, not through the Java API.
 
 ---
 

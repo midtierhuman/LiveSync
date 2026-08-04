@@ -7,7 +7,7 @@ LiveSync is a high-performance polyglot real-time collaborative code editor and 
 ```
 docs/
 ├── livesync-api/        # Java 21 Spring Boot 3 REST API documentation & auto-migration guide
-├── livesync-realtime/   # Node.js 24 Socket.IO realtime service & write-back caching architecture
+├── livesync-realtime/   # Node.js 24 Socket.IO realtime service & Redis-stream persistence architecture
 ├── livesync-sandbox/    # Python 3.14 FastAPI execution engine, sandboxing & AST analyzer
 ├── livesync-ui/         # Angular 22 CodeMirror 6 frontend workspace documentation
 ├── livesync-infra/      # AWS deployment guide, Docker manifests, Prometheus & Grafana
@@ -30,7 +30,7 @@ docs/
 ### 🟨 Realtime Service (`livesync-realtime`)
 | File | Description |
 |------|-------------|
-| [README.md](./livesync-realtime/README.md) | Socket.IO realtime service & hybrid write-back caching |
+| [README.md](./livesync-realtime/README.md) | Socket.IO realtime service & Redis-stream write-behind flow |
 | [QUICK_START.md](./livesync-realtime/QUICK_START.md) | Development quick start guide |
 | [QUICK_REFERENCE.md](./livesync-realtime/QUICK_REFERENCE.md) | Service URLs, ports, and Socket.IO events reference |
 | [README_AUTH.md](./livesync-realtime/README_AUTH.md) | Socket.IO JWT authentication and authorization integration |

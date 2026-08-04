@@ -27,8 +27,8 @@ npm run dev
 
 1. Register or log in through `livesync-api` to receive a JWT token.
 2. Connect to `livesync-realtime` over Socket.IO passing the JWT token.
-3. Join a document room; updates persist instantly to Redis and flush to PostgreSQL.
-4. Run polyglot code in the terminal with hardware specs obfuscation and memory caps.
+3. Join a document room; updates persist instantly to Redis, then publish to the Redis Stream for the Java consumer to save to PostgreSQL.
+4. Run polyglot code in the terminal by connecting directly to the sandbox service, which applies hardware specs obfuscation and memory caps.
 
 ## Key Realtime Events
 

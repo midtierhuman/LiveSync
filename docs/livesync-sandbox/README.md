@@ -24,6 +24,8 @@ A modern, high-performance polyglot code execution microservice built with **Pyt
 - `POST /api/execution/run`: Batch execute a code snippet.
 - `WS /ws/execution/stream`: Interactive WebSocket stream for live REPL execution.
 
+The Angular UI calls these sandbox endpoints directly; they do not go through the Java API.
+
 ## Local Development
 
 1. Install dependencies:

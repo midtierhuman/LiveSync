@@ -11,8 +11,7 @@ It is built with Java 21, Spring Boot 3, Spring Security, Spring Data JPA, and P
 - Document CRUD, title, content updates, and revision history
 - Folder CRUD, nested folder hierarchy, and document organization
 - Share code generation, permissions (View / Edit), and RBAC access enforcement
-- Execution language discovery for the sandbox
-- **Redis Streams Consumer (`DocumentSaveStreamConsumer.java`)**: Asynchronously consumes document save events (`api-save-group`) off `livesync:stream:document-saves` and persists changes into PostgreSQL.
+- **Redis Streams Consumer (`DocumentSaveStreamConsumer.java`)**: Asynchronously consumes document save events (`api-save-group`) off `livesync:stream:document-saves` and persists changes into PostgreSQL. This is the only document write-back path.
 
 ## Key Endpoints
 
@@ -27,7 +26,6 @@ It is built with Java 21, Spring Boot 3, Spring Security, Spring Data JPA, and P
 
 - `GET /api/documents/my-documents`
 - `GET /api/documents/shared-with-me`
-- `GET /api/documents/execution-languages`
 - `GET /api/documents/{id}`
 - `POST /api/documents`
 - `PUT /api/documents/{id}`
