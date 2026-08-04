@@ -30,4 +30,3 @@ public interface DocumentRepository extends JpaRepository<Document, String> {
 
     long countByFolderId(String folderId);
 }
-

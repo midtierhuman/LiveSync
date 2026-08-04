@@ -75,15 +75,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ErrorResponse> handleDatabaseException(DataAccessException ex) {
-        String msg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse(500, "Database Error", msg != null ? msg : "A database processing error occurred."));
+                .body(new ErrorResponse(500, "Database Error", "A database processing error occurred."));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
-        String msg = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse(500, "Internal Server Error", msg != null ? msg : "An unexpected error occurred."));
+                .body(new ErrorResponse(500, "Internal Server Error", "An unexpected error occurred."));
     }
 }

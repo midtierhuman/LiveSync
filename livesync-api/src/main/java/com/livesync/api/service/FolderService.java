@@ -111,6 +111,14 @@ public class FolderService {
             return false;
         }
 
+        // Preserve the subtree by moving direct child folders to root before deletion.
+        var directChildren = folders.findByParentFolderIdOrderByUpdatedAtDesc(folderId);
+        for (var child : directChildren) {
+            child.setParentFolderId(null);
+            child.setUpdatedAt(Instant.now());
+            folders.save(child);
+        }
+
         // Unassign documents inside folder and all nested subfolders to root
         List<String> allFolderIds = collectSubfolderIds(folderId);
         allFolderIds.add(folderId);

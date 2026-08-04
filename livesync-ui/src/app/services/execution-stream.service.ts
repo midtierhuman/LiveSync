@@ -38,10 +38,11 @@ export class ExecutionStreamService {
     this.streamStatus.set('Connecting...');
     this.finalExecutionResult.set(null);
 
-    const httpBase = appEndpoints.apiBaseUrl || window.location.origin;
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = httpBase.replace(/^https?:\/\//, '');
-    const wsUrl = `${wsProtocol}//${host}/api/execution/stream`;
+    const httpBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || window.location.origin;
+    const wsUrl = httpBase
+      .replace(/^http:\/\//, 'ws://')
+      .replace(/^https:\/\//, 'wss://')
+      .replace(/\/$/, '') + '/ws/execution/stream';
 
     try {
       this.socket = new WebSocket(wsUrl);

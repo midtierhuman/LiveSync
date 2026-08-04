@@ -5,6 +5,7 @@ declare global {
     __LIVE_SYNC_CONFIG__?: {
       apiBaseUrl?: string;
       realtimeBaseUrl?: string;
+      sandboxBaseUrl?: string;
     };
   }
 }
@@ -17,4 +18,5 @@ export const appEndpoints = {
   realtimeBaseUrl: normalize(
     runtimeConfig.realtimeBaseUrl || environment.realtimeBaseUrl
   ),
+  sandboxBaseUrl: normalize(runtimeConfig.sandboxBaseUrl || environment.sandboxBaseUrl),
 };

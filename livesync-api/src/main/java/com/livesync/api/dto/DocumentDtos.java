@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
@@ -40,11 +39,6 @@ public final class DocumentDtos {
     public record UpdateAccessLevelRequest(@NotBlank String accessLevel) {
     }
 
-    public record ExecuteDocumentRequest(
-            @NotBlank @Pattern(regexp = "^(csharp|cs|python|py|javascript|js|node)$", message = "Supported languages: python, javascript, csharp.") String language,
-            @Size(max = 4000) String standardInput) {
-    }
-
     public record ExecutionLanguageDescriptor(String id, String name, String displayName) {
     }
 
@@ -53,9 +47,6 @@ public final class DocumentDtos {
                                             Double executionDurationMs, Long peakMemoryBytes, Double cpuTimeMs,
                                             String timeComplexity, String spaceComplexity, String complexityExplanation,
                                             Instant requestedAt, Instant completedAt) {
-    }
-
-    public record AiAnalysisRequest(String action, String language, String code, String prompt) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -68,4 +59,3 @@ public final class DocumentDtos {
     ) {
     }
 }
-

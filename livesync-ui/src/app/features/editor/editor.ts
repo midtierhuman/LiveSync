@@ -44,8 +44,7 @@ import {
   CompletionContext,
   CompletionSource,
 } from '@codemirror/autocomplete';
-import { foldKeymap, StreamLanguage } from '@codemirror/language';
-import { csharp } from '@codemirror/legacy-modes/mode/clike';
+import { foldKeymap } from '@codemirror/language';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
@@ -537,7 +536,7 @@ export class Editor implements OnInit {
         return java();
       case 'csharp':
       case 'cs':
-        return StreamLanguage.define(csharp);
+        return [];
       case 'python':
       case 'py':
         return python();

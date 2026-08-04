@@ -62,7 +62,10 @@ public class SandboxExecutionClient {
                 throw new IllegalStateException("Sandbox returned malformed response: " + response.body());
             }
             return parsed;
-        } catch (Exception exception) { throw new IllegalStateException("Sandbox execution request failed.", exception); }
+        } catch (Exception exception) {
+            log.error("Sandbox execution request failed", exception);
+            throw new IllegalStateException("Sandbox execution request failed.");
+        }
     }
 
     public com.livesync.api.dto.DocumentDtos.AiAnalysisResponse analyzeAi(String action, String language, String code, String prompt) {
@@ -87,7 +90,12 @@ public class SandboxExecutionClient {
             return json.readValue(response.body(), com.livesync.api.dto.DocumentDtos.AiAnalysisResponse.class);
         } catch (Exception exception) {
             log.error("AI assistant request failed", exception);
-            return new com.livesync.api.dto.DocumentDtos.AiAnalysisResponse(action, language, "### AI Assistant Error\n\nUnable to complete AI analysis: " + exception.getMessage(), List.of("Try re-submitting request."), null);
+            return new com.livesync.api.dto.DocumentDtos.AiAnalysisResponse(
+                    action,
+                    language,
+                    "### AI Assistant Error\n\nUnable to complete AI analysis right now.",
+                    List.of("Try re-submitting request."),
+                    null);
         }
     }
 

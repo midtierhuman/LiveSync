@@ -51,7 +51,6 @@ export interface DocumentAccessResponse {
 export interface ExecuteDocumentRequest {
   language: string;
   standardInput?: string;
-  code?: string;
 }
 
 export interface DocumentExecutionResponse {
@@ -97,6 +96,7 @@ interface MessageResponse {
 export class DocumentService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${appEndpoints.apiBaseUrl}/api/documents`;
+  private readonly sandboxUrl = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl;
 
   async getMyDocuments(): Promise<DocumentDto[]> {
     try {
@@ -199,7 +199,7 @@ export class DocumentService {
   ): Promise<DocumentExecutionResponse> {
     try {
       return await firstValueFrom(
-        this.http.post<DocumentExecutionResponse>(`${appEndpoints.apiBaseUrl}/api/execution/run`, {
+        this.http.post<DocumentExecutionResponse>(`${this.sandboxUrl}/api/execution/run`, {
           documentId: id,
           language: request.language,
           standardInput: request.standardInput,
@@ -213,7 +213,9 @@ export class DocumentService {
 
   async getExecutionLanguages(): Promise<ExecutionLanguageDescriptor[]> {
     try {
-      return await firstValueFrom(this.http.get<ExecutionLanguageDescriptor[]>(`${appEndpoints.apiBaseUrl}/api/execution/languages`));
+      return await firstValueFrom(
+        this.http.get<ExecutionLanguageDescriptor[]>(`${this.sandboxUrl}/api/execution/languages`),
+      );
     } catch (error) {
       console.error('Error fetching execution languages:', error);
       throw error;
@@ -229,7 +231,7 @@ export class DocumentService {
   ): Promise<AiAnalysisResponse> {
     try {
       return await firstValueFrom(
-        this.http.post<AiAnalysisResponse>(`${appEndpoints.apiBaseUrl}/api/ai/analyze`, {
+        this.http.post<AiAnalysisResponse>(`${this.sandboxUrl}/api/ai/analyze`, {
           action,
           language,
           code,

@@ -15,3 +15,5 @@ docs/FAANG_READINESS_CHECKLIST.md
 .env.local
 *.env
 docker_compose.bat
+.github
+.vscode
