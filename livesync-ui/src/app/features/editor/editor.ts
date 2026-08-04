@@ -64,6 +64,7 @@ import {
 import { AuthService } from '../../services/auth.service';
 import { ExecutionStreamService } from '../../services/execution-stream.service';
 import { TimeTravelService } from '../../services/time-travel.service';
+import { PackageManagerService } from '../../services/package-manager.service';
 
 export interface ExecutionLanguageOption {
   name: string;
@@ -86,11 +87,35 @@ export class Editor implements OnInit {
   readonly realtimeService = inject(RealtimeService);
   public readonly streamService = inject(ExecutionStreamService);
   public readonly timeTravelService = inject(TimeTravelService);
+  public readonly packageManagerService = inject(PackageManagerService);
   private readonly documentService = inject(DocumentService);
   private readonly authService = inject(AuthService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+
+  readonly isPackageManagerOpen = signal(false);
+  readonly packageSearchInput = signal('');
+
+  openPackageManagerModal(): void {
+    this.isPackageManagerOpen.set(true);
+    const lang = this.selectedExecutionLanguage() || 'python';
+    void this.packageManagerService.fetchInstalledPackages(lang);
+  }
+
+  closePackageManagerModal(): void {
+    this.isPackageManagerOpen.set(false);
+  }
+
+  async installTargetPackage(pkgName?: string): Promise<void> {
+    const target = (pkgName || this.packageSearchInput()).trim();
+    if (!target) return;
+    const lang = this.selectedExecutionLanguage() || 'python';
+    await this.packageManagerService.installPackage(target, lang);
+    if (!this.packageManagerService.installError()) {
+      this.packageSearchInput.set('');
+    }
+  }
 
   readonly docId = signal<string>('');
   readonly document = signal<DocumentDto | null>(null);

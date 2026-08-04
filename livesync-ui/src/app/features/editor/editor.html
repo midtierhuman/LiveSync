@@ -43,6 +43,15 @@
             }
           </select>
         </label>
+        <button
+          mat-button
+          class="package-manager-btn"
+          (click)="openPackageManagerModal()"
+          matTooltip="Manage & Install Packages (pip / npm)"
+        >
+          <mat-icon>inventory_2</mat-icon>
+          <span>Packages</span>
+        </button>
         <button mat-icon-button (click)="formatCode()" matTooltip="Format (Alt+Shift+F)">
           <mat-icon>auto_fix_high</mat-icon>
         </button>
@@ -630,4 +639,89 @@
     <span class="status-item">{{ cursorPosition() }}</span>
     <span class="status-item">{{ saveStatus() }}</span>
   </div>
+
+  <!-- Package Manager Modal Overlay -->
+  @if (isPackageManagerOpen()) {
+    <div class="package-modal-overlay" (click)="closePackageManagerModal()">
+      <div class="package-modal-card" (click)="$event.stopPropagation()">
+        <div class="package-modal-header">
+          <div class="header-title">
+            <mat-icon class="icon-accent">inventory_2</mat-icon>
+            <span>Sandbox Package Manager ({{ selectedExecutionLanguage() || 'python' }})</span>
+          </div>
+          <button mat-icon-button (click)="closePackageManagerModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="package-modal-body">
+          <div class="package-install-bar">
+            <input
+              type="text"
+              class="package-input"
+              placeholder="Enter package name (e.g. transformers, numpy, pandas, requests)..."
+              [ngModel]="packageSearchInput()"
+              (ngModelChange)="packageSearchInput.set($event)"
+              (keyup.enter)="installTargetPackage()"
+              [disabled]="packageManagerService.isInstalling()"
+            />
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="installTargetPackage()"
+              [disabled]="!packageSearchInput().trim() || packageManagerService.isInstalling()"
+            >
+              @if (packageManagerService.isInstalling()) {
+                <ng-container>
+                  <mat-icon class="spinning">sync</mat-icon>
+                  <span>Installing...</span>
+                </ng-container>
+              } @else {
+                <ng-container>
+                  <mat-icon>download</mat-icon>
+                  <span>Install</span>
+                </ng-container>
+              }
+            </button>
+          </div>
+
+          @if (packageManagerService.installError()) {
+            <div class="package-alert error">
+              <mat-icon>error_outline</mat-icon>
+              <span>{{ packageManagerService.installError() }}</span>
+            </div>
+          }
+
+          @if (packageManagerService.lastInstallOutput()) {
+            <div class="package-output-box">
+              <div class="box-title">Installation Output Log</div>
+              <pre>{{ packageManagerService.lastInstallOutput() }}</pre>
+            </div>
+          }
+
+          <div class="installed-packages-section">
+            <div class="section-title">
+              <span>Installed Environment Packages ({{ packageManagerService.installedPackages().length }})</span>
+              <button mat-button color="accent" (click)="packageManagerService.fetchInstalledPackages(selectedExecutionLanguage() || 'python')">
+                <mat-icon>refresh</mat-icon> Refresh
+              </button>
+            </div>
+
+            <div class="package-chips-container">
+              @for (pkg of packageManagerService.installedPackages(); track pkg.name) {
+                <div class="package-chip" [matTooltip]="pkg.name + ' v' + pkg.version">
+                  <span class="chip-name">{{ pkg.name }}</span>
+                  <span class="chip-version">v{{ pkg.version }}</span>
+                </div>
+              } @empty {
+                <div class="empty-packages-state">
+                  No custom packages installed yet or loading...
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
 </div>

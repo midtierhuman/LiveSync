@@ -5,7 +5,7 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.config import settings
-from app.routers import execution, ai
+from app.routers import execution, ai, packages
 from app.services.csharp_warmup import csharp_warmup_service
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ app.add_middleware(
 # Register API routers
 app.include_router(execution.router)
 app.include_router(ai.router)
+app.include_router(packages.router)
 
 
 @app.get("/health", tags=["Health"])
