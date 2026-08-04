@@ -35,4 +35,32 @@ export class DocumentAccessClient {
       return null;
     }
   }
+
+  public async saveDocumentContent(documentId: string, content: string, accessToken: string): Promise<boolean> {
+    if (!accessToken || !accessToken.trim()) {
+      return false;
+    }
+
+    const url = `${this.baseUrl}/api/documents/${encodeURIComponent(documentId)}/content`;
+    try {
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        console.warn(`Write-Back flush failed for document ${documentId} with status ${response.status}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`Could not save content for document ${documentId} to PostgreSQL:`, error);
+      return false;
+    }
+  }
 }

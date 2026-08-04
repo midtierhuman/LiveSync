@@ -58,7 +58,10 @@ export class EditorHub {
     socket.on('disconnect', () => this.handleDisconnect(socket));
   }
 
+  private readonly documentTokens = new Map<string, string>();
+  private readonly lastSavedContent = new Map<string, string>();
   private sweeperTimer: NodeJS.Timeout | null = null;
+  private flusherTimer: NodeJS.Timeout | null = null;
 
   /**
    * Starts a periodic sweep that removes stale connection IDs from Redis.
@@ -79,6 +82,50 @@ export class EditorHub {
       clearInterval(this.sweeperTimer);
       this.sweeperTimer = null;
       console.log('Stale connection sweeper stopped.');
+    }
+  }
+
+  /**
+   * Starts a periodic Write-Back flusher that dumps active Redis document content to PostgreSQL.
+   */
+  public startPeriodicPostgresFlusher(intervalMs: number = 60000): void {
+    if (this.flusherTimer) return;
+    this.flusherTimer = setInterval(() => {
+      this.flushActiveDocumentsToPostgres().catch((err: unknown) =>
+        console.error('Periodic PostgreSQL flush error:', err)
+      );
+    }, intervalMs);
+    console.log(`Periodic PostgreSQL Write-Back Flusher started (every ${intervalMs / 1000}s)`);
+  }
+
+  public stopPeriodicPostgresFlusher(): void {
+    if (this.flusherTimer) {
+      clearInterval(this.flusherTimer);
+      this.flusherTimer = null;
+      console.log('Periodic PostgreSQL Write-Back Flusher stopped.');
+    }
+  }
+
+  private async flushActiveDocumentsToPostgres(): Promise<void> {
+    if (!(this.state instanceof RedisDocumentStateService)) return;
+
+    const concreteState = this.state as RedisDocumentStateService;
+    const documentIds = await concreteState.getAllDocumentUserKeys();
+
+    for (const documentId of documentIds) {
+      const activeContent = await concreteState.getContent(documentId);
+      const accessToken = this.documentTokens.get(documentId);
+
+      if (activeContent !== null && accessToken) {
+        const lastSaved = this.lastSavedContent.get(documentId);
+        if (activeContent !== lastSaved) {
+          const success = await this.documentAccessClient.saveDocumentContent(documentId, activeContent, accessToken);
+          if (success) {
+            this.lastSavedContent.set(documentId, activeContent);
+            console.log(`[Write-Back Timer] Periodically flushed document ${documentId} to PostgreSQL`);
+          }
+        }
+      }
     }
   }
 
@@ -108,9 +155,17 @@ export class EditorHub {
           const count = await this.state.getUserCount(documentId);
 
           if (count === 0) {
+            const finalContent = await this.state.getContent(documentId);
+            const accessToken = this.documentTokens.get(documentId);
+            if (finalContent !== null && accessToken) {
+              await this.documentAccessClient.saveDocumentContent(documentId, finalContent, accessToken);
+              console.log(`[Write-Back Sweeper] Flushed document ${documentId} to PostgreSQL on room close`);
+            }
             await this.state.deleteContent(documentId);
             const operationLog = this.state.getOperationLog();
             await operationLog.deleteOperations(documentId);
+            this.documentTokens.delete(documentId);
+            this.lastSavedContent.delete(documentId);
           }
 
           this.io.to(documentId).emit('UserLeft', connectionId, count);
@@ -159,6 +214,10 @@ export class EditorHub {
         return;
       }
 
+      if (accessToken && accessLevel === 'Edit') {
+        this.documentTokens.set(documentId, accessToken);
+      }
+
       const wasAdded = await this.state.addUserToDocument(documentId, socket.id, accessLevel);
       if (!wasAdded) {
         console.log(`Connection ${socket.id} already in document ${documentId}`);
@@ -193,9 +252,17 @@ export class EditorHub {
       console.log(`User ${socket.id} left document ${documentId}. Active users: ${activeCount}`);
 
       if (activeCount === 0) {
+        const finalContent = await this.state.getContent(documentId);
+        const accessToken = this.documentTokens.get(documentId);
+        if (finalContent !== null && accessToken) {
+          await this.documentAccessClient.saveDocumentContent(documentId, finalContent, accessToken);
+          console.log(`[Write-Back] Flushed final content for document ${documentId} to PostgreSQL on room close`);
+        }
         await this.state.deleteContent(documentId);
         const operationLog = this.state.getOperationLog();
         await operationLog.deleteOperations(documentId);
+        this.documentTokens.delete(documentId);
+        this.lastSavedContent.delete(documentId);
       }
 
       this.io.to(documentId).emit('UserLeft', socket.id, activeCount);

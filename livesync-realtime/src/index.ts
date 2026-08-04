@@ -73,8 +73,9 @@ io.adapter(createAdapter(redisPubClient, redisSubClient));
 // Setup Socket.IO Handlers
 const editorHub = setupEditorSocket(io, documentStateService, documentAccessClient, conflictResolver);
 
-// Start stale connection sweeper to clean up orphaned Redis entries every 30 seconds
+// Start stale connection sweeper & periodic PostgreSQL Write-Back flusher
 editorHub.startStaleConnectionSweeper(30000);
+editorHub.startPeriodicPostgresFlusher(60000);
 
 server.listen(PORT, () => {
   console.log(`LiveSync Realtime Service listening on port ${PORT}`);
@@ -85,6 +86,7 @@ server.listen(PORT, () => {
 const gracefulShutdown = (signal: string) => {
   console.log(`Received ${signal}. Shutting down LiveSync Realtime Service...`);
   editorHub.stopStaleConnectionSweeper();
+  editorHub.stopPeriodicPostgresFlusher();
   io.close(() => {
     server.close(async () => {
       try {
