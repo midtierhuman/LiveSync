@@ -42,8 +42,10 @@ const server = http.createServer(app);
 const redisClient = new Redis(REDIS_URL);
 const redisPubClient = redisClient;
 const redisSubClient = redisClient.duplicate();
+
 redisClient.on('connect', () => console.log('Connected to Redis successfully'));
 redisClient.on('error', (err: unknown) => console.error('Redis Client Error:', err));
+redisSubClient.on('error', (err: unknown) => console.error('Redis SubClient Error:', err));
 
 // Initialize Services
 const operationLog = new RedisOperationLog(redisClient);
@@ -54,7 +56,7 @@ const conflictResolver = new ConflictResolver();
 // Configure Socket.IO Server
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
+    origin: (_origin, callback) => {
       callback(null, true);
     },
     methods: ['GET', 'POST'],
@@ -78,3 +80,24 @@ server.listen(PORT, () => {
   console.log(`LiveSync Realtime Service listening on port ${PORT}`);
   console.log(`Connecting to API at: ${API_BASE_URL}`);
 });
+
+// Graceful shutdown handling
+const gracefulShutdown = (signal: string) => {
+  console.log(`Received ${signal}. Shutting down LiveSync Realtime Service...`);
+  editorHub.stopStaleConnectionSweeper();
+  io.close(() => {
+    server.close(async () => {
+      try {
+        await redisClient.quit();
+        await redisSubClient.quit();
+        console.log('Redis connections closed cleanly.');
+      } catch (err) {
+        console.error('Error closing Redis connections:', err);
+      }
+      process.exit(0);
+    });
+  });
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

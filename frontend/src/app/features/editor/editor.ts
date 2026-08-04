@@ -841,8 +841,10 @@ export class Editor implements OnInit {
       } as any);
 
       this.executionResult.set(response);
+      this.activeTerminalTab.set('result');
     } catch (error: unknown) {
       this.executionError.set(this.getErrorMessage(error, 'Code execution failed.'));
+      this.activeTerminalTab.set('result');
     } finally {
       this.isExecuting.set(false);
     }
@@ -875,8 +877,90 @@ export class Editor implements OnInit {
         this.selectedExecutionLanguage(),
         this.codeSignal(),
       );
+      this.activeTerminalTab.set('repl');
     } catch (error: unknown) {
       this.executionError.set(this.getErrorMessage(error, 'Streaming execution setup failed.'));
+      this.activeTerminalTab.set('result');
+    }
+  }
+
+  readonly activeTerminalTab = signal<'repl' | 'result'>('repl');
+  readonly terminalCopied = signal<boolean>(false);
+  readonly autoScrollTerminal = signal<boolean>(true);
+  readonly isTerminalMaximized = signal<boolean>(false);
+
+  private readonly stdinHistory = signal<string[]>([]);
+  private readonly stdinHistoryIndex = signal<number>(-1);
+
+  hasReplOutput(): boolean {
+    return (
+      this.streamService.isStreaming() ||
+      Boolean(this.streamService.streamOutput()) ||
+      Boolean(this.streamService.streamErrorOutput()) ||
+      Boolean(this.streamService.finalExecutionResult())
+    );
+  }
+
+  hasStaticOutput(): boolean {
+    return Boolean(this.executionResult() || this.executionError());
+  }
+
+  hasAnyTerminalOutput(): boolean {
+    return this.hasReplOutput() || this.hasStaticOutput();
+  }
+
+  selectTerminalTab(tab: 'repl' | 'result'): void {
+    this.activeTerminalTab.set(tab);
+  }
+
+  closeTerminalTab(tab: 'repl' | 'result'): void {
+    if (tab === 'repl') {
+      this.streamService.closeTerminal();
+      if (this.hasStaticOutput()) {
+        this.activeTerminalTab.set('result');
+      }
+    } else {
+      this.clearExecutionResult();
+      if (this.hasReplOutput()) {
+        this.activeTerminalTab.set('repl');
+      }
+    }
+  }
+
+  closeAllTerminals(): void {
+    this.streamService.closeTerminal();
+    this.clearExecutionResult();
+  }
+
+  clearTerminalOutput(): void {
+    this.streamService.clearOutput();
+  }
+
+  toggleAutoScrollTerminal(): void {
+    this.autoScrollTerminal.update((prev) => !prev);
+  }
+
+  toggleMaximizeTerminal(): void {
+    const isMax = this.isTerminalMaximized();
+    if (isMax) {
+      this.terminalHeight.set(280);
+      this.isTerminalMaximized.set(false);
+    } else {
+      const maxHeight = Math.max(window.innerHeight - 140, 450);
+      this.terminalHeight.set(maxHeight);
+      this.isTerminalMaximized.set(true);
+    }
+  }
+
+  copyTerminalOutput(): void {
+    const stdout = this.streamService.streamOutput() || '';
+    const stderr = this.streamService.streamErrorOutput() || '';
+    const text = stdout + (stderr ? `\n--- ERRORS ---\n${stderr}` : '');
+
+    if (text.trim()) {
+      navigator.clipboard.writeText(text);
+      this.terminalCopied.set(true);
+      setTimeout(() => this.terminalCopied.set(false), 2000);
     }
   }
 
@@ -884,13 +968,41 @@ export class Editor implements OnInit {
     const text = this.interactiveInput();
     if (text) {
       this.streamService.sendStdin(text);
+      this.stdinHistory.update((prev) => [text, ...prev.filter((item) => item !== text)]);
+      this.stdinHistoryIndex.set(-1);
       this.interactiveInput.set('');
-      setTimeout(() => {
+
+      if (this.autoScrollTerminal()) {
         const el = this.terminalBodyElement()?.nativeElement;
         if (el) {
-          el.scrollTop = el.scrollHeight;
+          requestAnimationFrame(() => {
+            el.scrollTop = el.scrollHeight;
+          });
         }
-      }, 50);
+      }
+    }
+  }
+
+  navigateStdinHistory(direction: 'up' | 'down'): void {
+    const history = this.stdinHistory();
+    if (history.length === 0) return;
+
+    let index = this.stdinHistoryIndex();
+    if (direction === 'up') {
+      if (index < history.length - 1) {
+        index++;
+        this.stdinHistoryIndex.set(index);
+        this.interactiveInput.set(history[index]);
+      }
+    } else if (direction === 'down') {
+      if (index > 0) {
+        index--;
+        this.stdinHistoryIndex.set(index);
+        this.interactiveInput.set(history[index]);
+      } else if (index === 0) {
+        this.stdinHistoryIndex.set(-1);
+        this.interactiveInput.set('');
+      }
     }
   }
 

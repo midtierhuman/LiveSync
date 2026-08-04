@@ -19,7 +19,7 @@ RUN printf 'server {\n  listen 80;\n  server_name _;\n  root /usr/share/nginx/ht
 # Copy from the actual location where index.html lives
 COPY --from=builder /app/dist/LiveSync/browser/ /usr/share/nginx/html/
 
-RUN sed -i 's|<head>|<head><script>window.__LIVE_SYNC_CONFIG__ = { apiBaseUrl: "http://localhost:5038", signalRBaseUrl: "http://localhost:5038" };</script>|g' /usr/share/nginx/html/index.html
+RUN sed -i 's|<head>|<head><script>window.__LIVE_SYNC_CONFIG__ = { apiBaseUrl: "http://localhost:5038", realtimeBaseUrl: "http://localhost:5038" };</script>|g' /usr/share/nginx/html/index.html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

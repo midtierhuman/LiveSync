@@ -318,8 +318,9 @@
     }
   </div>
 
-  @if (streamService.isStreaming() || streamService.streamOutput() || streamService.streamErrorOutput() || streamService.finalExecutionResult()) {
-    <section class="interactive-terminal-panel" [style.height.px]="terminalHeight()">
+  @if (hasAnyTerminalOutput()) {
+    <section class="unified-terminal-panel" [style.height.px]="terminalHeight()">
+      <!-- Single Resize Handle -->
       <div
         class="terminal-resize-handle"
         (mousedown)="startResizingTerminal($event)"
@@ -330,133 +331,174 @@
         <div class="resize-grip"></div>
       </div>
 
+      <!-- Unified Header with Tabs -->
       <div class="terminal-header">
-        <span class="terminal-title">
-          <mat-icon>terminal</mat-icon> Live REPL Session [{{ streamService.streamStatus() }}]
-        </span>
-        <div class="terminal-header-actions">
-          @if (streamService.isStreaming()) {
-            <button mat-button color="warn" (click)="stopStream()" class="stop-stream-btn" matTooltip="Stop running execution">
-              <mat-icon>stop</mat-icon> Stop Session
+        <div class="terminal-tabs-container">
+          @if (hasReplOutput()) {
+            <button
+              class="terminal-tab-btn"
+              [class.active]="activeTerminalTab() === 'repl'"
+              (click)="selectTerminalTab('repl')"
+            >
+              <mat-icon class="tab-icon">terminal</mat-icon>
+              <span>Terminal 1: Live REPL</span>
+              <span class="terminal-status-badge" [class]="(streamService.streamStatus() || 'idle').toLowerCase().replace(' ', '-')">
+                <span class="status-pulse-dot"></span>
+                {{ streamService.streamStatus() }}
+              </span>
+              <mat-icon class="tab-close-icon" (click)="closeTerminalTab('repl'); $event.stopPropagation()">close</mat-icon>
             </button>
           }
-          <button mat-icon-button (click)="closeTerminal()" class="close-terminal-btn" matTooltip="Close Terminal">
+
+          @if (hasStaticOutput()) {
+            <button
+              class="terminal-tab-btn"
+              [class.active]="activeTerminalTab() === 'result'"
+              (click)="selectTerminalTab('result')"
+            >
+              <mat-icon class="tab-icon">code</mat-icon>
+              <span>Terminal 2: Run Output</span>
+              <span class="terminal-status-badge" [class]="executionError() || !executionResult()?.isSuccess ? 'failed' : 'finished'">
+                {{ executionResult()?.status || (executionError() ? 'Failed' : 'Completed') }}
+              </span>
+              <mat-icon class="tab-close-icon" (click)="closeTerminalTab('result'); $event.stopPropagation()">close</mat-icon>
+            </button>
+          }
+        </div>
+
+        <div class="terminal-header-actions">
+          @if (activeTerminalTab() === 'repl' && streamService.isStreaming()) {
+            <button mat-button color="warn" (click)="stopStream()" class="stop-stream-btn" matTooltip="Stop running execution">
+              <mat-icon>stop</mat-icon> Stop
+            </button>
+          }
+
+          @if (activeTerminalTab() === 'repl') {
+            <button mat-icon-button (click)="clearTerminalOutput()" matTooltip="Clear REPL Output">
+              <mat-icon>delete_sweep</mat-icon>
+            </button>
+
+            <button mat-icon-button (click)="copyTerminalOutput()" [matTooltip]="terminalCopied() ? 'Copied!' : 'Copy Output'">
+              <mat-icon>{{ terminalCopied() ? 'check' : 'content_copy' }}</mat-icon>
+            </button>
+
+            <button mat-icon-button (click)="toggleAutoScrollTerminal()" [class.active-toggle]="autoScrollTerminal()" [matTooltip]="autoScrollTerminal() ? 'Auto-scroll On' : 'Auto-scroll Off'">
+              <mat-icon>vertical_align_bottom</mat-icon>
+            </button>
+          }
+
+          <button mat-icon-button (click)="toggleMaximizeTerminal()" [matTooltip]="isTerminalMaximized() ? 'Restore Height' : 'Maximize Terminal'">
+            <mat-icon>{{ isTerminalMaximized() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+          </button>
+
+          <button mat-icon-button (click)="closeAllTerminals()" class="close-terminal-btn" matTooltip="Close Terminal Panel">
             <mat-icon>close</mat-icon>
           </button>
         </div>
       </div>
 
-      @if (streamService.finalExecutionResult()?.executionDurationMs !== undefined || streamService.finalExecutionResult()?.timeComplexity) {
-        <div class="execution-metrics-bar">
-          @if (streamService.finalExecutionResult()?.executionDurationMs) {
-            <span class="metric-chip duration" title="Execution duration in milliseconds">
-              <span class="chip-icon">⏱️</span> {{ streamService.finalExecutionResult()?.executionDurationMs }} ms
-            </span>
+      <!-- Tab 1: REPL Content -->
+      @if (activeTerminalTab() === 'repl' && hasReplOutput()) {
+        <div class="tab-content-container">
+          @if (streamService.finalExecutionResult()?.executionDurationMs !== undefined || streamService.finalExecutionResult()?.timeComplexity) {
+            <div class="execution-metrics-bar">
+              @if (streamService.finalExecutionResult()?.executionDurationMs) {
+                <span class="metric-chip duration" title="Execution duration in milliseconds">
+                  <span class="chip-icon">⏱️</span> {{ streamService.finalExecutionResult()?.executionDurationMs }} ms
+                </span>
+              }
+              @if (streamService.finalExecutionResult()?.peakMemoryBytes) {
+                <span class="metric-chip memory" title="Peak RAM memory usage">
+                  <span class="chip-icon">💾</span> {{ (streamService.finalExecutionResult()?.peakMemoryBytes || 0) / 1024 / 1024 | number:'1.1-2' }} MB
+                </span>
+              }
+              @if (streamService.finalExecutionResult()?.timeComplexity) {
+                <span class="metric-chip complexity-time" title="Estimated Time Complexity">
+                  <span class="chip-icon">⚡</span> Time: <strong>{{ streamService.finalExecutionResult()?.timeComplexity }}</strong>
+                </span>
+              }
+              @if (streamService.finalExecutionResult()?.spaceComplexity) {
+                <span class="metric-chip complexity-space" title="Estimated Space Complexity">
+                  <span class="chip-icon">📦</span> Space: <strong>{{ streamService.finalExecutionResult()?.spaceComplexity }}</strong>
+                </span>
+              }
+            </div>
           }
-          @if (streamService.finalExecutionResult()?.peakMemoryBytes) {
-            <span class="metric-chip memory" title="Peak RAM memory usage">
-              <span class="chip-icon">💾</span> {{ (streamService.finalExecutionResult()?.peakMemoryBytes || 0) / 1024 / 1024 | number:'1.1-2' }} MB
-            </span>
-          }
-          @if (streamService.finalExecutionResult()?.timeComplexity) {
-            <span class="metric-chip complexity-time" title="Estimated Time Complexity">
-              <span class="chip-icon">⚡</span> Time: <strong>{{ streamService.finalExecutionResult()?.timeComplexity }}</strong>
-            </span>
-          }
-          @if (streamService.finalExecutionResult()?.spaceComplexity) {
-            <span class="metric-chip complexity-space" title="Estimated Space Complexity">
-              <span class="chip-icon">📦</span> Space: <strong>{{ streamService.finalExecutionResult()?.spaceComplexity }}</strong>
-            </span>
-          }
-        </div>
-      }
 
-      @if (streamService.finalExecutionResult()?.complexityExplanation) {
-        <div class="complexity-insight">
-          <span class="insight-icon">💡</span> {{ streamService.finalExecutionResult()?.complexityExplanation }}
-        </div>
-      }
-
-      <pre class="terminal-body" #terminalBody>{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
-
-      @if (streamService.isStreaming()) {
-        <div class="terminal-input-bar">
-          <span class="prompt-symbol">&gt;</span>
-          <input
-            type="text"
-            [value]="interactiveInput()"
-            (input)="interactiveInput.set($any($event.target).value)"
-            (keyup.enter)="sendInteractiveInput()"
-            placeholder="Type stdin input and press Enter..."
-          />
-          <button mat-raised-button color="primary" (click)="sendInteractiveInput()">Send</button>
-        </div>
-      }
-    </section>
-  }
-
-  @if (executionResult() || executionError()) {
-    <section
-      class="execution-panel"
-      [class.failed]="executionError() || !executionResult()?.isSuccess"
-      [style.height.px]="terminalHeight()"
-    >
-      <div
-        class="terminal-resize-handle"
-        (mousedown)="startResizingTerminal($event)"
-        (touchstart)="startResizingTerminal($event)"
-        (dblclick)="resetTerminalHeight()"
-        matTooltip="Drag up/down to resize panel (Double-click to reset)"
-      >
-        <div class="resize-grip"></div>
-      </div>
-
-      <div class="execution-header">
-        <div class="execution-heading">
-          <strong>Execution {{ executionResult()?.status || 'failed' }}</strong>
-          <span>{{ executionResult()?.message || executionError() }}</span>
-        </div>
-        <button mat-icon-button (click)="clearExecutionResult()" class="close-execution-btn" matTooltip="Close Output">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      @if (executionResult()?.executionDurationMs !== undefined || executionResult()?.timeComplexity) {
-        <div class="execution-metrics-bar">
-          @if (executionResult()?.executionDurationMs !== undefined && executionResult()?.executionDurationMs !== null) {
-            <span class="metric-chip duration" title="Execution duration in milliseconds">
-              <span class="chip-icon">⏱️</span> {{ executionResult()?.executionDurationMs }} ms
-            </span>
+          @if (streamService.finalExecutionResult()?.complexityExplanation) {
+            <div class="complexity-insight">
+              <span class="insight-icon">💡</span> {{ streamService.finalExecutionResult()?.complexityExplanation }}
+            </div>
           }
-          @if (executionResult()?.peakMemoryBytes) {
-            <span class="metric-chip memory" title="Peak RAM memory usage">
-              <span class="chip-icon">💾</span> {{ (executionResult()?.peakMemoryBytes || 0) / 1024 / 1024 | number:'1.1-2' }} MB
-            </span>
-          }
-          @if (executionResult()?.timeComplexity) {
-            <span class="metric-chip complexity-time" title="Estimated Time Complexity">
-              <span class="chip-icon">⚡</span> Time: <strong>{{ executionResult()?.timeComplexity }}</strong>
-            </span>
-          }
-          @if (executionResult()?.spaceComplexity) {
-            <span class="metric-chip complexity-space" title="Estimated Space Complexity">
-              <span class="chip-icon">📦</span> Space: <strong>{{ executionResult()?.spaceComplexity }}</strong>
-            </span>
+
+          <pre class="terminal-body" #terminalBody>{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
+
+          @if (streamService.isStreaming()) {
+            <div class="terminal-input-bar">
+              <span class="prompt-symbol">&gt;</span>
+              <input
+                type="text"
+                [value]="interactiveInput()"
+                (input)="interactiveInput.set($any($event.target).value)"
+                (keyup.enter)="sendInteractiveInput()"
+                (keydown.arrowUp)="navigateStdinHistory('up'); $event.preventDefault()"
+                (keydown.arrowDown)="navigateStdinHistory('down'); $event.preventDefault()"
+                placeholder="Type stdin input and press Enter... (Use ↑/↓ for command history)"
+              />
+              <button mat-raised-button color="primary" (click)="sendInteractiveInput()">Send</button>
+            </div>
           }
         </div>
       }
 
-      @if (executionResult()?.complexityExplanation) {
-        <div class="complexity-insight">
-          <span class="insight-icon">💡</span> {{ executionResult()?.complexityExplanation }}
-        </div>
-      }
+      <!-- Tab 2: Static Run Output Content -->
+      @if (activeTerminalTab() === 'result' && hasStaticOutput()) {
+        <div class="tab-content-container">
+          <div class="execution-heading-bar">
+            <span class="execution-status-tag" [class.failed]="executionError() || !executionResult()?.isSuccess">
+              {{ executionResult()?.status || (executionError() ? 'Failed' : 'Completed') }}
+            </span>
+            <span class="execution-status-msg">{{ executionResult()?.message || executionError() }}</span>
+          </div>
 
-      @if (executionResult()?.standardOutput) {
-        <pre class="execution-output">{{ executionResult()?.standardOutput }}</pre>
-      }
-      @if (executionResult()?.standardError) {
-        <pre class="execution-output execution-error">{{ executionResult()?.standardError }}</pre>
+          @if (executionResult()?.executionDurationMs !== undefined || executionResult()?.timeComplexity) {
+            <div class="execution-metrics-bar">
+              @if (executionResult()?.executionDurationMs !== undefined && executionResult()?.executionDurationMs !== null) {
+                <span class="metric-chip duration" title="Execution duration in milliseconds">
+                  <span class="chip-icon">⏱️</span> {{ executionResult()?.executionDurationMs }} ms
+                </span>
+              }
+              @if (executionResult()?.peakMemoryBytes) {
+                <span class="metric-chip memory" title="Peak RAM memory usage">
+                  <span class="chip-icon">💾</span> {{ (executionResult()?.peakMemoryBytes || 0) / 1024 / 1024 | number:'1.1-2' }} MB
+                </span>
+              }
+              @if (executionResult()?.timeComplexity) {
+                <span class="metric-chip complexity-time" title="Estimated Time Complexity">
+                  <span class="chip-icon">⚡</span> Time: <strong>{{ executionResult()?.timeComplexity }}</strong>
+                </span>
+              }
+              @if (executionResult()?.spaceComplexity) {
+                <span class="metric-chip complexity-space" title="Estimated Space Complexity">
+                  <span class="chip-icon">📦</span> Space: <strong>{{ executionResult()?.spaceComplexity }}</strong>
+                </span>
+              }
+            </div>
+          }
+
+          @if (executionResult()?.complexityExplanation) {
+            <div class="complexity-insight">
+              <span class="insight-icon">💡</span> {{ executionResult()?.complexityExplanation }}
+            </div>
+          }
+
+          @if (executionResult()?.standardOutput) {
+            <pre class="execution-output">{{ executionResult()?.standardOutput }}</pre>
+          }
+          @if (executionResult()?.standardError) {
+            <pre class="execution-output execution-error">{{ executionResult()?.standardError }}</pre>
+          }
+        </div>
       }
     </section>
   }

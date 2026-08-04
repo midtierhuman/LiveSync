@@ -58,17 +58,28 @@ export class EditorHub {
     socket.on('disconnect', () => this.handleDisconnect(socket));
   }
 
+  private sweeperTimer: NodeJS.Timeout | null = null;
+
   /**
    * Starts a periodic sweep that removes stale connection IDs from Redis.
    * Call this once after constructing the hub.
    */
   public startStaleConnectionSweeper(intervalMs: number = 120000): void {
-    setInterval(() => {
+    if (this.sweeperTimer) return;
+    this.sweeperTimer = setInterval(() => {
       this.sweepStaleConnections().catch((err: unknown) =>
         console.error('Stale connection sweep error:', err)
       );
     }, intervalMs);
     console.log(`Stale connection sweeper started (every ${intervalMs / 1000}s)`);
+  }
+
+  public stopStaleConnectionSweeper(): void {
+    if (this.sweeperTimer) {
+      clearInterval(this.sweeperTimer);
+      this.sweeperTimer = null;
+      console.log('Stale connection sweeper stopped.');
+    }
   }
 
   private async sweepStaleConnections(): Promise<void> {

@@ -99,6 +99,11 @@ export class ExecutionStreamService {
     this.close();
   }
 
+  clearOutput() {
+    this.streamOutput.set('');
+    this.streamErrorOutput.set('');
+  }
+
   closeTerminal() {
     this.stopExecution();
     this.streamOutput.set('');
