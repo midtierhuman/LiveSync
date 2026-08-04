@@ -55,7 +55,33 @@ public class DatabaseSchemaMigrator implements CommandLineRunner {
             jdbcTemplate.execute("ALTER TABLE \"Documents\" ADD COLUMN IF NOT EXISTS \"FolderId\" VARCHAR(255);");
             log.info("Successfully ensured Folders, SharedFolders tables and 'Documents.FolderId' column exist.");
         } catch (Exception e) {
-            log.warn("Schema migration notice for Folders/SharedFolders: {}", e.getMessage());
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS folders (
+                        id VARCHAR(255) PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        owner_id VARCHAR(255) NOT NULL,
+                        parent_folder_id VARCHAR(255),
+                        share_code VARCHAR(255) UNIQUE,
+                        default_access_level VARCHAR(50),
+                        created_at TIMESTAMP NOT NULL,
+                        updated_at TIMESTAMP NOT NULL
+                    );
+                """);
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS shared_folders (
+                        id VARCHAR(255) PRIMARY KEY,
+                        folder_id VARCHAR(255) NOT NULL,
+                        user_id VARCHAR(255) NOT NULL,
+                        access_level VARCHAR(50) NOT NULL,
+                        shared_at TIMESTAMP NOT NULL
+                    );
+                """);
+                jdbcTemplate.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id VARCHAR(255);");
+                log.info("Successfully ensured lower_case folders, shared_folders tables exist.");
+            } catch (Exception e2) {
+                log.warn("Schema migration notice for Folders/SharedFolders: {}", e2.getMessage());
+            }
         }
     }
 }
