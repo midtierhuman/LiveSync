@@ -69,7 +69,8 @@
       <div class="create-form">
         <input
           type="text"
-          [(ngModel)]="newDocTitle"
+          [ngModel]="newDocTitle()"
+          (ngModelChange)="newDocTitle.set($event)"
           placeholder="Enter document title (e.g. algorithm.py, app.cs, Main.java)..."
           (keyup.enter)="createNewDocument()"
           class="doc-input"
@@ -343,7 +344,8 @@
           <input
             id="folderName"
             type="text"
-            [(ngModel)]="newFolderName"
+            [ngModel]="newFolderName()"
+            (ngModelChange)="newFolderName.set($event)"
             placeholder="e.g. Projects, Backend Specs, Algorithmic Challenges..."
             (keyup.enter)="createFolder()"
             class="doc-input"
@@ -422,7 +424,8 @@
             <label for="defaultAccessLevel"><strong>Default Access Level:</strong></label>
             <select
               id="defaultAccessLevel"
-              [(ngModel)]="defaultAccessLevel"
+              [ngModel]="defaultAccessLevel()"
+              (ngModelChange)="defaultAccessLevel.set($event)"
               (change)="updateDefaultAccessLevel()"
               class="access-select"
             >
