@@ -5,11 +5,12 @@
 `livesync-realtime` is the high-performance realtime collaboration service.
 It is built with Node.js 24, TypeScript, Express, Socket.IO 4.8, and Redis 7 (AOF enabled).
 
-## Hybrid Write-Back Caching Architecture
+## Event-Driven Write-Behind Architecture (Redis Streams)
 
-1. **Sub-millisecond Realtime Sync:** As users type, every operation and cursor position updates **Redis** immediately and broadcasts to room collaborators via Socket.IO.
-2. **Periodic & Disconnect Flushing:** Content is flushed to PostgreSQL periodically (every 30–60 seconds) or when the last active user leaves a document (`getUserCount === 0`).
-3. **Crash Recovery:** Redis AOF (`--appendonly yes`) ensures un-flushed in-memory operations survive service restarts.
+1. **Sub-millisecond Realtime Sync:** As users type, every operation and cursor position updates **Redis** immediately in RAM and broadcasts to room collaborators via Socket.IO.
+2. **Asynchronous Stream Log (`publishSaveEvent`):** On a periodic 60-second timer or room disconnect (`activeCount === 0`), `livesync-realtime` publishes an event (`XADD`) to the Redis Stream `livesync:stream:document-saves`.
+3. **Decoupled Database Persistence:** `livesync-api` reads from consumer group `api-save-group` and persists changes to PostgreSQL asynchronously, eliminating database write locks and HTTP latency.
+4. **Crash Recovery:** Redis AOF (`--appendonly yes`) ensures un-flushed stream events survive service restarts.
 
 ## Responsibilities
 

@@ -9,7 +9,7 @@ LiveSync is a high-performance, real-time collaborative code editor built using 
 ## 🚀 Key Features
 
 * **🤝 Real-Time Collaboration**: Micro-second code synchronization with operational position tracking powered by Socket.IO & Redis backplane.
-* **💾 Hybrid Write-Back Caching**: Sub-millisecond state updates in Redis with debounced periodic/disconnect PostgreSQL persistence and AOF crash recovery.
+* **⚡ Event-Driven Write-Behind Architecture**: Asynchronous Redis Streams log (`livesync:stream:document-saves`) decoupling realtime editing from PostgreSQL persistence with consumer groups (`api-save-group`) and backpressure protection.
 * **💻 Polyglot Sandbox Execution Engine**: Safe, isolated code execution supporting:
   * 🐍 **Python 3.14**
   * 🟨 **JavaScript / Node.js 24**
@@ -41,13 +41,13 @@ LiveSync uses a decoupled, polyglot microservice stack designed for high through
        │                                 │                                │
        ▼                                 ▼                                ▼
 ┌──────────────┐                ┌──────────────────┐             ┌──────────────────┐
-│ livesync-api │                │ livesync-realtime│             │ livesync-sandbox │
+│ livesync-api │◄─(XREADGROUP)──│ livesync-realtime│             │ livesync-sandbox │
 │ (Spring Boot │                │ (Node.js/Socket) │             │ (FastAPI/Python) │
 │  Java 21)    │                └────────┬─────────┘             └────────┬─────────┘
-└──────┬───────┘                         │                                │
+└──────┬───────┘                         │ (XADD Event)                   │
        │                                 ▼                                ▼
-       ▼                             Redis Bus                    Process Isolation &
-   PostgreSQL                      (Write-Back)                 AST Complexity Analyzer
+       ▼                         Redis Streams Log               Process Isolation &
+   PostgreSQL                      (Write-Behind)              AST Complexity Analyzer
 ```
 
 ### Microservice Breakdown
@@ -55,11 +55,11 @@ LiveSync uses a decoupled, polyglot microservice stack designed for high through
 | Service | Stack | Description | Default Port |
 | :--- | :--- | :--- | :--- |
 | **Frontend (`livesync-ui`)** | Angular 22, TypeScript, CodeMirror 6 | Modern code editor interface with live cursor tracking & terminal | `4200` / `4000` |
-| **API Backend (`livesync-api`)** | Java 21, Spring Boot 3 | Auth, user sessions, document & folder metadata, RBAC, version history | `5038` |
-| **Realtime Service (`livesync-realtime`)**| Node.js 24, TypeScript, Socket.IO 4.8, Redis | Low-latency room broadcasting & real-time operation sync | `5000` |
+| **API Backend (`livesync-api`)** | Java 21, Spring Boot 3, Spring Data Redis | Auth, user sessions, document & folder metadata, Redis Streams Consumer | `5038` |
+| **Realtime Service (`livesync-realtime`)**| Node.js 24, TypeScript, Socket.IO 4.8, Redis | Low-latency room broadcasting, OT engine & Redis Streams Producer | `5000` |
 | **Sandbox Engine (`livesync-sandbox`)** | Python 3.14, FastAPI, AsyncIO | Polyglot code execution, interactive WebSocket REPL, AST analysis | `8080` |
 | **Database (`livesync-postgres`)** | PostgreSQL 18 | Relational store for users, documents, folders, and permissions | `5432` |
-| **Pub/Sub & Cache (`livesync-redis`)** | Redis 7-alpine (AOF enabled) | Write-back state cache & distributed message bus for Socket.IO | `6379` |
+| **Streams & Cache (`livesync-redis`)** | Redis 7-alpine (AOF enabled) | Write-behind streams log & distributed message bus for Socket.IO | `6379` |
 | **Observability (`livesync-infra`)** | Prometheus & Grafana | Real-time system metrics, execution counters, and health monitoring | `9090` / `3000` |
 
 ---

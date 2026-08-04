@@ -12,6 +12,7 @@ It is built with Java 21, Spring Boot 3, Spring Security, Spring Data JPA, and P
 - Folder CRUD, nested folder hierarchy, and document organization
 - Share code generation, permissions (View / Edit), and RBAC access enforcement
 - Execution language discovery for the sandbox
+- **Redis Streams Consumer (`DocumentSaveStreamConsumer.java`)**: Asynchronously consumes document save events (`api-save-group`) off `livesync:stream:document-saves` and persists changes into PostgreSQL.
 
 ## Key Endpoints
 

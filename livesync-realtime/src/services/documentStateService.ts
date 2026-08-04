@@ -14,6 +14,7 @@ export interface IDocumentStateService {
   setColor(connectionId: string, color: string): Promise<void>;
   getColor(connectionId: string): Promise<string | null>;
   getOperationLog(): IOperationLog;
+  publishSaveEvent(documentId: string, content: string, userId?: string): Promise<string>;
 }
 
 export class RedisDocumentStateService implements IDocumentStateService {
@@ -140,5 +141,21 @@ export class RedisDocumentStateService implements IDocumentStateService {
    */
   public async getDocumentUserMembers(documentId: string): Promise<string[]> {
     return await this.redis.smembers(RedisDocumentStateService.docUsersKey(documentId));
+  }
+
+  /**
+   * Publishes an asynchronous document save event to Redis Streams (Event-Driven Write-Behind).
+   */
+  public async publishSaveEvent(documentId: string, content: string, userId: string = 'system'): Promise<string> {
+    const streamKey = 'livesync:stream:document-saves';
+    const messageId = await this.redis.xadd(
+      streamKey,
+      '*',
+      'documentId', documentId,
+      'content', content,
+      'userId', userId
+    );
+    console.log(`[Redis Stream Write-Behind] Published save event ${messageId} for document ${documentId}`);
+    return messageId || '';
   }
 }

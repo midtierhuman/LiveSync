@@ -119,10 +119,11 @@ export class EditorHub {
       if (activeContent !== null && accessToken) {
         const lastSaved = this.lastSavedContent.get(documentId);
         if (activeContent !== lastSaved) {
+          await concreteState.publishSaveEvent(documentId, activeContent);
           const success = await this.documentAccessClient.saveDocumentContent(documentId, activeContent, accessToken);
           if (success) {
             this.lastSavedContent.set(documentId, activeContent);
-            console.log(`[Write-Back Timer] Periodically flushed document ${documentId} to PostgreSQL`);
+            console.log(`[Write-Back Timer] Periodically flushed document ${documentId} to Redis Stream & PostgreSQL`);
           }
         }
       }

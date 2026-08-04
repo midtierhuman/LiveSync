@@ -52,6 +52,9 @@ public class DocumentService {
     @Transactional public Optional<DocumentDto> updateContent(String id, String userId, DocumentContentUpdateRequest request) {
         return documents.findById(id).filter(d -> canEdit(d, userId)).map(d -> { d.setContent(request.content()); edited(d, request.lastEditedBy(), userId); return dto(d); });
     }
+    @Transactional public boolean updateContentInternal(String id, String content, String userId) {
+        return documents.findById(id).map(d -> { d.setContent(content); edited(d, null, userId == null || userId.isBlank() ? "system" : userId); return true; }).orElse(false);
+    }
     @Transactional public boolean delete(String id, String userId) { return documents.findById(id).filter(d -> d.getOwnerId().equals(userId)).map(d -> { shares.deleteByDocumentId(id); documents.delete(d); return true; }).orElse(false); }
     @Transactional public Optional<DocumentDto> generateShareCode(String id, String userId) {
         return documents.findById(id).filter(d -> d.getOwnerId().equals(userId)).map(d -> { String code; do { code = code(); } while (documents.existsByShareCode(code)); d.setShareCode(code); return dto(d); });
