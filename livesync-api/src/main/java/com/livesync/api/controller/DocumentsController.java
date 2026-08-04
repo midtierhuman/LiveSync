@@ -47,8 +47,15 @@ public class DocumentsController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DocumentDto> get(@PathVariable String id, Authentication auth) {
-        return documents.find(id, user(auth)).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<?> get(@PathVariable String id, Authentication auth) {
+        var userId = user(auth);
+        var access = documents.access(id, userId);
+        if (access == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Document not found"));
+        }
+        return documents.find(id, userId)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Access denied")));
     }
 
     @GetMapping("/{id}/access")
@@ -65,21 +72,40 @@ public class DocumentsController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable String id, @Valid @RequestBody UpdateDocumentRequest request, Authentication auth) {
-        if (!documents.canEdit(id, user(auth)))
+        var userId = user(auth);
+        var access = documents.access(id, userId);
+        if (access == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Document not found"));
+        }
+        if (!"Edit".equals(access)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "You don't have edit access to this document"));
-        return documents.update(id, user(auth), request).<ResponseEntity<?>>map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        }
+        return documents.update(id, userId, request).<ResponseEntity<?>>map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}/content")
     public ResponseEntity<?> content(@PathVariable String id, @Valid @RequestBody DocumentContentUpdateRequest request, Authentication auth) {
-        if (!documents.canEdit(id, user(auth)))
+        var userId = user(auth);
+        var access = documents.access(id, userId);
+        if (access == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Document not found"));
+        }
+        if (!"Edit".equals(access)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "You don't have edit access to this document"));
-        return documents.updateContent(id, user(auth), request).<ResponseEntity<?>>map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        }
+        return documents.updateContent(id, userId, request).<ResponseEntity<?>>map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String id, Authentication auth) {
-        return documents.delete(id, user(auth)) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    public ResponseEntity<?> delete(@PathVariable String id, Authentication auth) {
+        var userId = user(auth);
+        var access = documents.access(id, userId);
+        if (access == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Document not found"));
+        }
+        return documents.delete(id, userId)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Only the document owner can delete this document"));
     }
 
     @PostMapping("/{id}/generate-share-code")

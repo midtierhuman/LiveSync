@@ -39,10 +39,15 @@ public class FoldersController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<FolderDto> get(@PathVariable String id, Authentication auth) {
-        return folderService.find(id, user(auth))
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<?> get(@PathVariable String id, Authentication auth) {
+        var userId = user(auth);
+        var access = folderService.getAccessLevel(id, userId);
+        if (access == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Folder not found"));
+        }
+        return folderService.find(id, userId)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Access denied")));
     }
 
     @PostMapping
@@ -54,20 +59,28 @@ public class FoldersController {
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable String id, @Valid @RequestBody UpdateFolderRequest request, Authentication auth) {
         var userId = user(auth);
-        if (folderService.find(id, userId).isEmpty()) {
-            return ResponseEntity.notFound().build();
+        var access = folderService.getAccessLevel(id, userId);
+        if (access == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Folder not found"));
+        }
+        if (!"Edit".equals(access)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "You don't have edit access to this folder"));
         }
         return folderService.update(id, userId, request)
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("message", "You don't have edit access to this folder")));
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String id, Authentication auth) {
-        return folderService.delete(id, user(auth))
+    public ResponseEntity<?> delete(@PathVariable String id, Authentication auth) {
+        var userId = user(auth);
+        var access = folderService.getAccessLevel(id, userId);
+        if (access == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Folder not found"));
+        }
+        return folderService.delete(id, userId)
                 ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+                : ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Only the folder owner can delete this folder"));
     }
 
     @PutMapping("/move-document/{documentId}")

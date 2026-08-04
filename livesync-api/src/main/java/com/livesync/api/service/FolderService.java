@@ -184,6 +184,12 @@ public class FolderService {
         return true;
     }
 
+    public String getAccessLevel(String folderId, String userId) {
+        if (folderId == null) return null;
+        var folderOpt = folders.findById(folderId);
+        return folderOpt.map(folder -> accessLevel(folder, userId)).orElse(null);
+    }
+
     public String accessLevel(Folder folder, String userId) {
         if (folder == null) return null;
         if (folder.getOwnerId().equals(userId)) return "Edit";
