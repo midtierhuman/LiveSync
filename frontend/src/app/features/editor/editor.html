@@ -367,6 +367,39 @@
         </div>
 
         <div class="terminal-header-actions">
+          <div class="terminal-view-switcher">
+            <button
+              class="view-mode-btn"
+              [class.active]="terminalViewMode() === 'console'"
+              (click)="terminalViewMode.set('console')"
+              matTooltip="Standard Console View"
+            >
+              <mat-icon>terminal</mat-icon> Console
+            </button>
+
+            @if (hasHtmlInOutput()) {
+              <button
+                class="view-mode-btn html-btn"
+                [class.active]="terminalViewMode() === 'html'"
+                (click)="terminalViewMode.set('html')"
+                matTooltip="Render HTML Output as Web Preview"
+              >
+                <mat-icon>preview</mat-icon> 🌐 HTML Preview
+              </button>
+            }
+
+            @if (hasJsonInOutput()) {
+              <button
+                class="view-mode-btn json-btn"
+                [class.active]="terminalViewMode() === 'json'"
+                (click)="terminalViewMode.set('json')"
+                matTooltip="Format Output as Pretty JSON"
+              >
+                <mat-icon>data_object</mat-icon> 🧩 Pretty JSON
+              </button>
+            }
+          </div>
+
           @if (activeTerminalTab() === 'repl' && streamService.isStreaming()) {
             <button mat-button color="warn" (click)="stopStream()" class="stop-stream-btn" matTooltip="Stop running execution">
               <mat-icon>stop</mat-icon> Stop
@@ -431,7 +464,20 @@
             </div>
           }
 
-          <pre class="terminal-body" #terminalBody>{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
+          @if (terminalViewMode() === 'console') {
+            <pre class="terminal-body" #terminalBody>{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
+          } @else if (terminalViewMode() === 'html') {
+            <div class="terminal-html-preview-frame">
+              <iframe
+                class="html-preview-iframe"
+                [srcdoc]="getSafeIframeSrcDoc()"
+                sandbox="allow-scripts"
+                title="HTML Execution Preview"
+              ></iframe>
+            </div>
+          } @else if (terminalViewMode() === 'json') {
+            <pre class="terminal-json-body">{{ getFormattedJsonOutput() }}</pre>
+          }
 
           @if (streamService.isStreaming()) {
             <div class="terminal-input-bar">
@@ -492,11 +538,24 @@
             </div>
           }
 
-          @if (executionResult()?.standardOutput) {
-            <pre class="execution-output">{{ executionResult()?.standardOutput }}</pre>
-          }
-          @if (executionResult()?.standardError) {
-            <pre class="execution-output execution-error">{{ executionResult()?.standardError }}</pre>
+          @if (terminalViewMode() === 'console') {
+            @if (executionResult()?.standardOutput) {
+              <pre class="execution-output">{{ executionResult()?.standardOutput }}</pre>
+            }
+            @if (executionResult()?.standardError) {
+              <pre class="execution-output execution-error">{{ executionResult()?.standardError }}</pre>
+            }
+          } @else if (terminalViewMode() === 'html') {
+            <div class="terminal-html-preview-frame">
+              <iframe
+                class="html-preview-iframe"
+                [srcdoc]="getSafeIframeSrcDoc()"
+                sandbox="allow-scripts"
+                title="HTML Execution Preview"
+              ></iframe>
+            </div>
+          } @else if (terminalViewMode() === 'json') {
+            <pre class="terminal-json-body">{{ getFormattedJsonOutput() }}</pre>
           }
         </div>
       }
