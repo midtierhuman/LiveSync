@@ -10,6 +10,7 @@ import {
   DestroyRef,
   input,
 } from '@angular/core';
+import { DomSanitizer } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -884,13 +885,58 @@ export class Editor implements OnInit {
     }
   }
 
+  private readonly sanitizer = inject(DomSanitizer);
+
   readonly activeTerminalTab = signal<'repl' | 'result'>('repl');
+  readonly terminalViewMode = signal<'console' | 'html' | 'json'>('console');
   readonly terminalCopied = signal<boolean>(false);
   readonly autoScrollTerminal = signal<boolean>(true);
   readonly isTerminalMaximized = signal<boolean>(false);
 
   private readonly stdinHistory = signal<string[]>([]);
   private readonly stdinHistoryIndex = signal<number>(-1);
+
+  getRawCurrentOutput(): string {
+    if (this.activeTerminalTab() === 'repl') {
+      return (this.streamService.streamOutput() || '') + (this.streamService.streamErrorOutput() || '');
+    } else {
+      return (this.executionResult()?.standardOutput || '') + (this.executionResult()?.standardError || '');
+    }
+  }
+
+  hasHtmlInOutput(): boolean {
+    const raw = this.getRawCurrentOutput();
+    if (!raw || raw.length < 5) return false;
+    return /<(!DOCTYPE|html|head|body|div|p|h1|h2|h3|span|table|iframe|svg|section|header|footer)\b/i.test(raw);
+  }
+
+  hasJsonInOutput(): boolean {
+    const raw = this.getRawCurrentOutput().trim();
+    if (!raw || raw.length < 2) return false;
+    if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+      try {
+        JSON.parse(raw);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  getSafeIframeSrcDoc(): string {
+    return this.getRawCurrentOutput();
+  }
+
+  getFormattedJsonOutput(): string {
+    const raw = this.getRawCurrentOutput().trim();
+    try {
+      const parsed = JSON.parse(raw);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return raw;
+    }
+  }
 
   hasReplOutput(): boolean {
     return (
