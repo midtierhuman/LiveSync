@@ -47,7 +47,7 @@ services:
   # =========================================================================
   frontend:
     build:
-      context: ./frontend
+      context: ./livesync-ui
       dockerfile: Dockerfile
     ports:
       - "4000:80"
@@ -60,7 +60,7 @@ services:
   # 2a. Java Spring Boot REST API
   livesync-api:
     build:
-      context: ./backend/livesync-api
+      context: ./livesync-api
       dockerfile: Dockerfile
     depends_on:
       livesync-postgres:
@@ -80,7 +80,7 @@ services:
   # 2b. Python FastAPI Code Execution Sandbox
   livesync-sandbox:
     build:
-      context: ./backend/livesync-sandbox
+      context: ./livesync-sandbox
       dockerfile: Dockerfile
     env_file:
       - .env
@@ -92,7 +92,7 @@ services:
   # 2c. Node.js Socket.IO Realtime Engine
   livesync-realtime:
     build:
-      context: ./backend/livesync-realtime
+      context: ./livesync-realtime
       dockerfile: Dockerfile
     deploy:
       replicas: 2
