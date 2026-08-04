@@ -51,6 +51,7 @@ export interface DocumentAccessResponse {
 export interface ExecuteDocumentRequest {
   language: string;
   standardInput?: string;
+  code: string;
 }
 
 export interface DocumentExecutionResponse {
@@ -198,13 +199,14 @@ export class DocumentService {
     request: ExecuteDocumentRequest,
   ): Promise<DocumentExecutionResponse> {
     try {
-      return await firstValueFrom(
+      const response = await firstValueFrom(
         this.http.post<DocumentExecutionResponse>(`${this.sandboxUrl}/api/execution/run`, {
-          documentId: id,
           language: request.language,
+          code: request.code,
           standardInput: request.standardInput,
         }),
       );
+      return { ...response, documentId: id };
     } catch (error) {
       console.error('Error executing document:', error);
       throw error;

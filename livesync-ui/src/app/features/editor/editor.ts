@@ -842,6 +842,7 @@ export class Editor implements OnInit {
 
       const response = await this.documentService.executeDocument(currentDocId, {
         language: lang,
+        code,
       });
 
       this.executionResult.set(response);
