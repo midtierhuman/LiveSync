@@ -1,5 +1,6 @@
 import {
   Component,
+  computed,
   effect,
   signal,
   viewChild,
@@ -896,46 +897,54 @@ export class Editor implements OnInit {
   private readonly stdinHistory = signal<string[]>([]);
   private readonly stdinHistoryIndex = signal<number>(-1);
 
-  getRawCurrentOutput(): string {
+  readonly rawCurrentOutput = computed(() => {
     if (this.activeTerminalTab() === 'repl') {
       return (this.streamService.streamOutput() || '') + (this.streamService.streamErrorOutput() || '');
     } else {
       return (this.executionResult()?.standardOutput || '') + (this.executionResult()?.standardError || '');
     }
+  });
+
+  readonly formattedJsonOutput = computed<string | null>(() => {
+    const raw = this.rawCurrentOutput().trim();
+    if (!raw || raw.length < 2) return null;
+    if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(raw);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  readonly hasJsonInOutputSignal = computed(() => this.formattedJsonOutput() !== null);
+
+  readonly hasHtmlInOutputSignal = computed(() => {
+    const raw = this.rawCurrentOutput();
+    if (!raw || raw.length < 5) return false;
+    return /<(!DOCTYPE|html|head|body|div|p|h1|h2|h3|span|table|iframe|svg|section|header|footer)\b/i.test(raw);
+  });
+
+  getRawCurrentOutput(): string {
+    return this.rawCurrentOutput();
   }
 
   hasHtmlInOutput(): boolean {
-    const raw = this.getRawCurrentOutput();
-    if (!raw || raw.length < 5) return false;
-    return /<(!DOCTYPE|html|head|body|div|p|h1|h2|h3|span|table|iframe|svg|section|header|footer)\b/i.test(raw);
+    return this.hasHtmlInOutputSignal();
   }
 
   hasJsonInOutput(): boolean {
-    const raw = this.getRawCurrentOutput().trim();
-    if (!raw || raw.length < 2) return false;
-    if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
-      try {
-        JSON.parse(raw);
-        return true;
-      } catch {
-        return false;
-      }
-    }
-    return false;
+    return this.hasJsonInOutputSignal();
   }
 
   getSafeIframeSrcDoc(): string {
-    return this.getRawCurrentOutput();
+    return this.rawCurrentOutput();
   }
 
   getFormattedJsonOutput(): string {
-    const raw = this.getRawCurrentOutput().trim();
-    try {
-      const parsed = JSON.parse(raw);
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      return raw;
-    }
+    return this.formattedJsonOutput() ?? this.rawCurrentOutput();
   }
 
   hasReplOutput(): boolean {
