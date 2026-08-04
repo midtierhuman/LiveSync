@@ -434,7 +434,7 @@ export class Editor implements OnInit {
       if (!this.cursorThrottleTimer) {
         this.cursorThrottleTimer = setTimeout(() => {
           if (this.pendingCursorArgs && this.docId()) {
-            void this.realtimeService.sendCursorPosition(
+            void             void this.realtimeService.sendCursorPosition(
               this.docId(),
               this.pendingCursorArgs.pos,
               this.pendingCursorArgs.lineNumber,
@@ -605,10 +605,12 @@ export class Editor implements OnInit {
       this.lastSaved.set(new Date());
     } catch (saveError: any) {
       console.error('Error saving document to backend:', saveError);
+      const errorMessage = this.getErrorMessage(saveError, '').toLowerCase();
       const isExplicitPermissionRevocation =
-        saveError?.error?.message?.includes('access') ||
-        saveError?.error?.message?.includes('edit') ||
-        saveError?.isPermissionError;
+        errorMessage.includes('access') ||
+        errorMessage.includes('edit') ||
+        errorMessage.includes('permission') ||
+        Boolean(saveError?.isPermissionError);
 
       if (saveError.status === 403 && isExplicitPermissionRevocation) {
         // 403 = explicitly forbidden — access was revoked
@@ -617,7 +619,9 @@ export class Editor implements OnInit {
         console.warn('Document update rejected by server:', saveError);
       } else if (saveError.status === 401) {
         // 401 = unauthenticated (session expired) — NOT a permission revocation
-        this.permissionRevokedMessage.set('Your session has expired. Please save your work and log in again.');
+        this.permissionRevokedMessage.set(
+          'Your session has expired. Please save your work and log in again.',
+        );
         this.showPermissionBanner.set(true);
       }
     } finally {
@@ -839,8 +843,7 @@ export class Editor implements OnInit {
 
       const response = await this.documentService.executeDocument(currentDocId, {
         language: lang,
-        code: code,
-      } as any);
+      });
 
       this.executionResult.set(response);
       this.activeTerminalTab.set('result');
@@ -875,10 +878,7 @@ export class Editor implements OnInit {
       });
       this.lastSaved.set(new Date());
 
-      this.streamService.startExecution(
-        this.selectedExecutionLanguage(),
-        this.codeSignal(),
-      );
+      this.streamService.startExecution(this.selectedExecutionLanguage(), this.codeSignal());
       this.activeTerminalTab.set('repl');
     } catch (error: unknown) {
       this.executionError.set(this.getErrorMessage(error, 'Streaming execution setup failed.'));

@@ -177,12 +177,12 @@ export class RealtimeService {
       (this.socket as any).io.opts.query = { access_token: token };
 
       this.socket.connect();
-      this.isStarting = false;
     } catch (err) {
       this.connectionState.set('error');
-      this.isStarting = false;
       console.error('Error starting Realtime Socket connection:', err);
       throw err;
+    } finally {
+      this.isStarting = false;
     }
   }
 

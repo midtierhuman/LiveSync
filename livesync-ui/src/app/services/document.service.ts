@@ -51,6 +51,7 @@ export interface DocumentAccessResponse {
 export interface ExecuteDocumentRequest {
   language: string;
   standardInput?: string;
+  code?: string;
 }
 
 export interface DocumentExecutionResponse {
@@ -199,8 +200,8 @@ export class DocumentService {
     try {
       return await firstValueFrom(
         this.http.post<DocumentExecutionResponse>(`${appEndpoints.apiBaseUrl}/api/execution/run`, {
+          documentId: id,
           language: request.language,
-          code: (request as any).code,
           standardInput: request.standardInput,
         }),
       );

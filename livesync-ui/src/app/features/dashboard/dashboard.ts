@@ -118,7 +118,10 @@ export class Dashboard implements OnInit {
   getFilteredSharedDocs(): SharedDocumentDto[] {
     const q = this.searchQuery().toLowerCase().trim();
     return this.sharedDocuments().filter((d) => {
-      const matchesSearch = !q || d.documentTitle.toLowerCase().includes(q) || (d.userName || '').toLowerCase().includes(q);
+      const matchesSearch =
+        !q ||
+        d.documentTitle.toLowerCase().includes(q) ||
+        (d.userName || '').toLowerCase().includes(q);
       const matchesTab =
         this.activeTab() === 'all' ||
         this.activeTab() === 'shared' ||

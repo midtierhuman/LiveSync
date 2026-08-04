@@ -11,9 +11,7 @@ export const authGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
-  // Redirect to landing/signin
-  router.navigate(['/']);
-  return false;
+  return router.createUrlTree(['/']);
 };
 
 export const publicGuard: CanActivateFn = (route, state) => {
@@ -23,8 +21,7 @@ export const publicGuard: CanActivateFn = (route, state) => {
   // Auth is already initialized by APP_INITIALIZER
   // If already authenticated, redirect to dashboard
   if (authService.isAuthenticated()) {
-    router.navigate(['/dashboard']);
-    return false;
+    return router.createUrlTree(['/dashboard']);
   }
 
   return true;
