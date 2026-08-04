@@ -102,7 +102,7 @@ LiveSync handles both static batch runs and interactive CLI programs seamlessly:
    - Automatically computes Time & Space complexity via AST analysis.
    - Timeout boundary: **15 seconds**.
 
-2. **Interactive Stream Mode (`WS /ws/execution/stream`)**:
+2. **Interactive Stream Mode (`WS /api/execution/stream`)**:
    - Establishes a persistent bi-directional WebSocket connection.
    - Enables character-by-character real-time streaming to the UI console.
    - Accepts interactive `stdin` input (e.g., Python `input()`, C# `Console.ReadLine()`).

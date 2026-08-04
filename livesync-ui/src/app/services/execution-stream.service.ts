@@ -42,7 +42,7 @@ export class ExecutionStreamService {
     const wsUrl = httpBase
       .replace(/^http:\/\//, 'ws://')
       .replace(/^https:\/\//, 'wss://')
-      .replace(/\/$/, '') + '/ws/execution/stream';
+      .replace(/\/$/, '') + '/api/execution/stream';
 
     try {
       this.socket = new WebSocket(wsUrl);
