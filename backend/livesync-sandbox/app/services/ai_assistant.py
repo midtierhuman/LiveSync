@@ -53,7 +53,14 @@ class AiAssistantService:
             return self._explain_code(lang, code)
 
     def _call_gemini_api(self, action: str, language: str, code: str, api_key: str, custom_prompt: str | None = None) -> AiAnalysisResult | None:
-        models = ["gemini-flash-lite-latest", "gemini-2.0-flash-lite", "gemini-flash-latest", "gemini-2.0-flash"]
+        models = [
+            "gemini-3.5-flash",
+            "gemini-3-flash-preview",
+            "gemini-3.1-flash-lite",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-flash-lite-latest",
+        ]
         
         user_instruction = f"User Question / Custom Instruction: {custom_prompt}" if custom_prompt else f"Action requested: {action}"
 

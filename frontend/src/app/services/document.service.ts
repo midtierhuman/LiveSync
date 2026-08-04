@@ -173,12 +173,18 @@ export class DocumentService {
       return response;
     } catch (error: any) {
       console.error('Error updating content:', error);
-      // Add specific handling for permission errors
-      if (error.status === 401 || error.status === 403) {
+      const serverMessage = (typeof error?.error?.message === 'string' ? error.error.message : error?.message || '');
+      const isExplicitPermission = 
+        serverMessage.toLowerCase().includes('access') ||
+        serverMessage.toLowerCase().includes('edit') ||
+        serverMessage.toLowerCase().includes('permission') ||
+        serverMessage.toLowerCase().includes('owner');
+
+      if (error.status === 403 && isExplicitPermission) {
         const permissionError = new Error(
-          'Permission denied: You no longer have edit access to this document',
+          serverMessage || 'Permission denied: You no longer have edit access to this document',
         );
-        (permissionError as any).status = error.status;
+        (permissionError as any).status = 403;
         (permissionError as any).isPermissionError = true;
         throw permissionError;
       }

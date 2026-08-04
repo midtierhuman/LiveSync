@@ -34,8 +34,8 @@
         <label class="execution-language-select" matTooltip="Execution language">
           <span>Lang</span>
           <select
-            [value]="selectedExecutionLanguage()"
-            (change)="setExecutionLanguage($event)"
+            [ngModel]="selectedExecutionLanguage()"
+            (ngModelChange)="setExecutionLanguage($event)"
             [disabled]="isLoadingExecutionLanguages() || isExecuting()"
           >
             @for (language of executionLanguages(); track language.name) {

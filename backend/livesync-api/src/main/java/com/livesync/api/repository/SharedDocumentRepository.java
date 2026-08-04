@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface SharedDocumentRepository extends JpaRepository<SharedDocument, String> {
     Optional<SharedDocument> findByDocumentIdAndUserId(String documentId, String userId);
 
+    void deleteByDocumentId(String documentId);
+
     @EntityGraph(attributePaths = {"document", "document.owner", "user"})
     List<SharedDocument> findByUserIdOrderBySharedAtDesc(String userId);
 }

@@ -25,6 +25,9 @@ public class DocumentsController {
     }
 
     private String user(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("User is unauthenticated.");
+        }
         return authentication.getName();
     }
 

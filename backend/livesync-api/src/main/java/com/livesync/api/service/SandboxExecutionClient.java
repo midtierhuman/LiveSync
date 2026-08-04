@@ -28,7 +28,9 @@ public class SandboxExecutionClient {
     public SandboxExecutionClient(ObjectMapper json, @Value("${livesync.sandbox.base-url}") String baseUrl) { this.json = json; this.base = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/"); }
     public List<ExecutionLanguageDescriptor> languages() {
         try {
-            var request = HttpRequest.newBuilder(base.resolve("api/execution/languages")).GET().build();
+            var request = HttpRequest.newBuilder(base.resolve("api/execution/languages"))
+                .timeout(java.time.Duration.ofSeconds(15))
+                .GET().build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 != 2) {
                 throw new IllegalStateException("Sandbox returned HTTP " + response.statusCode() + ": " + response.body());
@@ -45,6 +47,7 @@ public class SandboxExecutionClient {
             log.info("Sending sandbox execution request body length={}", body.length());
             var request = HttpRequest.newBuilder(base.resolve("api/execution/run"))
                 .version(HttpClient.Version.HTTP_1_1)
+                .timeout(java.time.Duration.ofSeconds(30))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -74,6 +77,7 @@ public class SandboxExecutionClient {
             String body = json.writeValueAsString(payload);
             var request = HttpRequest.newBuilder(base.resolve("api/ai/analyze"))
                 .version(HttpClient.Version.HTTP_1_1)
+                .timeout(java.time.Duration.ofSeconds(60))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());

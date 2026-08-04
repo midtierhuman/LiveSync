@@ -62,7 +62,7 @@ export class EditorHub {
    * Starts a periodic sweep that removes stale connection IDs from Redis.
    * Call this once after constructing the hub.
    */
-  public startStaleConnectionSweeper(intervalMs: number = 30000): void {
+  public startStaleConnectionSweeper(intervalMs: number = 120000): void {
     setInterval(() => {
       this.sweepStaleConnections().catch((err: unknown) =>
         console.error('Stale connection sweep error:', err)

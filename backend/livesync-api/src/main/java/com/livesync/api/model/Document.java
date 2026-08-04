@@ -15,7 +15,7 @@ public class Document {
     private String id = UUID.randomUUID().toString();
     @Column(name = "Title", nullable = false, length = 200)
     private String title;
-    @Column(name = "Content", nullable = false)
+    @Column(name = "Content", nullable = false, columnDefinition = "TEXT")
     private String content;
     @Column(name = "OwnerId", nullable = false)
     private String ownerId;

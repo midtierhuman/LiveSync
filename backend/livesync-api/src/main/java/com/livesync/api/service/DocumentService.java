@@ -31,7 +31,7 @@ public class DocumentService {
     @Transactional public Optional<DocumentDto> updateContent(String id, String userId, DocumentContentUpdateRequest request) {
         return documents.findById(id).filter(d -> canEdit(d, userId)).map(d -> { d.setContent(request.content()); edited(d, request.lastEditedBy(), userId); return dto(d); });
     }
-    @Transactional public boolean delete(String id, String userId) { return documents.findById(id).filter(d -> d.getOwnerId().equals(userId)).map(d -> { documents.delete(d); return true; }).orElse(false); }
+    @Transactional public boolean delete(String id, String userId) { return documents.findById(id).filter(d -> d.getOwnerId().equals(userId)).map(d -> { shares.deleteByDocumentId(id); documents.delete(d); return true; }).orElse(false); }
     @Transactional public Optional<DocumentDto> generateShareCode(String id, String userId) {
         return documents.findById(id).filter(d -> d.getOwnerId().equals(userId)).map(d -> { String code; do { code = code(); } while (documents.existsByShareCode(code)); d.setShareCode(code); return dto(d); });
     }
@@ -52,10 +52,10 @@ public class DocumentService {
         if (!validAccess(access)) return false;
         return documents.findById(id).filter(d -> d.getOwnerId().equals(ownerId)).map(d -> { d.setDefaultAccessLevel(access); return true; }).orElse(false);
     }
-    @Transactional(readOnly = true) public String access(String id, String userId) { return documents.findById(id).map(d -> d.getOwnerId().equals(userId) ? "Edit" : d.getSharedWith().stream().filter(s -> s.getUserId().equals(userId)).map(SharedDocument::getAccessLevel).findFirst().orElse(null)).orElse(null); }
+    @Transactional(readOnly = true) public String access(String id, String userId) { return documents.findById(id).map(d -> d.getOwnerId().equals(userId) ? "Edit" : shares.findByDocumentIdAndUserId(id, userId).map(SharedDocument::getAccessLevel).orElse(null)).orElse(null); }
     @Transactional(readOnly = true) public boolean canEdit(String id, String userId) { return "Edit".equals(access(id, userId)); }
-    private boolean canAccess(Document d, String user) { return d.getOwnerId().equals(user) || d.getSharedWith().stream().anyMatch(s -> s.getUserId().equals(user)); }
-    private boolean canEdit(Document d, String user) { return d.getOwnerId().equals(user) || d.getSharedWith().stream().anyMatch(s -> s.getUserId().equals(user) && "Edit".equals(s.getAccessLevel())); }
+    private boolean canAccess(Document d, String user) { return d.getOwnerId().equals(user) || shares.findByDocumentIdAndUserId(d.getId(), user).isPresent(); }
+    private boolean canEdit(Document d, String user) { return d.getOwnerId().equals(user) || shares.findByDocumentIdAndUserId(d.getId(), user).map(s -> "Edit".equals(s.getAccessLevel())).orElse(false); }
     private void edited(Document d, String editor, String user) { d.setUpdatedAt(Instant.now()); d.setLastEditedAt(Instant.now()); d.setLastEditedBy(editor == null ? user : editor); }
     private boolean validAccess(String value) { return "View".equals(value) || "Edit".equals(value); }
     private String code() { var random = new SecureRandom(); var value = new StringBuilder(10); for (int i = 0; i < 10; i++) value.append(SHARE_CHARS.charAt(random.nextInt(SHARE_CHARS.length()))); return value.toString(); }

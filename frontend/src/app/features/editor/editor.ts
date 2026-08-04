@@ -52,6 +52,7 @@ import { json } from '@codemirror/lang-json';
 import { html } from '@codemirror/lang-html';
 import { markdown } from '@codemirror/lang-markdown';
 import { css } from '@codemirror/lang-css';
+import { FormsModule } from '@angular/forms';
 import { RealtimeService } from '../../services/realtime.service';
 import { DecimalPipe } from '@angular/common';
 import {
@@ -71,7 +72,7 @@ export interface ExecutionLanguageOption {
 @Component({
   selector: 'app-editor',
   standalone: true,
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, DecimalPipe],
+  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, DecimalPipe, FormsModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
 })
@@ -114,7 +115,6 @@ export class Editor implements OnInit {
   readonly executionLanguages = signal<ExecutionLanguageOption[]>([]);
   readonly selectedExecutionLanguage = signal('');
   readonly isLoadingExecutionLanguages = signal(false);
-  private isManualLanguageSelection = false;
   readonly terminalHeight = signal<number>(280);
   readonly terminalBodyElement = viewChild<ElementRef<HTMLPreElement>>('terminalBody');
 
@@ -148,6 +148,15 @@ export class Editor implements OnInit {
     }
 
     this.destroyRef.onDestroy(async () => {
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = null;
+      }
+      if (this.saveDebounceTimer) {
+        clearTimeout(this.saveDebounceTimer);
+        this.saveDebounceTimer = null;
+      }
+
       const currentDocId = this.docId();
       if (currentDocId) {
         await this.signalRService.leaveDocument(currentDocId);
@@ -162,7 +171,7 @@ export class Editor implements OnInit {
   constructor() {
     effect(() => {
       const newContent = this.signalRService.contentUpdate();
-      if (newContent !== undefined && newContent !== null) {
+      if (newContent) {
         this.codeSignal.set(newContent);
         this.updateEditorDocument(newContent);
       }
@@ -241,6 +250,11 @@ export class Editor implements OnInit {
       const language = this.detectLanguage(doc.title || id, content);
       this.currentLanguage.set(language);
       this.updateEditorDocument(content, language);
+
+      const execLang = language === 'typescript' ? 'javascript' : language;
+      if (['python', 'javascript', 'csharp', 'java'].includes(execLang)) {
+        this.selectedExecutionLanguage.set(execLang);
+      }
 
       const accessLevel = await this.documentService.getAccessLevel(id);
       this.accessLevel.set(accessLevel);
@@ -413,6 +427,9 @@ export class Editor implements OnInit {
   readonly newCommentText = signal<string>('');
   readonly replyDrafts = signal<{ [commentId: string]: string }>({});
 
+  private cursorThrottleTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingCursorArgs: { pos: number; lineNumber: number; userName: string } | null = null;
+
   private updateCursorLabel(state: EditorState) {
     const pos = state.selection.main.head;
     const line = state.doc.lineAt(pos);
@@ -422,13 +439,26 @@ export class Editor implements OnInit {
 
     const currentDocId = this.docId();
     if (currentDocId) {
-      void this.realtimeService.sendCursorPosition(
-        currentDocId,
+      this.pendingCursorArgs = {
         pos,
-        line.number,
-        line.number,
-        this.authService.user()?.userName || 'Collaborator',
-      );
+        lineNumber: line.number,
+        userName: this.authService.user()?.userName || 'Collaborator',
+      };
+
+      if (!this.cursorThrottleTimer) {
+        this.cursorThrottleTimer = setTimeout(() => {
+          if (this.pendingCursorArgs && this.docId()) {
+            void this.realtimeService.sendCursorPosition(
+              this.docId(),
+              this.pendingCursorArgs.pos,
+              this.pendingCursorArgs.lineNumber,
+              this.pendingCursorArgs.lineNumber,
+              this.pendingCursorArgs.userName,
+            );
+          }
+          this.cursorThrottleTimer = null;
+        }, 100);
+      }
     }
   }
 
@@ -549,10 +579,6 @@ export class Editor implements OnInit {
   }
 
   private scheduleDebounce(value: string) {
-    if (!this.isManualLanguageSelection) {
-      this.syncAutoLanguage();
-    }
-
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
@@ -561,11 +587,6 @@ export class Editor implements OnInit {
       if (this.signalRService.connectionState() === 'connected') {
         void this.signalRService.sendUpdate(this.docId(), value).catch((sendError) => {
           console.error('Error sending real-time update:', sendError);
-
-          const message = sendError?.message?.toLowerCase?.() ?? '';
-          if (message.includes('edit access') || message.includes('forbidden')) {
-            this.handlePermissionRevoked();
-          }
         });
       }
 
@@ -579,7 +600,7 @@ export class Editor implements OnInit {
     this.saveDebounceTimer = setTimeout(async () => {
       await this.saveToBackend(value);
       this.saveDebounceTimer = null;
-    }, 300);
+    }, 2000);
   }
 
   private async saveToBackend(content: string): Promise<void> {
@@ -602,8 +623,20 @@ export class Editor implements OnInit {
       this.lastSaved.set(new Date());
     } catch (saveError: any) {
       console.error('Error saving document to backend:', saveError);
-      if (saveError.isPermissionError || saveError.status === 401 || saveError.status === 403) {
+      const isExplicitPermissionRevocation =
+        saveError?.error?.message?.includes('access') ||
+        saveError?.error?.message?.includes('edit') ||
+        saveError?.isPermissionError;
+
+      if (saveError.status === 403 && isExplicitPermissionRevocation) {
+        // 403 = explicitly forbidden — access was revoked
         this.handlePermissionRevoked();
+      } else if (saveError.status === 403) {
+        console.warn('Document update rejected by server:', saveError);
+      } else if (saveError.status === 401) {
+        // 401 = unauthenticated (session expired) — NOT a permission revocation
+        this.permissionRevokedMessage.set('Your session has expired. Please save your work and log in again.');
+        this.showPermissionBanner.set(true);
       }
     } finally {
       this.isSaving.set(false);
@@ -926,33 +959,9 @@ export class Editor implements OnInit {
     this.terminalHeight.set(280);
   }
 
-  private syncAutoLanguage(): void {
-    if (this.isManualLanguageSelection) return;
-    const detected = this.detectLanguage(this.docTitle() || this.docId(), this.codeSignal());
-
-    if (detected !== 'plaintext' && detected !== this.currentLanguage()) {
-      this.currentLanguage.set(detected);
-      if (this.editorView) {
-        this.editorView.dispatch({
-          effects: this.languageCompartment.reconfigure(this.getLanguageExtension(detected)),
-        });
-      }
-    }
-
-    const executableLangs = this.executionLanguages();
-    const match = executableLangs.find(
-      (l) => l.name === detected || (detected === 'typescript' && l.name === 'javascript'),
-    );
-    if (match && match.name !== this.selectedExecutionLanguage()) {
-      this.selectedExecutionLanguage.set(match.name);
-    }
-  }
-
-  setExecutionLanguage(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
+  setExecutionLanguage(val: string): void {
     this.selectedExecutionLanguage.set(val);
     this.currentLanguage.set(val);
-    this.isManualLanguageSelection = true;
     if (this.editorView) {
       this.editorView.dispatch({
         effects: this.languageCompartment.reconfigure(this.getLanguageExtension(val)),
@@ -1055,6 +1064,10 @@ export class Editor implements OnInit {
   private detectLanguage(name: string, content: string): string {
     const loweredName = (name || '').toLowerCase();
 
+    if (loweredName.endsWith('.py')) {
+      return 'python';
+    }
+
     if (loweredName.endsWith('.ts') || loweredName.endsWith('.tsx')) {
       return 'typescript';
     }
@@ -1097,20 +1110,20 @@ export class Editor implements OnInit {
 
     const trimmed = content.trimStart();
 
-    if (/\bconst\s+|\blet\s+|\bvar\s+|\bfunction\s+|\bconsole\.log|\bdocument\.|\bwindow\./i.test(trimmed)) {
-      return 'javascript';
-    }
-
-    if (/\bdef\s+\w+|\bimport\s+random|\bprint\s*\(|\binput\s*\(|\bif\s+__name__\s*==/i.test(trimmed)) {
+    if (/\bdef\s+\w+|\bimport\s+\w+|\bfrom\s+\w+\s+import|\bprint\s*\(|\binput\s*\(|\bif\s+__name__\s*==|\bself\.\w+/i.test(trimmed)) {
       return 'python';
     }
 
-    if (/\busing\s+System|\bnamespace\s+\w+|\bConsole\.Write/i.test(trimmed)) {
+    if (/\bpublic\s+(class|interface|enum|record)\b|\bimport\s+java\.\w+|\bSystem\.out\.print|\bpublic\s+static\s+void\s+main\b/i.test(trimmed)) {
+      return 'java';
+    }
+
+    if (/\busing\s+System\b|\bnamespace\s+\w+|\bConsole\.(Write|ReadLine)/i.test(trimmed)) {
       return 'csharp';
     }
 
-    if (/\bpublic\s+class\b|\bpublic\s+static\s+void\s+main\b|\bSystem\.out\.print/i.test(trimmed)) {
-      return 'java';
+    if (/\bconst\s+|\blet\s+|\bvar\s+|\bfunction\s+|\bconsole\.(log|error|warn)|\bdocument\.|\bwindow\.|\bexport\s+(default|const|function|class)/i.test(trimmed)) {
+      return 'javascript';
     }
 
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -1131,6 +1144,7 @@ export class Editor implements OnInit {
       { name: 'python', displayName: 'Python' },
       { name: 'javascript', displayName: 'JavaScript (Node.js)' },
       { name: 'csharp', displayName: 'C# (.NET)' },
+      { name: 'java', displayName: 'Java' },
     ];
 
     try {
@@ -1152,24 +1166,21 @@ export class Editor implements OnInit {
       const finalLanguages = parsed.length > 0 ? parsed : defaultFallback;
       this.executionLanguages.set(finalLanguages);
 
-      const currentDocLang = this.currentLanguage();
-      const matchingLang = finalLanguages.find(
-        (l) => l.name === currentDocLang || (currentDocLang === 'typescript' && l.name === 'javascript'),
-      );
+      const detected = this.detectLanguage(this.docTitle() || this.docId(), this.codeSignal());
+      const targetLang = detected === 'typescript' ? 'javascript' : detected;
 
+      const matchingLang = finalLanguages.find((l) => l.name === targetLang);
       if (matchingLang) {
         this.selectedExecutionLanguage.set(matchingLang.name);
-      } else if (
-        !this.selectedExecutionLanguage() ||
-        !finalLanguages.some((l) => l.name === this.selectedExecutionLanguage())
-      ) {
+      } else if (!finalLanguages.some((l) => l.name === this.selectedExecutionLanguage())) {
         this.selectedExecutionLanguage.set(finalLanguages[0].name);
       }
     } catch {
       this.executionLanguages.set(defaultFallback);
-      if (!this.selectedExecutionLanguage()) {
-        this.selectedExecutionLanguage.set(defaultFallback[0].name);
-      }
+      const detected = this.detectLanguage(this.docTitle() || this.docId(), this.codeSignal());
+      const targetLang = detected === 'typescript' ? 'javascript' : detected;
+      const matchingLang = defaultFallback.find((l) => l.name === targetLang);
+      this.selectedExecutionLanguage.set(matchingLang ? matchingLang.name : defaultFallback[0].name);
     } finally {
       this.isLoadingExecutionLanguages.set(false);
     }
@@ -1177,15 +1188,22 @@ export class Editor implements OnInit {
 
   private getErrorMessage(error: unknown, fallback: string): string {
     if (typeof error === 'object' && error !== null) {
-      const payload = (error as { error?: unknown }).error;
-      if (payload && typeof payload === 'object') {
-        const message = (payload as { message?: unknown }).message;
-        if (typeof message === 'string' && message.trim()) {
-          return message;
+      const errObj = error as any;
+      if (typeof errObj.error === 'string' && errObj.error.trim()) {
+        return errObj.error;
+      }
+      if (errObj.error && typeof errObj.error === 'object') {
+        if (typeof errObj.error.message === 'string' && errObj.error.message.trim()) {
+          return errObj.error.message;
+        }
+        if (typeof errObj.error.error === 'string' && errObj.error.error.trim()) {
+          return errObj.error.error;
         }
       }
+      if (typeof errObj.message === 'string' && errObj.message.trim()) {
+        return errObj.message;
+      }
     }
-
     return fallback;
   }
 

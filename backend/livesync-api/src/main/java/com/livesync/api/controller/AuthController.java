@@ -40,9 +40,16 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public UserInfo me(@RequestHeader("Authorization") String header) {
-        Claims claims = jwt.parse(header.substring(7));
-        return new UserInfo(claims.getSubject(), claims.get("email", String.class), claims.get("unique_name", String.class), null, null);
+    public ResponseEntity<?> me(@RequestHeader(value = "Authorization", required = false) String header) {
+        if (header == null || !header.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message", "Authorization token is missing or malformed."));
+        }
+        try {
+            Claims claims = jwt.parse(header.substring(7));
+            return ResponseEntity.ok(new UserInfo(claims.getSubject(), claims.get("email", String.class), claims.get("unique_name", String.class), null, null));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message", "Invalid or expired token."));
+        }
     }
 
     @PostMapping("/oauth/{provider}")

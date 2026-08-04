@@ -139,24 +139,33 @@ export class TimeTravelService {
     ];
 
     if (!operations || operations.length === 0) {
-      // Create synthetic progressive snapshots based on lines
+      // Create synthetic progressive snapshots capped at 30 to prevent memory bloat
       const lines = fullContent.split('\n');
+      const maxSnapshots = 30;
+      const step = Math.max(1, Math.floor(lines.length / maxSnapshots));
+      
       let progressive = '';
+      let revCount = 1;
       for (let i = 0; i < lines.length; i++) {
         progressive += (i === 0 ? '' : '\n') + lines[i];
-        list.push({
-          revision: i + 1,
-          content: progressive,
-          timestamp: `Rev ${i + 1}`,
-          changeDescription: `Added line: "${lines[i].substring(0, 30)}"`,
-        });
+        if (i % step === 0 || i === lines.length - 1) {
+          list.push({
+            revision: revCount++,
+            content: progressive,
+            timestamp: `Rev ${revCount - 1}`,
+            changeDescription: `Line ${i + 1}: "${lines[i].substring(0, 30)}"`,
+          });
+        }
       }
       return list;
     }
 
-    // Reconstruct step by step if operation log is available
+    // Reconstruct step by step if operation log is available (capped at last 30)
     let currentDoc = '';
-    operations.forEach((op, idx) => {
+    const maxOps = 30;
+    const opsToProcess = operations.length > maxOps ? operations.slice(operations.length - maxOps) : operations;
+    
+    opsToProcess.forEach((op, idx) => {
       if (op.type === 'insert') {
         currentDoc = currentDoc.slice(0, op.position) + op.text + currentDoc.slice(op.position);
       } else if (op.type === 'delete') {
