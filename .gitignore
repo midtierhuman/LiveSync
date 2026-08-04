@@ -14,3 +14,4 @@ docs/FAANG_READINESS_CHECKLIST.md
 .env
 .env.local
 *.env
+docker_compose.bat
