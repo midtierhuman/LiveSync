@@ -246,8 +246,7 @@ public class FolderService {
 
         var docs = documents.findByFolderIdOrderByUpdatedAtDesc(f.getId())
                 .stream()
-                .map(d -> documentService.find(d.getId(), userId).orElse(null))
-                .filter(Objects::nonNull)
+                .map(documentService::dto)
                 .toList();
 
         return new FolderDto(
