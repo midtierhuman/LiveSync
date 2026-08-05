@@ -169,6 +169,41 @@ public class FolderService {
         return true;
     }
 
+    public boolean moveFolder(String folderId, String userId, String targetParentFolderId) {
+        var folderOpt = folders.findById(folderId);
+        if (folderOpt.isEmpty()) return false;
+        var folder = folderOpt.get();
+
+        if (!folder.getOwnerId().equals(userId) && !"Edit".equals(accessLevel(folder, userId))) {
+            return false;
+        }
+
+        // Prevent moving a folder into itself
+        if (targetParentFolderId != null && targetParentFolderId.equals(folderId)) {
+            return false;
+        }
+
+        // Prevent moving a folder into one of its own descendants (circular hierarchy check)
+        if (targetParentFolderId != null && !targetParentFolderId.isBlank()) {
+            List<String> descendantIds = collectSubfolderIds(folderId);
+            if (descendantIds.contains(targetParentFolderId)) {
+                return false;
+            }
+
+            var targetOpt = folders.findById(targetParentFolderId);
+            if (targetOpt.isEmpty()) return false;
+            var target = targetOpt.get();
+            if (!"Edit".equals(accessLevel(target, userId))) return false;
+            folder.setParentFolderId(targetParentFolderId);
+        } else {
+            folder.setParentFolderId(null);
+        }
+
+        folder.setUpdatedAt(Instant.now());
+        folders.save(folder);
+        return true;
+    }
+
     public boolean addFolderShare(String shareCode, String userId) {
         var folderOpt = folders.findByShareCode(shareCode);
         if (folderOpt.isEmpty()) return false;

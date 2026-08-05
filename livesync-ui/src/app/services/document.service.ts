@@ -8,6 +8,7 @@ export interface DocumentDto {
   title: string;
   content: string;
   ownerId: string;
+  folderId?: string;
   ownerName?: string;
   shareCode?: string;
   defaultAccessLevel: string;

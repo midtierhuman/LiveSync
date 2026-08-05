@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -35,6 +35,7 @@ import { Editor } from '../editor/editor';
     MatTooltipModule,
     Editor,
     DatePipe,
+    NgTemplateOutlet,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
@@ -85,8 +86,262 @@ export class Dashboard implements OnInit {
   // Search & Views
   searchQuery = signal<string>('');
   activeTab = signal<'all' | 'folders' | 'mine' | 'shared' | 'favorites'>('all');
-  layoutView = signal<'grid' | 'list'>('grid');
+  layoutView = signal<'tree' | 'grid' | 'list'>('tree');
   starredDocIds = signal<Set<string>>(new Set(['starred_sample']));
+
+  // VS Code Solution Explorer Tree State
+  expandedFolderIds = signal<Set<string>>(new Set());
+  folderChildDocs = signal<Record<string, DocumentDto[]>>({});
+  folderChildSubfolders = signal<Record<string, FolderDto[]>>({});
+  targetParentFolderId = signal<string | null>(null);
+
+  async toggleFolderExpand(folderId: string, event?: Event) {
+    if (event) event.stopPropagation();
+    const current = new Set(this.expandedFolderIds());
+    if (current.has(folderId)) {
+      current.delete(folderId);
+      this.expandedFolderIds.set(current);
+    } else {
+      current.add(folderId);
+      this.expandedFolderIds.set(current);
+      if (!this.folderChildDocs()[folderId]) {
+        try {
+          const details = await this.folderService.getFolder(folderId);
+          this.folderChildDocs.update((prev) => ({ ...prev, [folderId]: details.documents || [] }));
+          this.folderChildSubfolders.update((prev) => ({ ...prev, [folderId]: details.subfolders || [] }));
+        } catch (err) {
+          console.error('Error fetching folder children:', err);
+        }
+      }
+    }
+  }
+
+  isFolderExpanded(folderId: string): boolean {
+    return this.expandedFolderIds().has(folderId);
+  }
+
+  expandAllFolders() {
+    const allIds = new Set(this.myFolders().map((f) => f.id));
+    this.expandedFolderIds.set(allIds);
+    allIds.forEach(async (id) => {
+      if (!this.folderChildDocs()[id]) {
+        try {
+          const details = await this.folderService.getFolder(id);
+          this.folderChildDocs.update((prev) => ({ ...prev, [id]: details.documents || [] }));
+        } catch (ignored) {}
+      }
+    });
+  }
+
+  collapseAllFolders() {
+    this.expandedFolderIds.set(new Set());
+  }
+
+  getSubfoldersOf(folderId: string): FolderDto[] {
+    const findSubfolders = (list: FolderDto[]): FolderDto[] | null => {
+      for (const f of list) {
+        if (f.id === folderId) {
+          return f.subfolders || [];
+        }
+        if (f.subfolders && f.subfolders.length > 0) {
+          const res = findSubfolders(f.subfolders);
+          if (res) return res;
+        }
+      }
+      return null;
+    };
+
+    const nested = findSubfolders(this.myFolders());
+    if (nested) return nested;
+    return this.myFolders().filter((f) => f.parentFolderId === folderId);
+  }
+
+  getDocsOf(folderId: string): DocumentDto[] {
+    const findDocs = (list: FolderDto[]): DocumentDto[] | null => {
+      for (const f of list) {
+        if (f.id === folderId) {
+          return f.documents || [];
+        }
+        if (f.subfolders && f.subfolders.length > 0) {
+          const res = findDocs(f.subfolders);
+          if (res) return res;
+        }
+      }
+      return null;
+    };
+
+    const nested = findDocs(this.myFolders());
+    if (nested && nested.length > 0) return nested;
+    return this.myDocuments().filter((d) => d.folderId === folderId);
+  }
+
+  async openCreateInFolder(folderId: string | null, type: 'file' | 'folder', event?: Event) {
+    if (event) event.stopPropagation();
+    this.targetParentFolderId.set(folderId);
+    if (type === 'folder') {
+      this.openCreateFolderModal();
+    } else {
+      const title = prompt('Enter new document title (e.g. main.py, index.js, App.java):');
+      if (title?.trim()) {
+        try {
+          const doc = await this.documentService.createDocument({
+            title: title.trim(),
+            content: '',
+          });
+          if (folderId) {
+            await this.folderService.moveDocument(doc.id, folderId);
+            doc.folderId = folderId;
+            this.myDocuments.update((docs) => [doc, ...docs]);
+            this.folderChildDocs.update((prev) => ({
+              ...prev,
+              [folderId]: [doc, ...(prev[folderId] || [])],
+            }));
+          } else {
+            this.myDocuments.update((docs) => [doc, ...docs]);
+          }
+          this.openDocument(doc.id);
+        } catch (err) {
+          console.error('Error creating file in folder:', err);
+          alert('Failed to create file');
+        }
+      }
+    }
+  }
+
+  // Context Menu State
+  contextMenu = signal<{ visible: boolean; x: number; y: number; type: 'file' | 'folder'; item: any } | null>(null);
+
+  onContextMenu(event: MouseEvent, type: 'file' | 'folder', item: any) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.contextMenu.set({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      type,
+      item,
+    });
+  }
+
+  closeContextMenu() {
+    this.contextMenu.set(null);
+  }
+
+  onContextMenuAction(action: 'newFile' | 'newFolder' | 'share' | 'delete' | 'move') {
+    const ctx = this.contextMenu();
+    this.closeContextMenu();
+    if (!ctx) return;
+
+    if (action === 'newFile' && ctx.type === 'folder') {
+      this.openCreateInFolder(ctx.item.id, 'file');
+    } else if (action === 'newFolder' && ctx.type === 'folder') {
+      this.openCreateInFolder(ctx.item.id, 'folder');
+    } else if (action === 'share') {
+      if (ctx.type === 'folder') {
+        this.openShareFolderModal(ctx.item);
+      } else {
+        this.openShareModal(ctx.item);
+      }
+    } else if (action === 'delete') {
+      if (ctx.type === 'folder') {
+        this.deleteFolder(ctx.item.id);
+      } else {
+        this.confirmDelete(ctx.item.id);
+      }
+    } else if (action === 'move' && ctx.type === 'file') {
+      this.openMoveModal(ctx.item);
+    }
+  }
+
+  // Drag & Drop State
+  draggedItem = signal<{ id: string; type: 'file' | 'folder' } | null>(null);
+  dragOverFolderId = signal<string | null | 'root'>(null);
+
+  onDragStart(event: DragEvent, type: 'file' | 'folder', id: string) {
+    event.stopPropagation();
+    this.draggedItem.set({ id, type });
+    event.dataTransfer?.setData('text/plain', JSON.stringify({ type, id }));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  onDragOver(event: DragEvent, targetFolderId: string | null) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const targetKey = targetFolderId ?? 'root';
+    if (this.dragOverFolderId() !== targetKey) {
+      this.dragOverFolderId.set(targetKey);
+    }
+  }
+
+  onDragEnter(event: DragEvent, targetFolderId: string | null) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOverFolderId.set(targetFolderId ?? 'root');
+  }
+
+  onDragLeave(event: DragEvent, targetFolderId: string | null) {
+    event.stopPropagation();
+    const targetKey = targetFolderId ?? 'root';
+    if (this.dragOverFolderId() === targetKey) {
+      this.dragOverFolderId.set(null);
+    }
+  }
+
+  async onDrop(event: DragEvent, targetFolderId: string | null) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOverFolderId.set(null);
+    const dragged = this.draggedItem();
+    this.draggedItem.set(null);
+    if (!dragged) return;
+
+    if (dragged.type === 'file') {
+      const docToMove = this.myDocuments().find((d) => d.id === dragged.id);
+
+      // 1. Immutably update myDocuments signal right away!
+      this.myDocuments.update((docs) =>
+        docs.map((d) => (d.id === dragged.id ? { ...d, folderId: targetFolderId ?? undefined } : d))
+      );
+
+      // 2. Immutably update folderChildDocs cache maps instantly
+      this.folderChildDocs.update((prev) => {
+        const updated = { ...prev };
+        for (const fId in updated) {
+          updated[fId] = updated[fId].filter((d) => d.id !== dragged.id);
+        }
+        if (targetFolderId && docToMove) {
+          updated[targetFolderId] = [
+            ...(updated[targetFolderId] || []),
+            { ...docToMove, folderId: targetFolderId },
+          ];
+        }
+        return updated;
+      });
+
+      // 3. Persist change asynchronously to backend
+      try {
+        await this.folderService.moveDocument(dragged.id, targetFolderId);
+      } catch (err) {
+        console.error('Error moving document via drag and drop:', err);
+        await this.loadWorkspace();
+      }
+    } else if (dragged.type === 'folder') {
+      if (dragged.id === targetFolderId) return;
+
+      // Immutably update myFolders signal parentId
+      this.myFolders.update((folders) =>
+        folders.map((f) => (f.id === dragged.id ? { ...f, parentFolderId: targetFolderId ?? undefined } : f))
+      );
+
+      try {
+        await this.folderService.moveFolder(dragged.id, targetFolderId);
+      } catch (err) {
+        console.error('Error moving folder via drag and drop:', err);
+        await this.loadWorkspace();
+      }
+    }
+  }
 
   toggleStar(docId: string, event?: Event) {
     if (event) event.stopPropagation();
@@ -111,7 +366,14 @@ export class Dashboard implements OnInit {
         this.activeTab() === 'all' ||
         this.activeTab() === 'mine' ||
         (this.activeTab() === 'favorites' && this.isStarred(d.id));
-      return matchesSearch && matchesTab;
+      
+      const matchesFolder = q
+        ? true
+        : this.currentFolderId()
+        ? d.folderId === this.currentFolderId()
+        : !d.folderId;
+
+      return matchesSearch && matchesTab && matchesFolder;
     });
   }
 
@@ -132,7 +394,16 @@ export class Dashboard implements OnInit {
 
   getFilteredFolders(): FolderDto[] {
     const q = this.searchQuery().toLowerCase().trim();
-    return this.myFolders().filter((f) => !q || f.name.toLowerCase().includes(q));
+    return this.myFolders().filter((f) => {
+      const matchesSearch = !q || f.name.toLowerCase().includes(q);
+      const matchesParent = q
+        ? true
+        : this.currentFolderId()
+        ? f.parentFolderId === this.currentFolderId()
+        : !f.parentFolderId;
+
+      return matchesSearch && matchesParent;
+    });
   }
 
   getLanguageBadge(title: string): { name: string; class: string; icon: string } {
@@ -214,16 +485,15 @@ export class Dashboard implements OnInit {
     if (!name) return;
 
     try {
-      await this.folderService.createFolder(name, this.currentFolderId() || undefined);
+      const parentId = this.targetParentFolderId() || this.currentFolderId() || undefined;
+      await this.folderService.createFolder(name, parentId);
       this.showCreateFolderModal.set(false);
       this.newFolderName.set('');
+      this.targetParentFolderId.set(null);
 
-      if (this.currentFolderId()) {
-        const details = await this.folderService.getFolder(this.currentFolderId()!);
-        this.myFolders.set(details.subfolders || []);
-      } else {
-        const rootFolders = await this.folderService.getMyFolders();
-        this.myFolders.set(rootFolders);
+      await this.loadWorkspace();
+      if (parentId) {
+        this.expandedFolderIds.update((set) => new Set([...set, parentId]));
       }
     } catch (err) {
       console.error('Error creating folder:', err);
@@ -430,14 +700,27 @@ export class Dashboard implements OnInit {
     const docId = this.deleteDocId();
     if (!docId) return;
 
+    // 1. Immediately purge from root / all documents signal
+    this.myDocuments.update((docs) => docs.filter((d) => d.id !== docId));
+
+    // 2. Immediately purge from all subfolder document cache maps
+    this.folderChildDocs.update((prev) => {
+      const updated = { ...prev };
+      for (const fId in updated) {
+        updated[fId] = updated[fId].filter((d) => d.id !== docId);
+      }
+      return updated;
+    });
+
+    this.showDeleteConfirm.set(false);
+    this.deleteDocId.set('');
+
     try {
       await this.documentService.deleteDocument(docId);
-      this.myDocuments.update((docs) => docs.filter((d) => d.id !== docId));
-      this.showDeleteConfirm.set(false);
-      this.deleteDocId.set('');
     } catch (error) {
       console.error('Error deleting document:', error);
       alert('Failed to delete document');
+      await this.loadWorkspace();
     }
   }
 

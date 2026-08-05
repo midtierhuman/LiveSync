@@ -82,6 +82,14 @@ export class FolderService {
     );
   }
 
+  async moveFolder(folderId: string, targetParentFolderId: string | null): Promise<void> {
+    await firstValueFrom(
+      this.http.put(`${appEndpoints.apiBaseUrl}/api/folders/move-folder/${folderId}`, {
+        targetParentFolderId,
+      })
+    );
+  }
+
   async joinSharedFolder(shareCode: string): Promise<void> {
     await firstValueFrom(
       this.http.post(`${appEndpoints.apiBaseUrl}/api/folders/add-shared`, {
