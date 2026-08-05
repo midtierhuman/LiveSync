@@ -77,6 +77,9 @@ export interface ExecutionLanguageOption {
   imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, DecimalPipe, FormsModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
+  // Scope these services to each Editor instance so every open tab gets isolated
+  // realtime, terminal, time-travel, and package manager state.
+  providers: [RealtimeService, ExecutionStreamService, TimeTravelService, PackageManagerService],
 })
 export class Editor implements OnInit {
   readonly documentId = input<string>('');

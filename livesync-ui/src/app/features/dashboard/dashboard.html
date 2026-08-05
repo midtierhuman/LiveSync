@@ -47,8 +47,14 @@
           <div class="explorer-header">
             <span class="explorer-label">EXPLORER</span>
             <div class="explorer-actions">
+              <button (click)="openCreateInFolder(currentFolderId(), 'file')" matTooltip="New File">
+                <mat-icon>note_add</mat-icon>
+              </button>
               <button (click)="openCreateFolderModal()" matTooltip="New Folder">
                 <mat-icon>create_new_folder</mat-icon>
+              </button>
+              <button (click)="goToAddShared()" matTooltip="Join Shared Room">
+                <mat-icon>group_add</mat-icon>
               </button>
               <button (click)="expandAllFolders()" matTooltip="Expand All">
                 <mat-icon>unfold_more</mat-icon>
@@ -60,6 +66,17 @@
                 <mat-icon>refresh</mat-icon>
               </button>
             </div>
+          </div>
+
+          <!-- Sidebar Search Strip -->
+          <div class="explorer-search">
+            <mat-icon>search</mat-icon>
+            <input
+              type="text"
+              placeholder="Search files & folders..."
+              [value]="searchQuery()"
+              (input)="searchQuery.set($any($event.target).value)"
+            />
           </div>
 
           <!-- Workspace Section Header -->
@@ -188,122 +205,52 @@
       }
     </aside>
 
-    <!-- Main Workspace Center Area (Right) -->
-    <main class="dashboard-content">
-      <!-- Hero Workspace Banner & Stats Bar -->
-      <section class="hero-stats-banner">
-        <div class="banner-info">
-          <h1>Welcome back, <span class="gradient-text">{{ authService.user()?.userName }}</span> 👋</h1>
-          <p>Collaborate in real-time, organize nested folders, execute code statelessly across 4 languages, and leverage Gemini AI.</p>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-value">{{ myFolders().length }}</span>
-            <span class="stat-label">Active Folders</span>
+    <!-- Main Workspace Center Area (Right): Tabbed Editor Canvas -->
+    <main class="dashboard-content editor-workspace">
+      <!-- Editor Tabs Bar -->
+      <div class="editor-tabs-bar">
+        @for (tab of openTabs(); track tab.id) {
+          <div
+            class="editor-tab"
+            [class.active]="activeTabId() === tab.id"
+            (click)="switchTab(tab.id)"
+          >
+            <mat-icon class="tab-file-icon" [class]="getLanguageBadge(tab.title).class">{{ getLanguageBadge(tab.title).icon }}</mat-icon>
+            <span class="tab-title">{{ tab.title }}</span>
+            <button class="tab-close" (click)="closeTab(tab.id, $event)" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
-          <div class="stat-card">
-            <span class="stat-value">{{ myDocuments().length + sharedDocuments().length }}</span>
-            <span class="stat-label">Total Documents</span>
+        }
+      </div>
+
+      <!-- Editor Canvas: all open tabs stay mounted (isolated per-instance state), toggled via visibility -->
+      <div class="editor-canvas">
+        @for (tab of openTabs(); track tab.id) {
+          <div class="editor-instance" [hidden]="activeTabId() !== tab.id">
+            <app-editor [documentId]="tab.id" [isModal]="true"></app-editor>
           </div>
-          <div class="stat-card">
-            <span class="stat-value">{{ sharedDocuments().length + sharedFolders().length }}</span>
-            <span class="stat-label">Shared Workspaces</span>
+        }
+        @if (!openTabs().length) {
+          <div class="editor-empty-state">
+            <mat-icon class="watermark-logo">psychology</mat-icon>
+            <div class="empty-shortcuts">
+              <div class="shortcut-row">
+                <span class="keys"><kbd>Ctrl</kbd> + <kbd>N</kbd></span>
+                <span class="shortcut-label">New File</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="keys"><kbd>Ctrl</kbd> + <kbd>O</kbd></span>
+                <span class="shortcut-label">Open File</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></span>
+                <span class="shortcut-label">Search</span>
+              </div>
+            </div>
           </div>
-          <div class="stat-card status-card">
-            <span class="status-indicator online"></span>
-            <span class="stat-value">Active</span>
-            <span class="stat-label">Realtime & AI Engines</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Create New Document & Folder Card -->
-      <section class="create-card">
-        <div class="create-header">
-          <mat-icon>create_new_folder</mat-icon>
-          <h3>Create Document or Folder</h3>
-        </div>
-        <div class="create-form">
-          <input
-            type="text"
-            [ngModel]="newDocTitle()"
-            (ngModelChange)="newDocTitle.set($event)"
-            placeholder="Enter document title (e.g. algorithm.py, app.cs, Main.java)..."
-            (keyup.enter)="createNewDocument()"
-            class="doc-input"
-          />
-          <button (click)="createNewDocument()" [disabled]="isCreating()" class="btn-create">
-            <mat-icon>add</mat-icon>
-            {{ isCreating() ? 'Creating...' : 'New Document' }}
-          </button>
-
-          <button (click)="openCreateFolderModal()" class="btn-create-folder">
-            <mat-icon>folder_open</mat-icon>
-            New Folder
-          </button>
-
-          <button (click)="goToAddShared()" class="btn-join-shared">
-            <mat-icon>group_add</mat-icon>
-            Join Shared Code / Folder
-          </button>
-        </div>
-      </section>
-
-      <!-- Breadcrumbs & Navigation Bar -->
-      <section class="breadcrumbs-bar">
-        <div class="breadcrumbs-list">
-          @for (crumb of folderBreadcrumbs(); track $index) {
-            <span
-              class="crumb-item"
-              [class.active]="$last"
-              (click)="navigateToBreadcrumb($index)"
-            >
-              @if ($first) {
-                <mat-icon class="crumb-icon">home</mat-icon>
-              } @else {
-                <mat-icon class="crumb-icon">folder</mat-icon>
-              }
-              {{ crumb.name }}
-            </span>
-            @if (!$last) {
-              <span class="crumb-separator">/</span>
-            }
-          }
-        </div>
-      </section>
-
-      <!-- Filter Bar & Search Controls -->
-      <section class="controls-bar">
-        <div class="tabs-group">
-          <button [class.active]="activeTab() === 'all'" (click)="activeTab.set('all')">
-            🌐 All Workspace
-          </button>
-          <button [class.active]="activeTab() === 'folders'" (click)="activeTab.set('folders')">
-            📁 Folders ({{ getFilteredFolders().length }})
-          </button>
-          <button [class.active]="activeTab() === 'mine'" (click)="activeTab.set('mine')">
-            📄 My Documents ({{ getFilteredMyDocs().length }})
-          </button>
-          <button [class.active]="activeTab() === 'shared'" (click)="activeTab.set('shared')">
-            👥 Shared With Me ({{ getFilteredSharedDocs().length }})
-          </button>
-          <button [class.active]="activeTab() === 'favorites'" (click)="activeTab.set('favorites')">
-            ⭐ Favorites ({{ starredDocIds().size }})
-          </button>
-        </div>
-
-        <div class="actions-group">
-          <div class="search-box">
-            <mat-icon>search</mat-icon>
-            <input
-              type="text"
-              placeholder="Search folders & documents..."
-              [value]="searchQuery()"
-              (input)="searchQuery.set($any($event.target).value)"
-            />
-          </div>
-        </div>
-      </section>
+        }
+      </div>
     </main>
   </div>
 
@@ -465,18 +412,6 @@
           <button (click)="showDeleteConfirm.set(false)" class="btn-cancel">Cancel</button>
           <button (click)="deleteDocument()" class="btn-delete">Delete</button>
         </div>
-      </div>
-    </div>
-  }
-
-  <!-- Editor Modal -->
-  @if (showEditorModal()) {
-    <div class="editor-modal-overlay">
-      <div class="editor-modal-container">
-        <button class="editor-close-btn" (click)="closeEditor()" mat-icon-button>
-          <mat-icon>close</mat-icon>
-        </button>
-        <app-editor [documentId]="selectedDocId()" [isModal]="true"></app-editor>
       </div>
     </div>
   }

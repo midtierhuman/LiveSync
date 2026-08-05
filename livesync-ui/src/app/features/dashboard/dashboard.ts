@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -34,7 +34,6 @@ import { Editor } from '../editor/editor';
     MatListModule,
     MatTooltipModule,
     Editor,
-    DatePipe,
     NgTemplateOutlet,
   ],
   templateUrl: './dashboard.html',
@@ -77,8 +76,6 @@ export class Dashboard implements OnInit {
   selectedDocForShare = signal<DocumentDto | null>(null);
   shareCode = signal('');
   showDeleteConfirm = signal(false);
-  showEditorModal = signal(false);
-  selectedDocId = signal<string>('');
   deleteDocId = signal('');
   defaultAccessLevel = signal<string>('View');
   editingAccessLevelFor = signal<string | null>(null);
@@ -93,6 +90,10 @@ export class Dashboard implements OnInit {
   expandedFolderIds = signal<Set<string>>(new Set());
   folderChildDocs = signal<Record<string, DocumentDto[]>>({});
   folderChildSubfolders = signal<Record<string, FolderDto[]>>({});
+
+  // Editor Tabs State
+  openTabs = signal<{ id: string; title: string }[]>([]);
+  activeTabId = signal<string>('');
   targetParentFolderId = signal<string | null>(null);
 
   async toggleFolderExpand(folderId: string, event?: Event) {
@@ -577,18 +578,45 @@ export class Dashboard implements OnInit {
   }
 
   openDocument(docId: string) {
-    this.selectedDocId.set(docId);
-    this.showEditorModal.set(true);
+    // Add tab if not already open
+    const existing = this.openTabs().find(t => t.id === docId);
+    if (!existing) {
+      // Find the document title from all docs
+      const ownDoc = this.myDocuments().find((doc) => doc.id === docId);
+      const sharedDoc = this.sharedDocuments().find((doc) => doc.documentId === docId || doc.id === docId);
+      const title = ownDoc?.title || sharedDoc?.documentTitle || 'Untitled';
+      this.openTabs.update(tabs => [...tabs, { id: docId, title }]);
+    }
+    this.activeTabId.set(docId);
   }
 
   openSharedDoc(docId: string) {
-    this.selectedDocId.set(docId);
-    this.showEditorModal.set(true);
+    this.openDocument(docId);
+  }
+
+  closeTab(tabId: string, event?: MouseEvent) {
+    event?.stopPropagation();
+    this.openTabs.update(tabs => tabs.filter(t => t.id !== tabId));
+    // If closing the active tab, switch to the last remaining tab or clear
+    if (this.activeTabId() === tabId) {
+      const remaining = this.openTabs();
+      if (remaining.length > 0) {
+        const last = remaining[remaining.length - 1];
+        this.activeTabId.set(last.id);
+      } else {
+        this.activeTabId.set('');
+      }
+    }
+  }
+
+  switchTab(tabId: string) {
+    this.activeTabId.set(tabId);
   }
 
   closeEditor() {
-    this.showEditorModal.set(false);
-    this.selectedDocId.set('');
+    // Close all tabs
+    this.openTabs.set([]);
+    this.activeTabId.set('');
     this.loadWorkspace();
   }
 
