@@ -643,7 +643,7 @@
   <!-- Package Manager Modal Overlay -->
   @if (isPackageManagerOpen()) {
     <div class="package-modal-overlay" (click)="closePackageManagerModal()">
-      <div class="package-modal-card" (click)="$event.stopPropagation()">
+      <div class="package-modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
         <!-- Header with Language Selector -->
         <div class="package-modal-header">
           <div class="header-title">
@@ -656,7 +656,7 @@
               <mat-icon>code</mat-icon>
               <span>{{ packageManagerService.packageLanguageSupport()?.package_display_name || 'Checking package support...' }}</span>
             </div>
-            <button mat-icon-button (click)="closePackageManagerModal()">
+            <button mat-icon-button (click)="closePackageManagerModal()" aria-label="Close package manager">
               <mat-icon>close</mat-icon>
             </button>
           </div>

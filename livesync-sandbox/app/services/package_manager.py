@@ -272,7 +272,21 @@ class PackageManagerService:
                 output="",
             )
 
-        clean_package_name = "".join(c for c in package_name if c.isalnum() or c in ("-", "_", ".", "[", "]", "=", ">", "<", "@", "/"))
+        if support.package_language == "javascript":
+            allowed = set("-_./@^~=><")
+        else:
+            allowed = set("-_.[]=><!~,:")
+
+        clean_package_name = "".join(c for c in package_name if c.isalnum() or c in allowed)
+
+        if clean_package_name != package_name:
+            return PackageInstallResponse(
+                success=False,
+                language=lang,
+                package_name=package_name,
+                message="Invalid package name or specifier.",
+                output="",
+            )
 
         if support.package_language == "python":
             py_exec = self._get_python_executable()
@@ -347,7 +361,21 @@ class PackageManagerService:
                 output="",
             )
 
-        clean_package_name = "".join(c for c in package_name if c.isalnum() or c in ("-", "_", "."))
+        if support.package_language == "javascript":
+            allowed = set("-_./@")
+        else:
+            allowed = set("-_.[]")
+
+        clean_package_name = "".join(c for c in package_name if c.isalnum() or c in allowed)
+
+        if clean_package_name != package_name:
+            return PackageInstallResponse(
+                success=False,
+                language=lang,
+                package_name=package_name,
+                message="Invalid package name or specifier.",
+                output="",
+            )
 
         if support.package_language == "python":
             py_exec = self._get_python_executable()

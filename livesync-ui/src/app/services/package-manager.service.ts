@@ -20,7 +20,7 @@ export interface CatalogPackage {
 export interface PackageInstallResponse {
   success: boolean;
   language: string;
-  packageName: string;
+  package_name: string;
   message: string;
   output: string;
 }
@@ -201,6 +201,7 @@ export class PackageManagerService {
     activeInstalling.add(pkgLower);
     this.installingPackages.set(activeInstalling);
 
+    this.installError.set('');
     this.showToast(`Installing '${packageName}'...`, 'info');
 
     const sandboxBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || '';
@@ -224,6 +225,7 @@ export class PackageManagerService {
 
       if (res.success) {
         await this.fetchInstalledPackages(language);
+        this.installError.set('');
         this.showToast(`Successfully installed '${packageName}'!`, 'success');
       } else {
         this.installError.set(res.message);
@@ -238,7 +240,7 @@ export class PackageManagerService {
       return {
         success: false,
         language,
-        packageName,
+        package_name: packageName,
         message: errMsg,
         output: errMsg,
       };
@@ -255,6 +257,7 @@ export class PackageManagerService {
     activeUninstalling.add(pkgLower);
     this.uninstallingPackages.set(activeUninstalling);
 
+    this.installError.set('');
     this.showToast(`Uninstalling '${packageName}'...`, 'info');
 
     const sandboxBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || '';
@@ -278,6 +281,7 @@ export class PackageManagerService {
 
       if (res.success) {
         await this.fetchInstalledPackages(language);
+        this.installError.set('');
         this.showToast(`Uninstalled '${packageName}'.`, 'success');
       } else {
         this.installError.set(res.message);
@@ -292,7 +296,7 @@ export class PackageManagerService {
       return {
         success: false,
         language,
-        packageName,
+        package_name: packageName,
         message: errMsg,
         output: errMsg,
       };

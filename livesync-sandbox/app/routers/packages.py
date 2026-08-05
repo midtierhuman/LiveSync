@@ -27,8 +27,16 @@ async def search_packages(q: str = "", language: str = "python"):
 
 
 @router.get("/list", status_code=status.HTTP_200_OK, summary="List installed packages")
-async def list_packages(language: str = "python"):
+async def list_packages(request: Request, language: str = "python"):
     """Returns a list of all currently installed packages for the given runtime language."""
+    token = auth_service.get_bearer_token(request.headers.get("Authorization"))
+    try:
+        if not auth_service.validate_token(token):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    except ValueError as ex:
+        logger.error(str(ex))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sandbox auth is not configured.")
+
     packages = await package_manager_service.list_packages(language)
     return {"language": language, "packages": packages}
 
