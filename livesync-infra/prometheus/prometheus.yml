@@ -3,12 +3,12 @@ global:
   evaluation_interval: 5s
 
 scrape_configs:
-  - job_name: 'livesync-sandbox'
+  - job_name: 'sandbox'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['livesync-sandbox:8080']
+      - targets: ['sandbox:8080']
 
-  - job_name: 'livesync-api'
+  - job_name: 'api'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['livesync-api:8080']
+      - targets: ['api:8080']

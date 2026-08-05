@@ -144,6 +144,7 @@ LiveSync/
 
 Additional design docs and references are available in the [`docs/`](./docs/README.md) folder:
 
+* [Testing Architecture Guide](./docs/TESTING.md)
 * [Conflict Resolution Design](./docs/CONFLICT_RESOLUTION_DESIGN.md)
 * [Project Roadmap](./docs/PROJECT_ROADMAP.md)
 * [AWS Deployment Guide](./docs/deployment/AWS_DEPLOYMENT_GUIDE.md)

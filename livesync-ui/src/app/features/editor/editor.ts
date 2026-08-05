@@ -64,6 +64,7 @@ import {
 import { AuthService } from '../../services/auth.service';
 import { ExecutionStreamService } from '../../services/execution-stream.service';
 import { TimeTravelService } from '../../services/time-travel.service';
+import { PackageManagerService, PackageItem } from '../../services/package-manager.service';
 
 export interface ExecutionLanguageOption {
   name: string;
@@ -86,11 +87,97 @@ export class Editor implements OnInit {
   readonly realtimeService = inject(RealtimeService);
   public readonly streamService = inject(ExecutionStreamService);
   public readonly timeTravelService = inject(TimeTravelService);
+  public readonly packageManagerService = inject(PackageManagerService);
   private readonly documentService = inject(DocumentService);
   private readonly authService = inject(AuthService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+
+  readonly isPackageManagerOpen = signal(false);
+  readonly packageSearchInput = signal('');
+  readonly installedFilterInput = signal('');
+
+  readonly categories = ['All', 'AI / ML', 'Data Science', 'Web / API', 'Utilities', 'DevTools', 'Graphics'];
+
+  openPackageManagerModal(): void {
+    this.isPackageManagerOpen.set(true);
+    this.packageSearchInput.set('');
+    this.installedFilterInput.set('');
+  }
+
+  closePackageManagerModal(): void {
+    this.isPackageManagerOpen.set(false);
+  }
+
+  onSearchPackageInput(query: string): void {
+    this.packageSearchInput.set(query);
+    const support = this.packageManagerService.packageLanguageSupport();
+    if (support?.supported && support.package_language) {
+      this.packageManagerService.searchPackagesReactive(query, support.package_language);
+    }
+  }
+
+  async installTargetPackage(pkgName?: string): Promise<void> {
+    const target = (pkgName || this.packageSearchInput()).trim();
+    if (!target) return;
+    const support = this.packageManagerService.packageLanguageSupport();
+    if (!support?.supported || !support.package_language) return;
+    await this.packageManagerService.installPackage(target, support.package_language);
+  }
+
+  async uninstallTargetPackage(pkgName: string): Promise<void> {
+    if (!pkgName) return;
+    const support = this.packageManagerService.packageLanguageSupport();
+    if (!support?.supported || !support.package_language) return;
+    await this.packageManagerService.uninstallPackage(pkgName, support.package_language);
+  }
+
+  isPackageManagerSupported(): boolean {
+    return this.packageManagerService.packageLanguageSupport()?.supported ?? false;
+  }
+
+  getPackageManagerLanguageLabel(): string {
+    return this.packageManagerService.packageLanguageSupport()?.message || 'Checking package support...';
+  }
+
+  private async refreshPackageManagerForCurrentLanguage(): Promise<void> {
+    const selectedLanguage = this.selectedExecutionLanguage();
+    this.packageManagerService.activeTab.set('discover');
+    this.packageManagerService.selectedCategory.set('All');
+
+    const support = await this.packageManagerService.fetchLanguageSupport(selectedLanguage);
+    this.packageSearchInput.set('');
+    this.installedFilterInput.set('');
+
+    if (!support.supported || !support.package_language) {
+      this.packageManagerService.popularPackages.set([]);
+      this.packageManagerService.searchResults.set([]);
+      this.packageManagerService.installedPackages.set([]);
+      return;
+    }
+
+    await Promise.all([
+      this.packageManagerService.fetchPopularPackages(support.package_language),
+      this.packageManagerService.fetchInstalledPackages(support.package_language),
+    ]);
+    this.packageManagerService.searchPackagesReactive('', support.package_language);
+  }
+
+  getFilteredCatalogPackages() {
+    const query = this.packageSearchInput().trim();
+    const rawList = query ? this.packageManagerService.searchResults() : this.packageManagerService.popularPackages();
+    const selectedCat = this.packageManagerService.selectedCategory();
+    if (selectedCat === 'All') return rawList;
+    return rawList.filter(item => (item.category || '').toLowerCase().includes(selectedCat.toLowerCase()));
+  }
+
+  getFilteredInstalledPackages(): PackageItem[] {
+    const filter = this.installedFilterInput().toLowerCase().trim();
+    const pkgs = this.packageManagerService.installedPackages();
+    if (!filter) return pkgs;
+    return pkgs.filter(p => p.name.toLowerCase().includes(filter));
+  }
 
   readonly docId = signal<string>('');
   readonly document = signal<DocumentDto | null>(null);
@@ -213,6 +300,17 @@ export class Editor implements OnInit {
       if (isActive && snapContent !== undefined && this.editorView) {
         this.updateEditorDocument(snapContent);
       }
+    });
+
+    effect(() => {
+      const isOpen = this.isPackageManagerOpen();
+      this.selectedExecutionLanguage();
+
+      if (!isOpen) {
+        return;
+      }
+
+      void this.refreshPackageManagerForCurrentLanguage();
     });
 
     afterNextRender(() => {

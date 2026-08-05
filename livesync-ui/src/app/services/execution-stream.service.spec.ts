@@ -1,4 +1,4 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { ExecutionStreamService } from './execution-stream.service';
 import { AuthService } from './auth.service';
 
@@ -28,7 +28,7 @@ describe('ExecutionStreamService', () => {
     window.WebSocket = originalWebSocket;
   });
 
-  it('uses /api/execution/stream and sends auth token in start payload', fakeAsync(() => {
+  it('uses /api/execution/stream and sends auth token in start payload', (done: DoneFn) => {
     const sentMessages: string[] = [];
     let openedSocket: any;
 
@@ -43,7 +43,20 @@ describe('ExecutionStreamService', () => {
 
       constructor(public readonly url: string) {
         openedSocket = this;
-        setTimeout(() => this.onopen && this.onopen(), 0);
+        setTimeout(() => {
+          if (this.onopen) this.onopen();
+          try {
+            expect(openedSocket.url).toContain('/api/execution/stream');
+            expect(sentMessages.length).toBe(1);
+
+            const payload = JSON.parse(sentMessages[0]);
+            expect(payload.action).toBe('start');
+            expect(payload.token).toBe('test-token');
+            done();
+          } catch (err) {
+            done.fail(err as Error);
+          }
+        }, 0);
       }
 
       send(payload: string) {
@@ -56,13 +69,5 @@ describe('ExecutionStreamService', () => {
     (window as any).WebSocket = MockWebSocket;
 
     service.startExecution('python', 'print("ok")');
-    tick();
-
-    expect(openedSocket.url).toContain('/api/execution/stream');
-    expect(sentMessages.length).toBe(1);
-
-    const payload = JSON.parse(sentMessages[0]);
-    expect(payload.action).toBe('start');
-    expect(payload.token).toBe('test-token');
-  }));
+  });
 });
