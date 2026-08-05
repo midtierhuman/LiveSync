@@ -45,7 +45,8 @@ services:
   # =========================================================================
   # 1. FRONTEND
   # =========================================================================
-  frontend:
+  livesync-ui:
+    container_name: livesync-ui
     build:
       context: ./livesync-ui
       dockerfile: Dockerfile

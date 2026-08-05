@@ -53,5 +53,6 @@ docs/
 ### 🧠 Architecture & Design
 | File | Description |
 |------|-------------|
+| [TESTING.md](./TESTING.md) | Testing architecture pattern (Hybrid) & cross-service test execution guide |
 | [CONFLICT_RESOLUTION_DESIGN.md](./CONFLICT_RESOLUTION_DESIGN.md) | Real-time conflict resolution & operational position tracking |
 | [PROJECT_ROADMAP.md](./PROJECT_ROADMAP.md) | Project roadmap & feature milestones |
