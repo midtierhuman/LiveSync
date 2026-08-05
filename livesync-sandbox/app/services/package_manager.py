@@ -69,6 +69,15 @@ class PackageSupportResponse(BaseModel):
 
 
 class PackageManagerService:
+    def __init__(self) -> None:
+        self._lock: asyncio.Lock | None = None
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
     SUPPORTED_LANGUAGE_ALIASES: dict[str, str] = {
         "python": "python",
         "py": "python",
@@ -216,45 +225,46 @@ class PackageManagerService:
         support = self.resolve_package_language(language)
         packages = []
 
-        if support.package_language == "python":
-            py_exec = self._get_python_executable()
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    py_exec,
-                    "-m",
-                    "pip",
-                    "list",
-                    "--format=json",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10.0)
-                if proc.returncode == 0 and stdout:
-                    data = json.loads(stdout.decode("utf-8", errors="replace"))
-                    for item in data:
-                        packages.append({"name": item.get("name"), "version": item.get("version")})
-            except Exception as ex:
-                logger.error(f"Error listing Python packages: {ex}")
-        elif support.package_language == "javascript":
-            npm_exec = shutil.which("npm") or "npm"
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    npm_exec,
-                    "list",
-                    "--json",
-                    "--depth=0",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10.0)
-                if proc.returncode == 0 and stdout:
-                    data = json.loads(stdout.decode("utf-8", errors="replace"))
-                    dependencies = data.get("dependencies", {}) or {}
-                    for name, meta in dependencies.items():
-                        version = meta.get("version", "") if isinstance(meta, dict) else ""
-                        packages.append({"name": name, "version": version})
-            except Exception as ex:
-                logger.error(f"Error listing JavaScript packages: {ex}")
+        async with self.lock:
+            if support.package_language == "python":
+                py_exec = self._get_python_executable()
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        py_exec,
+                        "-m",
+                        "pip",
+                        "list",
+                        "--format=json",
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10.0)
+                    if proc.returncode == 0 and stdout:
+                        data = json.loads(stdout.decode("utf-8", errors="replace"))
+                        for item in data:
+                            packages.append({"name": item.get("name"), "version": item.get("version")})
+                except Exception as ex:
+                    logger.error(f"Error listing Python packages: {ex}")
+            elif support.package_language == "javascript":
+                npm_exec = shutil.which("npm") or "npm"
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        npm_exec,
+                        "list",
+                        "--json",
+                        "--depth=0",
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10.0)
+                    if proc.returncode == 0 and stdout:
+                        data = json.loads(stdout.decode("utf-8", errors="replace"))
+                        dependencies = data.get("dependencies", {}) or {}
+                        for name, meta in dependencies.items():
+                            version = meta.get("version", "") if isinstance(meta, dict) else ""
+                            packages.append({"name": name, "version": version})
+                except Exception as ex:
+                    logger.error(f"Error listing JavaScript packages: {ex}")
 
         return packages
 
@@ -303,49 +313,50 @@ class PackageManagerService:
                 output="",
             )
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=300.0)
-            stdout_str = stdout_bytes.decode("utf-8", errors="replace")
-            stderr_str = stderr_bytes.decode("utf-8", errors="replace")
-            full_output = stdout_str + ("\n--- STDERR ---\n" + stderr_str if stderr_str.strip() else "")
-
-            if proc.returncode == 0:
-                return PackageInstallResponse(
-                    success=True,
-                    language=lang,
-                    package_name=clean_package_name,
-                    message=f"Successfully installed '{clean_package_name}'.",
-                    output=full_output,
+        async with self.lock:
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
-            else:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=300.0)
+                stdout_str = stdout_bytes.decode("utf-8", errors="replace")
+                stderr_str = stderr_bytes.decode("utf-8", errors="replace")
+                full_output = stdout_str + ("\n--- STDERR ---\n" + stderr_str if stderr_str.strip() else "")
+
+                if proc.returncode == 0:
+                    return PackageInstallResponse(
+                        success=True,
+                        language=lang,
+                        package_name=clean_package_name,
+                        message=f"Successfully installed '{clean_package_name}'.",
+                        output=full_output,
+                    )
+                else:
+                    return PackageInstallResponse(
+                        success=False,
+                        language=lang,
+                        package_name=clean_package_name,
+                        message=f"Failed to install '{clean_package_name}'. Exit code: {proc.returncode}.",
+                        output=full_output,
+                    )
+            except asyncio.TimeoutError:
                 return PackageInstallResponse(
                     success=False,
                     language=lang,
                     package_name=clean_package_name,
-                    message=f"Failed to install '{clean_package_name}'. Exit code: {proc.returncode}.",
-                    output=full_output,
+                    message="Package installation timed out.",
+                    output="Installation timed out after 300 seconds.",
                 )
-        except asyncio.TimeoutError:
-            return PackageInstallResponse(
-                success=False,
-                language=lang,
-                package_name=clean_package_name,
-                message="Package installation timed out.",
-                output="Installation timed out after 300 seconds.",
-            )
-        except Exception as ex:
-            return PackageInstallResponse(
-                success=False,
-                language=lang,
-                package_name=clean_package_name,
-                message=f"Error installing package: {str(ex)}",
-                output=str(ex),
-            )
+            except Exception as ex:
+                return PackageInstallResponse(
+                    success=False,
+                    language=lang,
+                    package_name=clean_package_name,
+                    message=f"Error installing package: {str(ex)}",
+                    output=str(ex),
+                )
 
     async def uninstall_package(self, request: PackageInstallRequest) -> PackageInstallResponse:
         support = self.resolve_package_language(request.language)
@@ -392,41 +403,42 @@ class PackageManagerService:
                 output="",
             )
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=60.0)
-            stdout_str = stdout_bytes.decode("utf-8", errors="replace")
-            stderr_str = stderr_bytes.decode("utf-8", errors="replace")
-            full_output = stdout_str + ("\n" + stderr_str if stderr_str.strip() else "")
-
-            if proc.returncode == 0:
-                return PackageInstallResponse(
-                    success=True,
-                    language=lang,
-                    package_name=clean_package_name,
-                    message=f"Successfully uninstalled '{clean_package_name}'.",
-                    output=full_output,
+        async with self.lock:
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
-            else:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=60.0)
+                stdout_str = stdout_bytes.decode("utf-8", errors="replace")
+                stderr_str = stderr_bytes.decode("utf-8", errors="replace")
+                full_output = stdout_str + ("\n" + stderr_str if stderr_str.strip() else "")
+
+                if proc.returncode == 0:
+                    return PackageInstallResponse(
+                        success=True,
+                        language=lang,
+                        package_name=clean_package_name,
+                        message=f"Successfully uninstalled '{clean_package_name}'.",
+                        output=full_output,
+                    )
+                else:
+                    return PackageInstallResponse(
+                        success=False,
+                        language=lang,
+                        package_name=clean_package_name,
+                        message=f"Uninstall returned exit code {proc.returncode}.",
+                        output=full_output,
+                    )
+            except Exception as ex:
                 return PackageInstallResponse(
                     success=False,
                     language=lang,
                     package_name=clean_package_name,
-                    message=f"Uninstall returned exit code {proc.returncode}.",
-                    output=full_output,
+                    message=f"Error uninstalling package: {str(ex)}",
+                    output=str(ex),
                 )
-        except Exception as ex:
-            return PackageInstallResponse(
-                success=False,
-                language=lang,
-                package_name=clean_package_name,
-                message=f"Error uninstalling package: {str(ex)}",
-                output=str(ex),
-            )
 
 
 package_manager_service = PackageManagerService()

@@ -50,6 +50,13 @@ async def test_package_manager_service_uninstall_leading_dash():
     assert res.message == "Invalid package name or specifier."
 
 
+@pytest.mark.asyncio
+async def test_package_manager_service_lock():
+    import asyncio
+    assert isinstance(package_manager_service.lock, asyncio.Lock)
+    assert package_manager_service.lock.locked() is False
+
+
 def test_list_packages_auth_required():
     response = client.get("/api/packages/list?language=python")
     assert response.status_code == 401
