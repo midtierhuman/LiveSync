@@ -279,7 +279,7 @@ class PackageManagerService:
 
         clean_package_name = "".join(c for c in package_name if c.isalnum() or c in allowed)
 
-        if clean_package_name != package_name:
+        if clean_package_name != package_name or clean_package_name.startswith("-"):
             return PackageInstallResponse(
                 success=False,
                 language=lang,
@@ -368,7 +368,7 @@ class PackageManagerService:
 
         clean_package_name = "".join(c for c in package_name if c.isalnum() or c in allowed)
 
-        if clean_package_name != package_name:
+        if clean_package_name != package_name or clean_package_name.startswith("-"):
             return PackageInstallResponse(
                 success=False,
                 language=lang,
@@ -382,7 +382,7 @@ class PackageManagerService:
             cmd = [py_exec, "-m", "pip", "uninstall", "-y", clean_package_name]
         elif support.package_language == "javascript":
             npm_exec = shutil.which("npm") or "npm"
-            cmd = [npm_exec, "uninstall", clean_package_name]
+            cmd = [npm_exec, "uninstall", "--no-save", "--ignore-scripts", "--no-audit", "--no-fund", clean_package_name]
         else:
             return PackageInstallResponse(
                 success=False,

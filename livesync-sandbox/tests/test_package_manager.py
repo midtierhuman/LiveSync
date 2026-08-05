@@ -34,6 +34,22 @@ async def test_package_manager_service_uninstall_scoped_npm():
     assert clean == "@types/node"
 
 
+@pytest.mark.asyncio
+async def test_package_manager_service_install_leading_dash():
+    req = PackageInstallRequest(language="python", package_name="-rrequirements.txt")
+    res = await package_manager_service.install_package(req)
+    assert res.success is False
+    assert res.message == "Invalid package name or specifier."
+
+
+@pytest.mark.asyncio
+async def test_package_manager_service_uninstall_leading_dash():
+    req = PackageInstallRequest(language="javascript", package_name="-y")
+    res = await package_manager_service.uninstall_package(req)
+    assert res.success is False
+    assert res.message == "Invalid package name or specifier."
+
+
 def test_list_packages_auth_required():
     response = client.get("/api/packages/list?language=python")
     assert response.status_code == 401
