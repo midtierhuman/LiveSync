@@ -293,7 +293,7 @@ class PackageManagerService:
             cmd = [py_exec, "-m", "pip", "install", clean_package_name]
         elif support.package_language == "javascript":
             npm_exec = shutil.which("npm") or "npm"
-            cmd = [npm_exec, "install", "--no-save", clean_package_name]
+            cmd = [npm_exec, "install", "--no-save", "--ignore-scripts", "--no-audit", "--no-fund", clean_package_name]
         else:
             return PackageInstallResponse(
                 success=False,

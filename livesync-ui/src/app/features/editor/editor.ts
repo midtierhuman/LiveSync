@@ -98,7 +98,7 @@ export class Editor implements OnInit {
   readonly packageSearchInput = signal('');
   readonly installedFilterInput = signal('');
 
-  readonly categories = ['All', 'AI / ML', 'Data Science', 'Web / API', 'Utilities', 'DevTools'];
+  readonly categories = ['All', 'AI / ML', 'Data Science', 'Web / API', 'Utilities', 'DevTools', 'Graphics'];
 
   openPackageManagerModal(): void {
     this.isPackageManagerOpen.set(true);
@@ -164,7 +164,7 @@ export class Editor implements OnInit {
     this.packageManagerService.searchPackagesReactive('', support.package_language);
   }
 
-  getFilteredCatalogPackages(): any[] {
+  getFilteredCatalogPackages() {
     const query = this.packageSearchInput().trim();
     const rawList = query ? this.packageManagerService.searchResults() : this.packageManagerService.popularPackages();
     const selectedCat = this.packageManagerService.selectedCategory();

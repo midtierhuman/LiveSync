@@ -94,9 +94,10 @@ export class PackageManagerService {
   }
 
   showToast(text: string, type: 'success' | 'error' | 'info' = 'info'): void {
-    this.toastNotice.set({ text, type });
+    const notice: ToastNotice = { text, type };
+    this.toastNotice.set(notice);
     setTimeout(() => {
-      if (this.toastNotice()?.text === text) {
+      if (this.toastNotice() === notice) {
         this.toastNotice.set(null);
       }
     }, 4000);
