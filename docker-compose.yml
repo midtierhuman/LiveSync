@@ -2,9 +2,8 @@ services:
   # =========================================================================
   # 0. DATABASE & CACHE SERVICES (SELF-CONTAINED STACK)
   # =========================================================================
-  livesync-postgres:
+  postgres:
     image: postgres:18
-    container_name: livesync-postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
@@ -14,7 +13,7 @@ services:
       POSTGRES_DB: livesync
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - livesync-postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${LIVESYNC_POSTGRES_USERNAME:-devuser} -d livesync"]
       interval: 10s
@@ -22,9 +21,8 @@ services:
       retries: 5
       start_period: 10s
 
-  livesync-redis:
+  redis:
     image: redis:7-alpine
-    container_name: livesync-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -35,7 +33,7 @@ services:
       --maxmemory 512mb
       --maxmemory-policy noeviction
     volumes:
-      - livesync-redis-data:/data
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${LIVESYNC_REDIS_PASSWORD:-LocalDevPassword123!}", "ping"]
       interval: 10s
@@ -45,8 +43,7 @@ services:
   # =========================================================================
   # 1. FRONTEND
   # =========================================================================
-  livesync-ui:
-    container_name: livesync-ui
+  ui:
     build:
       context: ./livesync-ui
       dockerfile: Dockerfile
@@ -56,30 +53,30 @@ services:
       - api-loadbalancer
 
   # =========================================================================
-  # 2. NEW POLYGLOT BACKEND MICROSERVICES (ACTIVE)
+  # 2. POLYGLOT BACKEND MICROSERVICES
   # =========================================================================
   # 2a. Java Spring Boot REST API
-  livesync-api:
+  api:
     build:
       context: ./livesync-api
       dockerfile: Dockerfile
     depends_on:
-      livesync-postgres:
+      postgres:
         condition: service_healthy
-      livesync-sandbox:
+      sandbox:
         condition: service_started
     environment:
       - SPRING_PROFILES_ACTIVE=development
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - LIVESYNC_DATABASE_URL=jdbc:postgresql://livesync-postgres:5432/livesync?options=-c%20timezone=UTC
+      - LIVESYNC_DATABASE_URL=jdbc:postgresql://postgres:5432/livesync?options=-c%20timezone=UTC
       - LIVESYNC_DATABASE_USERNAME=${LIVESYNC_POSTGRES_USERNAME:-devuser}
       - LIVESYNC_DATABASE_PASSWORD=${LIVESYNC_POSTGRES_PASSWORD:-devpassword}
       - LIVESYNC_JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
-      - LIVESYNC_SANDBOX_BASE_URL=http://livesync-sandbox:8080/
+      - LIVESYNC_SANDBOX_BASE_URL=http://sandbox:8080/
       - LIVESYNC_CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
 
   # 2b. Python FastAPI Code Execution Sandbox
-  livesync-sandbox:
+  sandbox:
     build:
       context: ./livesync-sandbox
       dockerfile: Dockerfile
@@ -100,18 +97,18 @@ services:
       - CORS_ALLOWED_ORIGINS=["http://localhost:4200","http://localhost:4000","http://localhost:5038"]
 
   # 2c. Node.js Socket.IO Realtime Engine
-  livesync-realtime:
+  realtime:
     build:
       context: ./livesync-realtime
       dockerfile: Dockerfile
     deploy:
       replicas: 2
     depends_on:
-      livesync-redis:
+      redis:
         condition: service_healthy
     environment:
       - PORT=5000
-      - REDIS_URL=redis://:${LIVESYNC_REDIS_PASSWORD:-LocalDevPassword123!}@livesync-redis:6379
+      - REDIS_URL=redis://:${LIVESYNC_REDIS_PASSWORD:-LocalDevPassword123!}@redis:6379
       - API_BASE_URL=http://api-loadbalancer:80/
       - CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
 
@@ -125,26 +122,24 @@ services:
     volumes:
       - ./livesync-infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - livesync-api
-      - livesync-realtime
-      - livesync-sandbox
+      - api
+      - realtime
+      - sandbox
 
   # =========================================================================
   # 5. OBSERVABILITY (PROMETHEUS & GRAFANA)
   # =========================================================================
   prometheus:
     image: prom/prometheus:latest
-    container_name: livesync-prometheus
     ports:
       - "9090:9090"
     volumes:
       - ./livesync-infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
-      - livesync-sandbox
+      - sandbox
 
   grafana:
     image: grafana/grafana:latest
-    container_name: livesync-grafana
     ports:
       - "3000:3000"
     environment:
@@ -153,5 +148,5 @@ services:
       - prometheus
 
 volumes:
-  livesync-postgres-data:
-  livesync-redis-data:
+  postgres-data:
+  redis-data:

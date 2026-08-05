@@ -17,19 +17,73 @@ public class DatabaseSchemaMigrator implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("Running automatic database schema migration for Document Content column...");
+        log.info("Running automatic database schema migration for core LiveSync tables...");
+
+        // Ensure AspNetUsers table exists
         try {
-            jdbcTemplate.execute("ALTER TABLE \"Documents\" ALTER COLUMN \"Content\" TYPE TEXT;");
-            log.info("Successfully migrated 'Documents.Content' column type to TEXT.");
-        } catch (Exception e1) {
-            try {
-                jdbcTemplate.execute("ALTER TABLE documents ALTER COLUMN content TYPE TEXT;");
-                log.info("Successfully migrated 'documents.content' column type to TEXT.");
-            } catch (Exception e2) {
-                log.warn("Schema migration notice: Could not alter Content column automatically: {}", e2.getMessage());
-            }
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS "AspNetUsers" (
+                    "Id" VARCHAR(255) PRIMARY KEY,
+                    "Email" VARCHAR(255),
+                    "UserName" VARCHAR(255),
+                    "PasswordHash" VARCHAR(255),
+                    "FirstName" VARCHAR(255),
+                    "LastName" VARCHAR(255),
+                    "CreatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    "LastLoginAt" TIMESTAMP,
+                    "NormalizedEmail" VARCHAR(255),
+                    "NormalizedUserName" VARCHAR(255),
+                    "EmailConfirmed" BOOLEAN NOT NULL DEFAULT FALSE,
+                    "SecurityStamp" VARCHAR(255),
+                    "ConcurrencyStamp" VARCHAR(255),
+                    "PhoneNumberConfirmed" BOOLEAN NOT NULL DEFAULT FALSE,
+                    "TwoFactorEnabled" BOOLEAN NOT NULL DEFAULT FALSE,
+                    "LockoutEnabled" BOOLEAN NOT NULL DEFAULT FALSE,
+                    "AccessFailedCount" INT NOT NULL DEFAULT 0,
+                    "LockoutEnd" TIMESTAMP
+                );
+            """);
+        } catch (Exception e) {
+            log.warn("Notice ensuring AspNetUsers table: {}", e.getMessage());
         }
 
+        // Ensure Documents table exists
+        try {
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS "Documents" (
+                    "Id" VARCHAR(255) PRIMARY KEY,
+                    "Title" VARCHAR(200) NOT NULL,
+                    "Content" TEXT NOT NULL,
+                    "OwnerId" VARCHAR(255) NOT NULL,
+                    "FolderId" VARCHAR(255),
+                    "ShareCode" VARCHAR(50) UNIQUE,
+                    "DefaultAccessLevel" VARCHAR(50) NOT NULL DEFAULT 'View',
+                    "CreatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    "UpdatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    "LastEditedAt" TIMESTAMP,
+                    "LastEditedBy" VARCHAR(255)
+                );
+            """);
+        } catch (Exception e) {
+            log.warn("Notice ensuring Documents table: {}", e.getMessage());
+        }
+
+        // Ensure SharedDocuments table exists
+        try {
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS "SharedDocuments" (
+                    "Id" VARCHAR(255) PRIMARY KEY,
+                    "DocumentId" VARCHAR(255) NOT NULL,
+                    "UserId" VARCHAR(255) NOT NULL,
+                    "AccessLevel" VARCHAR(50) NOT NULL,
+                    "SharedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+            """);
+        } catch (Exception e) {
+            log.warn("Notice ensuring SharedDocuments table: {}", e.getMessage());
+        }
+
+        // Ensure Folders table exists
         try {
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS "Folders" (
@@ -39,49 +93,38 @@ public class DatabaseSchemaMigrator implements CommandLineRunner {
                     "ParentFolderId" VARCHAR(255),
                     "ShareCode" VARCHAR(255) UNIQUE,
                     "DefaultAccessLevel" VARCHAR(50),
-                    "CreatedAt" TIMESTAMP NOT NULL,
-                    "UpdatedAt" TIMESTAMP NOT NULL
+                    "CreatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    "UpdatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
             """);
+        } catch (Exception e) {
+            log.warn("Notice ensuring Folders table: {}", e.getMessage());
+        }
+
+        // Ensure SharedFolders table exists
+        try {
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS "SharedFolders" (
                     "Id" VARCHAR(255) PRIMARY KEY,
                     "FolderId" VARCHAR(255) NOT NULL,
                     "UserId" VARCHAR(255) NOT NULL,
                     "AccessLevel" VARCHAR(50) NOT NULL,
-                    "SharedAt" TIMESTAMP NOT NULL
+                    "SharedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
             """);
-            jdbcTemplate.execute("ALTER TABLE \"Documents\" ADD COLUMN IF NOT EXISTS \"FolderId\" VARCHAR(255);");
-            log.info("Successfully ensured Folders, SharedFolders tables and 'Documents.FolderId' column exist.");
         } catch (Exception e) {
-            try {
-                jdbcTemplate.execute("""
-                    CREATE TABLE IF NOT EXISTS folders (
-                        id VARCHAR(255) PRIMARY KEY,
-                        name VARCHAR(255) NOT NULL,
-                        owner_id VARCHAR(255) NOT NULL,
-                        parent_folder_id VARCHAR(255),
-                        share_code VARCHAR(255) UNIQUE,
-                        default_access_level VARCHAR(50),
-                        created_at TIMESTAMP NOT NULL,
-                        updated_at TIMESTAMP NOT NULL
-                    );
-                """);
-                jdbcTemplate.execute("""
-                    CREATE TABLE IF NOT EXISTS shared_folders (
-                        id VARCHAR(255) PRIMARY KEY,
-                        folder_id VARCHAR(255) NOT NULL,
-                        user_id VARCHAR(255) NOT NULL,
-                        access_level VARCHAR(50) NOT NULL,
-                        shared_at TIMESTAMP NOT NULL
-                    );
-                """);
-                jdbcTemplate.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id VARCHAR(255);");
-                log.info("Successfully ensured lower_case folders, shared_folders tables exist.");
-            } catch (Exception e2) {
-                log.warn("Schema migration notice for Folders/SharedFolders: {}", e2.getMessage());
-            }
+            log.warn("Notice ensuring SharedFolders table: {}", e.getMessage());
         }
+
+        // Ensure Content column type is TEXT and FolderId column exists
+        try {
+            jdbcTemplate.execute("ALTER TABLE \"Documents\" ALTER COLUMN \"Content\" TYPE TEXT;");
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE \"Documents\" ADD COLUMN IF NOT EXISTS \"FolderId\" VARCHAR(255);");
+        } catch (Exception ignored) {}
+
+        log.info("Database Schema Migrator successfully completed table verification.");
     }
 }
