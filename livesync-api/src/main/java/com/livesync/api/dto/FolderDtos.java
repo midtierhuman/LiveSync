@@ -37,7 +37,10 @@ public class FolderDtos {
             int subfoldersCount,
             int documentsCount,
             List<FolderDto> subfolders,
-            List<DocumentDto> documents
+            List<DocumentDto> documents,
+            List<FolderPathNode> folderPath,
+            boolean isShared,
+            String permission
     ) {}
 
     public record SharedFolderDto(
@@ -47,6 +50,13 @@ public class FolderDtos {
             String ownerId,
             String ownerEmail,
             Instant sharedAt,
-            String accessLevel
+            String accessLevel,
+            List<String> pathIds,
+            List<String> pathNames
+    ) {}
+
+    public record FolderPathNode(
+            String id,
+            String name
     ) {}
 }

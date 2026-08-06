@@ -17,6 +17,13 @@ export interface DocumentDto {
   lastEditedAt?: string;
   lastEditedBy?: string;
   sharedWith: SharedDocumentDto[];
+  isShared?: boolean;
+  permission?: string;
+}
+
+export interface FolderPathNode {
+  id: string;
+  name: string;
 }
 
 export interface SharedDocumentDto {
@@ -27,6 +34,7 @@ export interface SharedDocumentDto {
   userName?: string;
   sharedAt: string;
   accessLevel: string;
+  folderPath?: FolderPathNode[];
 }
 
 export interface CreateDocumentRequest {

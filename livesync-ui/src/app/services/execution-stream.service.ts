@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, DestroyRef } from '@angular/core';
 import { appEndpoints } from '../app-endpoints';
 import { DocumentExecutionResponse } from './document.service';
 import { AuthService } from './auth.service';
@@ -10,6 +10,7 @@ export interface StreamEvent {
   status?: string;
   exitCode?: number;
   isSuccess?: boolean;
+  sessionId?: string;
   executionDurationMs?: number;
   peakMemoryBytes?: number;
   cpuTimeMs?: number;
@@ -23,7 +24,14 @@ export interface StreamEvent {
 })
 export class ExecutionStreamService {
   private readonly authService = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
   private socket: WebSocket | null = null;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.closeTerminal();
+    });
+  }
 
   readonly isStreaming = signal<boolean>(false);
   readonly streamOutput = signal<string>('');
@@ -31,7 +39,14 @@ export class ExecutionStreamService {
   readonly streamStatus = signal<string>('Idle');
   readonly finalExecutionResult = signal<DocumentExecutionResponse | null>(null);
 
-  startExecution(language: string, code: string, timeoutMs: number = 120000) {
+  startExecution(
+    language: string,
+    code: string,
+    timeoutMs: number = 120000,
+    cols: number = 80,
+    rows: number = 24,
+    sessionId?: string,
+  ) {
     this.close();
 
     this.isStreaming.set(true);
@@ -57,6 +72,9 @@ export class ExecutionStreamService {
             language,
             code,
             timeoutMs,
+            cols,
+            rows,
+            sessionId: sessionId || `term_${Date.now()}`,
             token: this.authService.token() || '',
           }),
         );
@@ -93,6 +111,18 @@ export class ExecutionStreamService {
       const dataWithNewline = input.endsWith('\n') ? input : input + '\n';
       this.socket.send(JSON.stringify({ action: 'stdin', data: dataWithNewline }));
       this.streamOutput.update((prev) => prev + dataWithNewline);
+    }
+  }
+
+  sendInput(data: string) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ action: 'input', data }));
+    }
+  }
+
+  sendResize(cols: number, rows: number) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ action: 'resize', cols, rows }));
     }
   }
 

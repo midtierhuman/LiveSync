@@ -64,15 +64,31 @@ public class FolderService {
     public List<SharedFolderDto> shared(String userId) {
         return sharedFolders.findByUserIdOrderBySharedAtDesc(userId)
                 .stream()
-                .map(sf -> new SharedFolderDto(
-                        sf.getId(),
-                        sf.getFolderId(),
-                        sf.getFolder() != null ? sf.getFolder().getName() : "Shared Folder",
-                        sf.getFolder() != null ? sf.getFolder().getOwnerId() : "",
-                        sf.getFolder() != null && sf.getFolder().getOwner() != null ? sf.getFolder().getOwner().getEmail() : "",
-                        sf.getSharedAt(),
-                        sf.getAccessLevel()
-                ))
+                .map(sf -> {
+                    var path = sf.getFolder() == null
+                            ? Collections.<FolderPathNode>emptyList()
+                            : buildFolderPath(sf.getFolder().getId());
+                    return new SharedFolderDto(
+                            sf.getId(),
+                            sf.getFolderId(),
+                            sf.getFolder() != null ? sf.getFolder().getName() : "Shared Folder",
+                            sf.getFolder() != null ? sf.getFolder().getOwnerId() : "",
+                            sf.getFolder() != null && sf.getFolder().getOwner() != null ? sf.getFolder().getOwner().getEmail() : "",
+                            sf.getSharedAt(),
+                            sf.getAccessLevel(),
+                            path.stream().map(FolderPathNode::id).toList(),
+                            path.stream().map(FolderPathNode::name).toList()
+                    );
+                })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FolderDto> sharedFolderDetails(String userId) {
+        return sharedFolders.findByUserIdOrderBySharedAtDesc(userId)
+                .stream()
+                .filter(sf -> sf.getFolder() != null)
+                .map(sf -> toDtoWithContents(sf.getFolder(), userId))
                 .toList();
     }
 
@@ -236,6 +252,20 @@ public class FolderService {
         return folderOpt.map(folder -> accessLevel(folder, userId)).orElse(null);
     }
 
+    @Transactional(readOnly = true)
+    public List<FolderPathNode> buildFolderPath(String folderId) {
+        var path = new java.util.ArrayList<FolderPathNode>();
+        String currentId = folderId;
+        while (currentId != null) {
+            var folderOpt = folders.findById(currentId);
+            if (folderOpt.isEmpty()) break;
+            var folder = folderOpt.get();
+            path.add(0, new FolderPathNode(folder.getId(), folder.getName()));
+            currentId = folder.getParentFolderId();
+        }
+        return path;
+    }
+
     public String accessLevel(Folder folder, String userId) {
         if (folder == null) return null;
         if (folder.getOwnerId().equals(userId)) return "Edit";
@@ -286,7 +316,10 @@ public class FolderService {
                 subfolders.size(),
                 (int) docCount,
                 subfolders,
-                Collections.emptyList()
+                Collections.emptyList(),
+                Collections.emptyList(),
+                false,
+                "Edit"
         );
     }
 
@@ -301,6 +334,10 @@ public class FolderService {
                 .map(documentService::dto)
                 .toList();
 
+        boolean isShared = userId != null && !f.getOwnerId().equals(userId);
+        String permission = isShared ? accessLevel(f, userId) : "Edit";
+        if (permission == null) permission = "View";
+
         return new FolderDto(
                 f.getId(),
                 f.getName(),
@@ -313,7 +350,10 @@ public class FolderService {
                 subfolders.size(),
                 docs.size(),
                 subfolders,
-                docs
+                docs,
+                buildFolderPath(f.getId()),
+                isShared,
+                permission
         );
     }
 }

@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -72,10 +72,11 @@ export class PackageManagerService {
     return map;
   });
 
+  private readonly destroyRef = inject(DestroyRef);
   private searchSubject = new Subject<{ query: string; language: string }>();
 
   constructor() {
-    this.searchSubject
+    const sub = this.searchSubject
       .pipe(
         debounceTime(250),
         distinctUntilChanged((prev, curr) => prev.query === curr.query && prev.language === curr.language),
@@ -91,6 +92,10 @@ export class PackageManagerService {
           this.isSearching.set(false);
         },
       });
+
+    this.destroyRef.onDestroy(() => {
+      sub.unsubscribe();
+    });
   }
 
   showToast(text: string, type: 'success' | 'error' | 'info' = 'info'): void {

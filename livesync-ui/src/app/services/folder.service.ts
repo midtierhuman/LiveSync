@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { appEndpoints } from '../app-endpoints';
-import { DocumentDto } from './document.service';
+import { DocumentDto, FolderPathNode } from './document.service';
 
 export interface FolderDto {
   id: string;
@@ -17,6 +17,10 @@ export interface FolderDto {
   documentsCount: number;
   subfolders: FolderDto[];
   documents: DocumentDto[];
+  folderPath?: FolderPathNode[];
+  isStructural?: boolean;
+  isShared?: boolean;
+  permission?: string;
 }
 
 export interface SharedFolderDto {
@@ -27,6 +31,8 @@ export interface SharedFolderDto {
   ownerEmail: string;
   sharedAt: string;
   accessLevel: string;
+  pathIds?: string[];
+  pathNames?: string[];
 }
 
 @Injectable({
@@ -53,6 +59,12 @@ export class FolderService {
   async getSharedFolders(): Promise<SharedFolderDto[]> {
     return firstValueFrom(
       this.http.get<SharedFolderDto[]>(`${appEndpoints.apiBaseUrl}/api/folders/shared-with-me`)
+    );
+  }
+
+  async getSharedFolderDetails(): Promise<FolderDto[]> {
+    return firstValueFrom(
+      this.http.get<FolderDto[]>(`${appEndpoints.apiBaseUrl}/api/folders/shared-with-me/details`)
     );
   }
 
