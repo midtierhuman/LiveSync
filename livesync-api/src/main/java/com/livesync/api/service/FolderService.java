@@ -317,7 +317,7 @@ public class FolderService {
                 (int) docCount,
                 subfolders,
                 Collections.emptyList(),
-                buildFolderPath(f.getId()),
+                Collections.emptyList(),
                 false,
                 "Edit"
         );

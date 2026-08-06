@@ -735,6 +735,15 @@ export class Dashboard implements OnInit {
     }
   }
 
+  onExplorerResizeKeydown(event: KeyboardEvent) {
+    const step = event.shiftKey ? 20 : 10;
+    const delta = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+    if (!delta) return;
+    event.preventDefault();
+    this.explorerWidth.set(this.clampExplorerWidth(this.explorerWidth() + delta));
+    this.persistExplorerWidth();
+  }
+
   private beginExplorerResize() {
     this.isResizingExplorer = true;
     if (typeof document !== 'undefined') {

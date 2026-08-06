@@ -227,11 +227,14 @@
         class="explorer-resizer"
         role="separator"
         aria-orientation="vertical"
+        aria-label="Resize explorer panel"
+        tabindex="0"
         [attr.aria-valuemin]="explorerMinWidth"
         [attr.aria-valuemax]="explorerMaxWidth"
         [attr.aria-valuenow]="explorerWidth()"
         (mousedown)="startExplorerResize($event)"
         (touchstart)="startExplorerTouchResize($event)"
+        (keydown)="onExplorerResizeKeydown($event)"
       ></div>
     </aside>
 

@@ -148,8 +148,7 @@ class StreamingExecutorService:
                 os.close(slave_fd)
                 slave_fd = None
 
-                flags = fcntl.fcntl(master_fd, fcntl.F_GETFL)
-                fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+                # Keep master_fd in blocking mode for worker thread os.read via run_in_executor
             else:
                 process = await asyncio.create_subprocess_exec(
                     *full_cmd,

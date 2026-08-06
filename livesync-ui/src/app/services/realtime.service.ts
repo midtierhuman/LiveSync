@@ -113,7 +113,6 @@ export class RealtimeService {
       this.connectionState.set('connected');
       console.log('Realtime Multiplexed Socket Connected successfully:', this.socket.id);
       for (const [docId] of this.documentStates) {
-        this.socket.emit('subscribe', { documentId: docId });
         this.socket.emit('JoinDocument', docId);
       }
     });
@@ -290,7 +289,6 @@ export class RealtimeService {
 
   disconnect(): void {
     if (this.socket) {
-      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.connectionState.set('disconnected');
       this.documentStates.clear();
@@ -330,7 +328,6 @@ export class RealtimeService {
 
     await this.startConnection();
 
-    this.socket.emit('subscribe', { documentId: docId, fileId: docId });
     this.socket.emit('JoinDocument', docId);
   }
 
@@ -342,7 +339,6 @@ export class RealtimeService {
       state.subscribers--;
       if (state.subscribers <= 0) {
         if (this.socket && this.socket.connected) {
-          this.socket.emit('unsubscribe', { documentId: docId, fileId: docId });
           this.socket.emit('LeaveDocument', docId);
         }
         this.documentStates.delete(docId);
