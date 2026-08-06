@@ -224,11 +224,11 @@
         }
       </div>
 
-      <!-- Editor Canvas: all open tabs stay mounted (isolated per-instance state), toggled via visibility -->
+      <!-- Editor Canvas: tabs stay mounted, but only the active editor keeps realtime connected. -->
       <div class="editor-canvas">
         @for (tab of openTabs(); track tab.id) {
           <div class="editor-instance" [hidden]="activeTabId() !== tab.id">
-            <app-editor [documentId]="tab.id" [isModal]="true"></app-editor>
+            <app-editor [documentId]="tab.id" [isModal]="true" [isActive]="activeTabId() === tab.id"></app-editor>
           </div>
         }
         @if (!openTabs().length) {

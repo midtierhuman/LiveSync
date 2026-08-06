@@ -1,7 +1,6 @@
 package com.livesync.api.service;
 
 import com.livesync.api.dto.DocumentDtos.*;
-import com.livesync.api.model.ApplicationUser;
 import com.livesync.api.model.Document;
 import com.livesync.api.model.SharedDocument;
 import com.livesync.api.repository.ApplicationUserRepository;

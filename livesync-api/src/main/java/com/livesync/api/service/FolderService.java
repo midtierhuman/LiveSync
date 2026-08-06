@@ -111,28 +111,31 @@ public class FolderService {
             return false;
         }
 
-        // Preserve the subtree by moving direct child folders to root before deletion.
-        var directChildren = folders.findByParentFolderIdOrderByUpdatedAtDesc(folderId);
-        for (var child : directChildren) {
-            child.setParentFolderId(null);
-            child.setUpdatedAt(Instant.now());
-            folders.save(child);
-        }
-
-        // Unassign documents inside folder and all nested subfolders to root
-        List<String> allFolderIds = collectSubfolderIds(folderId);
-        allFolderIds.add(folderId);
-
-        for (String fId : allFolderIds) {
-            var docsInside = documents.findByFolderIdOrderByUpdatedAtDesc(fId);
-            for (var doc : docsInside) {
-                doc.setFolderId(null);
-                documents.save(doc);
-            }
-        }
+        // Recursively delete all contents (true file-system behavior).
+        // JPA CascadeType.ALL + orphanRemoval on Folder handles:
+        //   - subfolders (recursive), documents, sharedWith entries
+        // We explicitly recurse to ensure deeply nested content is cleaned up
+        // even when the JPA managed collection isn't fully loaded.
+        deleteContentsRecursively(folderId);
 
         folders.delete(folder);
         return true;
+    }
+
+    /** Recursively delete all documents and subfolders inside a folder */
+    private void deleteContentsRecursively(String parentFolderId) {
+        // Delete documents directly inside this folder
+        var docsInside = documents.findByFolderIdOrderByUpdatedAtDesc(parentFolderId);
+        if (!docsInside.isEmpty()) {
+            documents.deleteAll(docsInside);
+        }
+
+        // Recurse into child subfolders, then delete them
+        var childFolders = folders.findByParentFolderIdOrderByUpdatedAtDesc(parentFolderId);
+        for (var child : childFolders) {
+            deleteContentsRecursively(child.getId());
+            folders.delete(child);
+        }
     }
 
     private List<String> collectSubfolderIds(String parentId) {

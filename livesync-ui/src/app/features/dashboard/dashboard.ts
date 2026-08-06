@@ -157,6 +157,15 @@ export class Dashboard implements OnInit {
     return this.myFolders().filter((f) => f.parentFolderId === folderId);
   }
 
+  private findFolderById(folders: FolderDto[], folderId: string): FolderDto | null {
+    for (const folder of folders) {
+      if (folder.id === folderId) return folder;
+      const nested = this.findFolderById(folder.subfolders || [], folderId);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
   getDocsOf(folderId: string): DocumentDto[] {
     const findDocs = (list: FolderDto[]): DocumentDto[] | null => {
       for (const f of list) {
@@ -258,6 +267,58 @@ export class Dashboard implements OnInit {
   draggedItem = signal<{ id: string; type: 'file' | 'folder' } | null>(null);
   dragOverFolderId = signal<string | null | 'root'>(null);
 
+  /** Recursively collect all descendant folder IDs of a given folder */
+  private collectDescendantFolderIds(folderId: string): Set<string> {
+    const ids = new Set<string>();
+    const recurse = (parentId: string) => {
+      const children = this.getSubfoldersOf(parentId);
+      for (const child of children) {
+        ids.add(child.id);
+        recurse(child.id);
+      }
+    };
+    recurse(folderId);
+    return ids;
+  }
+
+  /** Check if dropping dragged item on targetFolderId is valid */
+  private isValidDropTarget(targetFolderId: string | null): boolean {
+    const dragged = this.draggedItem();
+    if (!dragged) return true;
+    if (dragged.type === 'folder') {
+      const targetKey = targetFolderId ?? null;
+      if (dragged.id === targetKey) return false;
+      if (targetKey && this.collectDescendantFolderIds(dragged.id).has(targetKey)) return false;
+    }
+    return true;
+  }
+
+  /** Find the current parentFolderId for a given folder */
+  private findFolderParentId(folderId: string): string | null | undefined {
+    const folder = this.findFolderById(this.myFolders(), folderId);
+    if (folder) return folder.parentFolderId ?? null;
+    const cached = this.folderChildSubfolders();
+    for (const parentId in cached) {
+      const found = cached[parentId].find(f => f.id === folderId);
+      if (found) return parentId;
+    }
+    return undefined;
+  }
+
+  /** Recursively remove a folder by ID from the nested subfolders tree */
+  private removeFolderFromTree(folders: FolderDto[], folderId: string): FolderDto[] {
+    return folders.map(f => {
+      if (f.subfolders && f.subfolders.length > 0) {
+        const filtered = f.subfolders.filter(sf => sf.id !== folderId);
+        const recursed = this.removeFolderFromTree(filtered, folderId);
+        if (recursed !== f.subfolders) {
+          return { ...f, subfolders: recursed };
+        }
+      }
+      return f;
+    });
+  }
+
   onDragStart(event: DragEvent, type: 'file' | 'folder', id: string) {
     event.stopPropagation();
     this.draggedItem.set({ id, type });
@@ -268,6 +329,10 @@ export class Dashboard implements OnInit {
   onDragOver(event: DragEvent, targetFolderId: string | null) {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.isValidDropTarget(targetFolderId)) {
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+      return;
+    }
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
     const targetKey = targetFolderId ?? 'root';
     if (this.dragOverFolderId() !== targetKey) {
@@ -278,6 +343,7 @@ export class Dashboard implements OnInit {
   onDragEnter(event: DragEvent, targetFolderId: string | null) {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.isValidDropTarget(targetFolderId)) return;
     this.dragOverFolderId.set(targetFolderId ?? 'root');
   }
 
@@ -329,11 +395,41 @@ export class Dashboard implements OnInit {
       }
     } else if (dragged.type === 'folder') {
       if (dragged.id === targetFolderId) return;
+      if (targetFolderId && this.collectDescendantFolderIds(dragged.id).has(targetFolderId)) return;
 
-      // Immutably update myFolders signal parentId
-      this.myFolders.update((folders) =>
-        folders.map((f) => (f.id === dragged.id ? { ...f, parentFolderId: targetFolderId ?? undefined } : f))
-      );
+      const currentParentId = this.findFolderParentId(dragged.id);
+      if ((currentParentId ?? null) === (targetFolderId ?? null)) return;
+
+      const folderToMove = this.findFolderById(this.myFolders(), dragged.id);
+      if (!folderToMove) return;
+      const movedFolder: FolderDto = { ...folderToMove, parentFolderId: targetFolderId ?? undefined };
+
+      // Optimistically remove from old parent
+      if (currentParentId) {
+        this.folderChildSubfolders.update((prev) => {
+          const updated = { ...prev };
+          if (updated[currentParentId]) {
+            updated[currentParentId] = updated[currentParentId].filter(f => f.id !== dragged.id);
+          }
+          return updated;
+        });
+      }
+      if (!currentParentId) {
+        this.myFolders.update(folders => folders.filter(f => f.id !== dragged.id));
+      }
+      this.myFolders.update(folders => this.removeFolderFromTree(folders, dragged.id));
+
+      // Optimistically add to new parent
+      if (targetFolderId) {
+        this.folderChildSubfolders.update((prev) => {
+          const updated = { ...prev };
+          updated[targetFolderId] = [...(updated[targetFolderId] || []), movedFolder];
+          return updated;
+        });
+        this.expandedFolderIds.update(set => new Set([...set, targetFolderId]));
+      } else {
+        this.myFolders.update(folders => [...folders, movedFolder]);
+      }
 
       try {
         await this.folderService.moveFolder(dragged.id, targetFolderId);
@@ -504,11 +600,71 @@ export class Dashboard implements OnInit {
 
   async deleteFolder(folderId: string, event?: Event) {
     if (event) event.stopPropagation();
-    if (!confirm('Delete this folder? Documents inside will be moved to root workspace.')) return;
+
+    const descendantIds = this.collectDescendantFolderIds(folderId);
+    const allFolderIds = new Set([folderId, ...descendantIds]);
+
+    let docCount = 0;
+    for (const fId of allFolderIds) {
+      docCount += (this.folderChildDocs()[fId] || this.getDocsOf(fId)).length;
+    }
+    const subfolderCount = descendantIds.size;
+
+    let warning = 'Permanently delete this folder';
+    if (subfolderCount > 0 || docCount > 0) {
+      const parts: string[] = [];
+      if (subfolderCount > 0) parts.push(`${subfolderCount} subfolder${subfolderCount > 1 ? 's' : ''}`);
+      if (docCount > 0) parts.push(`${docCount} file${docCount > 1 ? 's' : ''}`);
+      warning += ` and all ${parts.join(' and ')} inside it`;
+    }
+    warning += '? This cannot be undone.';
+
+    if (!confirm(warning)) return;
+
+    // Gather doc IDs for tab cleanup before we clear caches
+    const deletedDocIds = new Set<string>();
+    for (const fId of allFolderIds) {
+      const docs = this.folderChildDocs()[fId] || this.getDocsOf(fId);
+      for (const doc of docs) deletedDocIds.add(doc.id);
+    }
 
     try {
       await this.folderService.deleteFolder(folderId);
+
+      // Remove from root-level myFolders and nested tree
       this.myFolders.update((f) => f.filter((item) => item.id !== folderId));
+      this.myFolders.update((f) => this.removeFolderFromTree(f, folderId));
+
+      // Clean up cached child docs and subfolders
+      this.folderChildDocs.update((prev) => {
+        const updated = { ...prev };
+        for (const fId of allFolderIds) delete updated[fId];
+        return updated;
+      });
+      this.folderChildSubfolders.update((prev) => {
+        const updated = { ...prev };
+        for (const fId of allFolderIds) delete updated[fId];
+        return updated;
+      });
+
+      // Remove documents belonging to deleted folders
+      this.myDocuments.update((docs) => docs.filter((d) => !d.folderId || !allFolderIds.has(d.folderId)));
+
+      // Close open editor tabs for documents inside deleted folders
+      if (deletedDocIds.size > 0) {
+        this.openTabs.update((tabs) => tabs.filter((t) => !deletedDocIds.has(t.id)));
+        if (deletedDocIds.has(this.activeTabId())) {
+          const remaining = this.openTabs();
+          this.activeTabId.set(remaining.length > 0 ? remaining[remaining.length - 1].id : '');
+        }
+      }
+
+      // Remove from expanded set
+      this.expandedFolderIds.update((set) => {
+        const updated = new Set(set);
+        for (const fId of allFolderIds) updated.delete(fId);
+        return updated;
+      });
     } catch (err) {
       console.error('Error deleting folder:', err);
       alert('Failed to delete folder');

@@ -163,6 +163,12 @@ export class RealtimeService {
     });
   }
 
+  disconnect(): void {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.connectionState.set('disconnected');
+    }
+  }
   async startConnection(): Promise<void> {
     if (this.socket.connected) {
       this.connectionState.set('connected');

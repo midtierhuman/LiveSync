@@ -84,6 +84,7 @@ export interface ExecutionLanguageOption {
 export class Editor implements OnInit {
   readonly documentId = input<string>('');
   readonly isModal = input<boolean>(false);
+  readonly isActive = input<boolean>(true);
 
   readonly editorHost = viewChild.required<ElementRef<HTMLDivElement>>('editorHost');
 
@@ -251,6 +252,7 @@ export class Editor implements OnInit {
       if (currentDocId) {
         await this.realtimeService.leaveDocument(currentDocId);
       }
+      this.realtimeService.disconnect();
 
       this.streamService.closeTerminal();
       this.editorView?.destroy();
@@ -316,9 +318,45 @@ export class Editor implements OnInit {
       void this.refreshPackageManagerForCurrentLanguage();
     });
 
+    effect(() => {
+      const currentDocId = this.docId();
+      const loadedDocId = this.document()?.id;
+      const isActive = this.isActive();
+      const isLoading = this.isLoading();
+
+      if (!currentDocId || loadedDocId !== currentDocId || isLoading) {
+        return;
+      }
+
+      if (isActive) {
+        void this.joinRealtimeDocument(currentDocId);
+      } else {
+        void this.leaveRealtimeDocument(currentDocId);
+      }
+    });
+
     afterNextRender(() => {
       this.initializeEditor();
     });
+  }
+
+  private async joinRealtimeDocument(id: string): Promise<void> {
+    try {
+      await this.realtimeService.startConnection();
+      await this.realtimeService.joinDocument(id);
+    } catch (err) {
+      console.error('Error joining realtime document:', err);
+    }
+  }
+
+  private async leaveRealtimeDocument(id: string): Promise<void> {
+    try {
+      await this.realtimeService.leaveDocument(id);
+    } catch (err) {
+      console.error('Error leaving realtime document:', err);
+    } finally {
+      this.realtimeService.disconnect();
+    }
   }
 
   async loadDocument(id: string) {
@@ -347,9 +385,6 @@ export class Editor implements OnInit {
       this.isEditable.set(accessLevel === 'Edit');
 
       await this.loadExecutionLanguages();
-
-      await this.realtimeService.startConnection();
-      await this.realtimeService.joinDocument(id);
     } catch (loadError) {
       console.error('Error loading document:', loadError);
       this.error.set('Failed to load document. Redirecting...');
