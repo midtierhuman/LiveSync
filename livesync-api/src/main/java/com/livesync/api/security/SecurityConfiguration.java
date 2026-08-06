@@ -37,7 +37,7 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/documents/share/**", "/health", "/v3/api-docs/**", "/swagger-ui/**", "/error").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/documents/share/**", "/api/folders/share/**", "/health", "/v3/api-docs/**", "/swagger-ui/**", "/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)

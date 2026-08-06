@@ -511,6 +511,23 @@ export class Dashboard implements OnInit {
     });
   }
 
+  private updateFolderShareCode(folderId: string, shareCode: string) {
+    const applyShareCode = (folder: FolderDto): FolderDto => ({ ...folder, shareCode });
+    this.myFolders.update((folders) => this.updateFolderInTree(folders, folderId, applyShareCode));
+    this.folderChildSubfolders.update((cache) => {
+      const updated: Record<string, FolderDto[]> = {};
+      for (const parentId of Object.keys(cache)) {
+        updated[parentId] = this.updateFolderInTree(cache[parentId], folderId, applyShareCode);
+      }
+      return updated;
+    });
+
+    const current = this.currentFolder();
+    if (current?.id === folderId) {
+      this.currentFolder.set({ ...current, shareCode });
+    }
+  }
+
   private insertFolderInTree(folders: FolderDto[], targetParentFolderId: string | null, folderToInsert: FolderDto): FolderDto[] {
     const cleanedFolder = this.cloneFolder(folderToInsert);
     if (!targetParentFolderId) {
@@ -989,9 +1006,37 @@ export class Dashboard implements OnInit {
 
   async openShareFolderModal(folder: FolderDto, event?: Event) {
     if (event) event.stopPropagation();
-    this.selectedFolderForShare.set(folder);
-    this.folderShareCode.set(folder.shareCode);
+
+    let folderForShare = folder;
+    if (!folderForShare.shareCode) {
+      try {
+        folderForShare = await this.folderService.generateShareCode(folderForShare.id);
+        this.updateFolderShareCode(folderForShare.id, folderForShare.shareCode || '');
+      } catch (error) {
+        console.error('Error generating folder share code:', error);
+        alert('Failed to generate folder share code');
+        return;
+      }
+    }
+
+    this.selectedFolderForShare.set(folderForShare);
+    this.folderShareCode.set(folderForShare.shareCode || '');
     this.showShareFolderModal.set(true);
+  }
+
+  async regenerateFolderShareCode() {
+    const folder = this.selectedFolderForShare();
+    if (!folder) return;
+
+    try {
+      const updatedFolder = await this.folderService.generateShareCode(folder.id);
+      this.selectedFolderForShare.set(updatedFolder);
+      this.folderShareCode.set(updatedFolder.shareCode || '');
+      this.updateFolderShareCode(updatedFolder.id, updatedFolder.shareCode || '');
+    } catch (error) {
+      console.error('Error regenerating folder share code:', error);
+      alert('Failed to regenerate folder share code');
+    }
   }
 
   copyFolderShareCode() {

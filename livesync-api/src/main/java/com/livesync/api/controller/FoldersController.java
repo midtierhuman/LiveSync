@@ -47,6 +47,11 @@ public class FoldersController {
     public ResponseEntity<FolderDto> byCode(@PathVariable String code) {
         return folderService.byShareCode(code).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
+    @PostMapping("/{id}/generate-share-code")
+    public ResponseEntity<FolderDto> generate(@PathVariable String id, Authentication auth) {
+        return folderService.generateShareCode(id, user(auth)).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> get(@PathVariable String id, Authentication auth) {
         var userId = user(auth);

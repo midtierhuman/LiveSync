@@ -113,7 +113,7 @@ public class DocumentService {
             String code;
             do {
                 code = code();
-            } while (documents.existsByShareCode(code));
+            } while (documents.existsByShareCode(code) || folders.existsByShareCode(code));
             d.setShareCode(code);
             return dto(d, userId);
         });
@@ -121,7 +121,8 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public Optional<DocumentDto> byShareCode(String code) {
-        return documents.findByShareCode(code).map(d -> dto(d, d.getOwnerId()));
+        if (code == null || code.isBlank()) return Optional.empty();
+        return documents.findByShareCode(code.trim().toUpperCase()).map(d -> dto(d, d.getOwnerId()));
     }
 
     @Transactional

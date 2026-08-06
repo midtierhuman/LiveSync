@@ -67,12 +67,18 @@ export class FolderService {
       this.http.get<FolderDto[]>(`${appEndpoints.apiBaseUrl}/api/folders/shared-with-me/details`)
     );
   }
+  async generateShareCode(id: string): Promise<FolderDto> {
+    return firstValueFrom(
+      this.http.post<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/${id}/generate-share-code`, {})
+    );
+  }
 
   async getFolderByShareCode(shareCode: string): Promise<FolderDto> {
     return firstValueFrom(
       this.http.get<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/share/${shareCode}`)
     );
   }
+
   async getFolder(id: string): Promise<FolderDto> {
     return firstValueFrom(
       this.http.get<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/${id}`)

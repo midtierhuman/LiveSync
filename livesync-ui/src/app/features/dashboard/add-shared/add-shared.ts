@@ -39,15 +39,15 @@ export class AddShared {
     this.documentPreview.set(null);
 
     try {
-      const doc = await this.documentService.getDocumentByShareCode(code);
-      this.shareType.set('document');
-      this.documentPreview.set(doc);
-    } catch (docError) {
+      const folder = await this.folderService.getFolderByShareCode(code);
+      this.shareType.set('folder');
+      this.documentPreview.set(folder);
+    } catch (folderError) {
       try {
-        const folder = await this.folderService.getFolderByShareCode(code);
-        this.shareType.set('folder');
-        this.documentPreview.set(folder);
-      } catch (folderError) {
+        const doc = await this.documentService.getDocumentByShareCode(code);
+        this.shareType.set('document');
+        this.documentPreview.set(doc);
+      } catch (docError) {
         this.errorMessage.set('No shared file or folder was found for this code');
       }
     } finally {

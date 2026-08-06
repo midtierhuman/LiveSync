@@ -97,6 +97,17 @@ public class FolderService {
         return folders.findByShareCode(code.trim().toUpperCase())
                 .map(folder -> toDtoWithContents(folder, folder.getOwnerId()));
     }
+    @Transactional
+    public Optional<FolderDto> generateShareCode(String id, String userId) {
+        return folders.findById(id)
+                .filter(folder -> folder.getOwnerId().equals(userId))
+                .map(folder -> {
+                    folder.setShareCode(generateUniqueShareCode());
+                    folder.setUpdatedAt(Instant.now());
+                    return toDto(folders.save(folder), true, userId);
+                });
+    }
+
     @Transactional(readOnly = true)
     public Optional<FolderDto> find(String folderId, String userId) {
         var folderOpt = folders.findById(folderId);
@@ -298,7 +309,7 @@ public class FolderService {
                 sb.append(SHARE_CHARS.charAt(random.nextInt(SHARE_CHARS.length())));
             }
             code = sb.toString();
-        } while (folders.existsByShareCode(code));
+        } while (folders.existsByShareCode(code) || documents.existsByShareCode(code));
         return code;
     }
 

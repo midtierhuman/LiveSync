@@ -329,6 +329,7 @@
             <input type="text" [value]="folderShareCode()" readonly class="share-code-input" />
             <button (click)="copyFolderShareCode()" class="btn-copy">Copy Code</button>
           </div>
+          <button (click)="regenerateFolderShareCode()" class="btn-regenerate">Generate New Code</button>
         </div>
         <button (click)="showShareFolderModal.set(false)" class="btn-close">Close</button>
       </div>
