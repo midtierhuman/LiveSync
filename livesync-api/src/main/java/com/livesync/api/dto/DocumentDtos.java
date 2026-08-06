@@ -14,7 +14,7 @@ public final class DocumentDtos {
     private DocumentDtos() {
     }
 
-    public record DocumentDto(String id, String title, String content, String ownerId, String ownerName,
+    public record DocumentDto(String id, String title, String content, String ownerId, String folderId, String ownerName,
                               String shareCode,
                               String defaultAccessLevel, Instant createdAt, Instant updatedAt, Instant lastEditedAt,
                               String lastEditedBy, List<SharedDocumentDto> sharedWith) {

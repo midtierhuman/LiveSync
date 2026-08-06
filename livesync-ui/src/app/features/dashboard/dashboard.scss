@@ -1,62 +1,72 @@
 .dashboard-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f172a 60%, #090d16 100%);
-  color: #f8fafc;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  background: #1e1e2e;
+  color: #cccccc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-// Header
+// ── IDE Top Bar ─────────────────────────────────
 .dashboard-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem 2.5rem;
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  position: sticky;
-  top: 0;
+  justify-content: space-between;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 16px;
+  background: #181818;
+  border-bottom: 1px solid #2b2b2b;
+  flex-shrink: 0;
   z-index: 100;
+  user-select: none;
 
   .header-left {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
 
     .brand-badge {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
       background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 15px rgba(168, 85, 247, 0.35);
+      flex-shrink: 0;
 
       mat-icon {
-        color: #ffffff;
-        font-size: 24px;
+        color: #fff;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
       }
     }
 
     .brand-text {
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      overflow: hidden;
 
       .title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        font-size: 13px;
+        font-weight: 600;
+        color: #cccccc;
+        white-space: nowrap;
       }
 
       .subtitle {
-        font-size: 0.75rem;
-        color: #94a3b8;
+        font-size: 11px;
+        color: #666;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
     }
   }
@@ -64,331 +74,255 @@
   .header-right {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
 
     .user-pill {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 14px;
+      padding: 3px 10px;
       background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      font-size: 0.85rem;
-      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #a0a0a0;
+      cursor: default;
 
       mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        color: #a855f7;
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        color: #888;
       }
     }
 
     .avatar-btn {
-      color: #cbd5e1;
+      color: #888;
+      width: 28px;
+      height: 28px;
+      line-height: 28px;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
 
       &:hover {
-        color: #ffffff;
+        color: #cccccc;
       }
     }
+  }
+}
+
+.dashboard-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 40px);
+  background: #1e1e2e;
+}
+
+.sidebar-dock {
+  width: 260px;
+  min-width: 260px;
+  max-width: 260px;
+  background: #181825;
+  border-right: 1px solid #2b2b2b;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  color: #cccccc;
+
+  .sidebar-loading {
+    padding: 16px;
+    font-size: 12px;
+    color: #888;
   }
 }
 
 // Main Content Container
 .dashboard-content {
   flex: 1;
-  max-width: 1280px;
+  max-width: 100%;
   width: 100%;
-  margin: 0 auto;
-  padding: 2.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2.5rem;
-}
+  margin: 0;
+  overflow: hidden;
 
-// Hero Stats Banner
-.hero-stats-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 2.5rem;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  flex-wrap: wrap;
-  gap: 2rem;
-
-  .banner-info {
-    max-width: 550px;
-
-    h1 {
-      font-size: 2rem;
-      font-weight: 800;
-      margin: 0 0 0.5rem 0;
-      letter-spacing: -0.03em;
-
-      .gradient-text {
-        background: linear-gradient(135deg, #38bdf8 0%, #a855f7 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-    }
-
-    p {
-      color: #94a3b8;
-      font-size: 0.95rem;
-      line-height: 1.6;
-      margin: 0;
-    }
-  }
-
-  .stats-grid {
+  &.editor-workspace {
     display: flex;
-    gap: 1.5rem;
-
-    .stat-card {
-      padding: 1.25rem 1.75rem;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-width: 120px;
-      transition: all 0.3s ease;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(168, 85, 247, 0.3);
-      }
-
-      .stat-value {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: #38bdf8;
-      }
-
-      .stat-label {
-        font-size: 0.75rem;
-        color: #94a3b8;
-        margin-top: 4px;
-      }
-
-      &.status-card {
-        .stat-value {
-          color: #4ade80;
-        }
-
-        .status-indicator.online {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: #4ade80;
-          box-shadow: 0 0 10px #4ade80;
-          margin-bottom: 6px;
-        }
-      }
-    }
+    flex-direction: column;
+    height: 100%;
+    padding: 0;
+    gap: 0;
   }
 }
 
-// Create Card
-.create-card {
-  padding: 1.75rem 2rem;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
+// Editor Tabs Bar
+.editor-tabs-bar {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: 36px;
+  min-height: 36px;
+  background: #181825;
+  border-bottom: 1px solid #2b2b2b;
+  overflow-x: auto;
+  overflow-y: hidden;
+  user-select: none;
 
-  .create-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 1.25rem;
-
-    mat-icon {
-      color: #38bdf8;
-    }
-
-    h3 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin: 0;
-      color: #f1f5f9;
-    }
+  &::-webkit-scrollbar {
+    height: 3px;
   }
 
-  .create-form {
+  .editor-tab {
     display: flex;
-    gap: 1rem;
     align-items: center;
+    gap: 6px;
+    padding: 0 10px 0 12px;
+    background: #1e1e2e;
+    border-right: 1px solid #2b2b2b;
+    color: #9a9aa8;
+    font-size: 12.5px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.12s ease, color 0.12s ease;
 
-    .doc-input {
-      flex: 1;
-      padding: 0.85rem 1.25rem;
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 10px;
-      color: #f8fafc;
-      font-size: 0.95rem;
-      outline: none;
-      transition: all 0.2s ease;
-
-      &:focus {
-        border-color: #38bdf8;
-        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
-      }
-
-      &::placeholder {
-        color: #64748b;
-      }
+    .tab-file-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
     }
 
-    .btn-create {
+    .tab-title {
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tab-close {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 0.85rem 1.75rem;
-      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-      color: #ffffff;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background: transparent;
       border: none;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.95rem;
+      border-radius: 4px;
+      color: #888;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      padding: 0;
 
-      &:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
       }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-    }
-
-    .btn-join-shared {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0.85rem 1.5rem;
-      background: rgba(255, 255, 255, 0.06);
-      color: #e2e8f0;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.95rem;
-      cursor: pointer;
-      transition: all 0.3s ease;
 
       &:hover {
         background: rgba(255, 255, 255, 0.12);
-        color: #ffffff;
+        color: #fff;
       }
+    }
+
+    &:hover {
+      background: #23233a;
+      color: #dcdcdc;
+    }
+
+    &.active {
+      background: #1e1e2e;
+      color: #ffffff;
+      border-top: 2px solid #38bdf8;
     }
   }
 }
 
-// Controls & Filter Bar
-.controls-bar {
+// Editor Canvas
+.editor-canvas {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1.25rem;
+  flex-direction: column;
+  background: #1e1e2e;
 
-  .tabs-group {
+  .editor-instance {
+    flex: 1;
+    min-height: 0;
     display: flex;
-    gap: 8px;
-    background: rgba(15, 23, 42, 0.6);
-    padding: 6px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex-direction: column;
 
-    button {
-      padding: 8px 16px;
-      background: transparent;
-      border: none;
-      color: #94a3b8;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-
-      &:hover {
-        color: #f1f5f9;
-      }
-
-      &.active {
-        background: rgba(56, 189, 248, 0.15);
-        color: #38bdf8;
-        border: 1px solid rgba(56, 189, 248, 0.3);
-      }
+    &[hidden] {
+      display: none;
     }
   }
 
-  .actions-group {
+  app-editor {
+    flex: 1;
+    min-height: 0;
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+  }
+}
 
-    .search-box {
+// VS Code Empty Editor State
+.editor-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  color: #666;
+
+  .watermark-logo {
+    font-size: 120px;
+    width: 120px;
+    height: 120px;
+    opacity: 0.2;
+    color: #94a3b8;
+  }
+
+  .empty-shortcuts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+
+    .shortcut-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      width: 280px;
+      justify-content: space-between;
+      gap: 2rem;
+      font-size: 0.85rem;
 
-      mat-icon {
-        color: #64748b;
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-      }
+      .keys {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #94a3b8;
 
-      input {
-        background: transparent;
-        border: none;
-        color: #f8fafc;
-        font-size: 0.85rem;
-        outline: none;
-        width: 100%;
-
-        &::placeholder {
-          color: #64748b;
+        kbd {
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 4px;
+          padding: 2px 6px;
+          font-size: 0.75rem;
+          font-family: inherit;
+          color: #cbd5e1;
         }
       }
-    }
 
-    .view-toggle {
-      display: flex;
-      background: rgba(15, 23, 42, 0.6);
-      padding: 4px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-
-      button {
-        background: transparent;
-        border: none;
+      .shortcut-label {
         color: #64748b;
-        padding: 6px;
-        border-radius: 6px;
-        cursor: pointer;
-
-        &.active {
-          background: rgba(255, 255, 255, 0.1);
-          color: #38bdf8;
-        }
       }
     }
   }
@@ -733,52 +667,617 @@
 // Media Queries
 @media (max-width: 768px) {
   .dashboard-header {
-    padding: 1rem 1.5rem;
-  }
-
-  .dashboard-content {
-    padding: 1.25rem;
-  }
-
-  .hero-stats-banner {
-    padding: 1.5rem;
-
-    .stats-grid {
-      width: 100%;
-
-      .stat-card {
-        flex: 1;
-      }
-    }
-  }
-
-  .controls-bar {
-    flex-direction: column;
-    align-items: stretch;
-
-    .actions-group {
-      width: 100%;
-
-      .search-box {
-        flex: 1;
-      }
-    }
+    padding: 0 10px;
   }
 }
 
-// Delete Confirmation Modal Styles
+// Delete & Generic Modal Styles (.modal used across Share, Create Folder, Move)
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(15, 23, 42, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(12px);
+}
+
+.modal {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 2.25rem;
+  width: 90%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: #f8fafc;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(56, 189, 248, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #f8fafc;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #94a3b8;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    label {
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 1rem;
+  }
+
+  .share-code-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 1.25rem;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
+    p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: #94a3b8;
+    }
+
+    .share-code-display {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+
+      .share-code-input {
+        flex: 1;
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: #38bdf8;
+        text-align: center;
+        outline: none;
+      }
+
+      .btn-copy {
+        padding: 0.75rem 1.25rem;
+        background: #0284c7;
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+
+        &:hover {
+          background: #0369a1;
+          transform: translateY(-1px);
+        }
+      }
+    }
+
+    .default-access-level {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      label {
+        font-size: 0.85rem;
+        color: #cbd5e1;
+      }
+
+      .access-select {
+        background: rgba(30, 41, 59, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #f8fafc;
+        border-radius: 10px;
+        padding: 0.6rem 0.85rem;
+        font-size: 0.9rem;
+        outline: none;
+        cursor: pointer;
+
+        option {
+          background: #1e293b;
+          color: #f8fafc;
+        }
+      }
+
+      .access-hint {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #94a3b8;
+      }
+    }
+
+    .btn-regenerate {
+      align-self: flex-start;
+      padding: 0.55rem 1.1rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #f8fafc;
+      }
+    }
+  }
+
+  .shared-users {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0;
+      color: #f8fafc;
+    }
+
+    .user-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .user-name {
+          font-weight: 600;
+          font-size: 0.9rem;
+          color: #e2e8f0;
+        }
+
+        .access-badge {
+          font-size: 0.75rem;
+          padding: 3px 8px;
+          border-radius: 6px;
+          background: rgba(255, 255, 255, 0.08);
+          color: #94a3b8;
+
+          &.edit-access {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+          }
+        }
+
+        .btn-change-access {
+          background: transparent;
+          border: none;
+          color: #38bdf8;
+          font-size: 0.8rem;
+          cursor: pointer;
+          text-decoration: underline;
+        }
+
+        .access-select-inline {
+          background: #0f172a;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #fff;
+          border-radius: 6px;
+          padding: 2px 6px;
+          font-size: 0.8rem;
+        }
+      }
+
+      .btn-remove {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: rgba(239, 68, 68, 0.3);
+          color: #ffffff;
+        }
+      }
+    }
+  }
+
+  .btn-close {
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    align-self: flex-end;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// VS Code Solution Explorer — Complete Rewrite
+// ═══════════════════════════════════════════════
+
+.vs-explorer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+
+  // ── Top Header Strip ──────────────────────────
+  .explorer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 35px;
+    min-height: 35px;
+    padding: 0 10px 0 14px;
+    background: #181825;
+    border-bottom: 1px solid #2b2b2b;
+    flex-shrink: 0;
+
+    .explorer-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: #bbbbbb;
+      text-transform: uppercase;
+    }
+
+    .explorer-actions {
+      display: flex;
+      align-items: center;
+      gap: 0;
+
+      button {
+        background: transparent;
+        border: none;
+        color: #888;
+        padding: 3px 4px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.12s ease, background 0.12s ease;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: #e0e0e0;
+        }
+      }
+    }
+  }
+
+  // ── Search Strip ───────────────────────────────
+  .explorer-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0 10px;
+    background: #1e1e2e;
+    border-bottom: 1px solid #2b2b2b;
+    flex-shrink: 0;
+
+    mat-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+      color: #666;
+    }
+
+    input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ccc;
+      font-size: 12px;
+
+      &::placeholder {
+        color: #666;
+      }
+    }
+  }
+
+  // ── Workspace Section Header ──────────────────
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 10px 0 0;
+    background: #1e1e2e;
+    border-bottom: 1px solid #2b2b2b;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    &.drag-over {
+      background: rgba(56, 189, 248, 0.15) !important;
+    }
+
+    .section-chevron {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #888;
+      flex-shrink: 0;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      color: #bbbbbb;
+      text-transform: uppercase;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .section-badge {
+      font-size: 10px;
+      color: #666;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+  }
+
+  // ── Scrollable Tree Body ──────────────────────
+  .explorer-tree {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2px 0;
+
+    // Slim scrollbar (VS Code style)
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    }
+  }
+}
+
+// ── Tree Row — The Core Building Block ────────
+// Every folder or file is a single .tree-row
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  width: 100%;
+  padding-right: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+  transition: background-color 0.08s ease;
+
+  // ── Hover state — full-width highlight ──
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+
+    .row-actions {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    // hide badge when actions are shown
+    .row-badge,
+    .row-lang {
+      opacity: 0;
+    }
+  }
+
+  // ── Active / selected ──
+  &.active {
+    background-color: #37373d;
+  }
+
+  // ── Drag over state ──
+  &.drag-over {
+    background-color: rgba(56, 189, 248, 0.15) !important;
+    outline: 1px solid rgba(56, 189, 248, 0.5);
+    outline-offset: -1px;
+  }
+
+  // ── Chevron toggle icon ──
+  .row-chevron {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: #888;
+    margin-left: 2px;
+  }
+
+  // ── Folder / file icon ──
+  .row-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: #ccc;
+
+    &.folder-color {
+      color: #dcb67a; // VS Code yellow-gold folders
+    }
+
+    // Language-specific file icon colors
+    &.python     { color: #4db8ff; }
+    &.csharp     { color: #c586c0; }
+    &.java       { color: #e8854e; }
+    &.javascript { color: #6bc26b; }
+    &.generic    { color: #888; }
+  }
+
+  // ── Label text (name) ──
+  .row-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    font-weight: 400;
+    color: #cccccc;
+    line-height: 22px;
+  }
+
+  // ── Right-aligned item count badge (pill) ──
+  .row-badge {
+    margin-left: auto;
+    font-size: 11px;
+    color: #858585;
+    flex-shrink: 0;
+    padding: 0 6px;
+    min-width: 16px;
+    text-align: center;
+    line-height: 16px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: opacity 0.1s ease;
+
+    // Hide badge when count is 0
+    &:empty,
+    &.hidden {
+      display: none;
+    }
+  }
+
+  // ── Right-aligned language tag (pill) ──
+  .row-lang {
+    margin-left: auto;
+    font-size: 10px;
+    color: #858585;
+    flex-shrink: 0;
+    padding: 1px 6px;
+    line-height: 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: opacity 0.1s ease;
+  }
+
+  // ── Hover inline action buttons ──
+  .row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.1s ease;
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #888;
+      padding: 2px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: color 0.1s ease, background 0.1s ease;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+      }
+
+      &:hover {
+        color: #e0e0e0;
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+  }
+}
+
+// ── Empty directory placeholder ──
+.empty-row {
+  cursor: default;
+
+  .empty-label {
+    font-size: 12px;
+    color: #555;
+    font-style: italic;
+  }
+
+  &:hover {
+    background: transparent;
+  }
 }
 
 .modal-small {
@@ -842,141 +1341,6 @@
   }
 }
 
-// Editor Modal Styles (Full-screen viewport takeover)
-.editor-modal-overlay {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 999999 !important;
-  background: #1a1a2e !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-}
-
-.editor-modal-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: #1a1a2e;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.editor-close-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1003;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
-  color: #ccc;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(244, 67, 54, 0.95);
-    color: white;
-    transform: scale(1.1);
-  }
-
-  mat-icon {
-    font-size: 24px;
-    width: 24px;
-    height: 24px;
-  }
-
-  @media (max-width: 768px) {
-    width: 36px;
-    height: 36px;
-    top: 6px;
-    right: 6px;
-
-    mat-icon {
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
-    }
-  }
-}
-
-// Breadcrumbs Bar
-.breadcrumbs-bar {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  font-size: 0.85rem;
-
-  .breadcrumbs-list {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-
-    .crumb-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      color: #94a3b8;
-      cursor: pointer;
-      font-weight: 500;
-      transition: color 0.15s ease;
-
-      .crumb-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
-        color: #38bdf8;
-      }
-
-      &:hover {
-        color: #38bdf8;
-      }
-
-      &.active {
-        color: #f8fafc;
-        font-weight: 700;
-        cursor: default;
-      }
-    }
-
-    .crumb-separator {
-      color: #475569;
-    }
-  }
-}
-
-.btn-create-folder {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0.85rem 1.5rem;
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-  color: #ffffff;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
-  }
-}
-
 .folder-card {
   border-color: rgba(16, 185, 129, 0.25) !important;
 
@@ -1025,5 +1389,73 @@
       border-color: rgba(16, 185, 129, 0.4);
       color: #ffffff;
     }
+  }
+}
+
+// Custom Context Menu Overlay & Panel Styles
+.context-menu-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  background: transparent;
+}
+
+.custom-context-menu {
+  position: fixed;
+  z-index: 100000;
+  width: 200px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(12px);
+
+  .ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: transparent;
+    border: none;
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.12s ease;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #38bdf8;
+    }
+
+    &:hover {
+      background: rgba(56, 189, 248, 0.15);
+      color: #ffffff;
+    }
+
+    &.danger {
+      mat-icon {
+        color: #f87171;
+      }
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+      }
+    }
+  }
+
+  .ctx-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 4px 0;
   }
 }

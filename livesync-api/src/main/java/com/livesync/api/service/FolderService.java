@@ -111,28 +111,31 @@ public class FolderService {
             return false;
         }
 
-        // Preserve the subtree by moving direct child folders to root before deletion.
-        var directChildren = folders.findByParentFolderIdOrderByUpdatedAtDesc(folderId);
-        for (var child : directChildren) {
-            child.setParentFolderId(null);
-            child.setUpdatedAt(Instant.now());
-            folders.save(child);
-        }
-
-        // Unassign documents inside folder and all nested subfolders to root
-        List<String> allFolderIds = collectSubfolderIds(folderId);
-        allFolderIds.add(folderId);
-
-        for (String fId : allFolderIds) {
-            var docsInside = documents.findByFolderIdOrderByUpdatedAtDesc(fId);
-            for (var doc : docsInside) {
-                doc.setFolderId(null);
-                documents.save(doc);
-            }
-        }
+        // Recursively delete all contents (true file-system behavior).
+        // JPA CascadeType.ALL + orphanRemoval on Folder handles:
+        //   - subfolders (recursive), documents, sharedWith entries
+        // We explicitly recurse to ensure deeply nested content is cleaned up
+        // even when the JPA managed collection isn't fully loaded.
+        deleteContentsRecursively(folderId);
 
         folders.delete(folder);
         return true;
+    }
+
+    /** Recursively delete all documents and subfolders inside a folder */
+    private void deleteContentsRecursively(String parentFolderId) {
+        // Delete documents directly inside this folder
+        var docsInside = documents.findByFolderIdOrderByUpdatedAtDesc(parentFolderId);
+        if (!docsInside.isEmpty()) {
+            documents.deleteAll(docsInside);
+        }
+
+        // Recurse into child subfolders, then delete them
+        var childFolders = folders.findByParentFolderIdOrderByUpdatedAtDesc(parentFolderId);
+        for (var child : childFolders) {
+            deleteContentsRecursively(child.getId());
+            folders.delete(child);
+        }
     }
 
     private List<String> collectSubfolderIds(String parentId) {
@@ -166,6 +169,41 @@ public class FolderService {
 
         doc.setUpdatedAt(Instant.now());
         documents.save(doc);
+        return true;
+    }
+
+    public boolean moveFolder(String folderId, String userId, String targetParentFolderId) {
+        var folderOpt = folders.findById(folderId);
+        if (folderOpt.isEmpty()) return false;
+        var folder = folderOpt.get();
+
+        if (!folder.getOwnerId().equals(userId) && !"Edit".equals(accessLevel(folder, userId))) {
+            return false;
+        }
+
+        // Prevent moving a folder into itself
+        if (targetParentFolderId != null && targetParentFolderId.equals(folderId)) {
+            return false;
+        }
+
+        // Prevent moving a folder into one of its own descendants (circular hierarchy check)
+        if (targetParentFolderId != null && !targetParentFolderId.isBlank()) {
+            List<String> descendantIds = collectSubfolderIds(folderId);
+            if (descendantIds.contains(targetParentFolderId)) {
+                return false;
+            }
+
+            var targetOpt = folders.findById(targetParentFolderId);
+            if (targetOpt.isEmpty()) return false;
+            var target = targetOpt.get();
+            if (!"Edit".equals(accessLevel(target, userId))) return false;
+            folder.setParentFolderId(targetParentFolderId);
+        } else {
+            folder.setParentFolderId(null);
+        }
+
+        folder.setUpdatedAt(Instant.now());
+        folders.save(folder);
         return true;
     }
 

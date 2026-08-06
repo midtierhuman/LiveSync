@@ -90,6 +90,14 @@ public class FoldersController {
                 : ResponseEntity.badRequest().body(Map.of("message", "Failed to move document"));
     }
 
+    @PutMapping("/move-folder/{folderId}")
+    public ResponseEntity<?> moveFolder(@PathVariable String folderId, @RequestBody Map<String, String> body, Authentication auth) {
+        String targetParentFolderId = body.get("targetParentFolderId");
+        return folderService.moveFolder(folderId, user(auth), targetParentFolderId)
+                ? ResponseEntity.ok(Map.of("message", "Folder moved successfully"))
+                : ResponseEntity.badRequest().body(Map.of("message", "Failed to move folder"));
+    }
+
     @PostMapping("/add-shared")
     public ResponseEntity<Map<String, String>> addShared(@RequestBody Map<String, String> body, Authentication auth) {
         String shareCode = body.get("shareCode");
