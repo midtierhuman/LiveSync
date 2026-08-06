@@ -38,6 +38,11 @@ public class FoldersController {
         return folderService.shared(user(auth));
     }
 
+    @GetMapping("/shared-with-me/details")
+    public List<FolderDto> sharedDetails(Authentication auth) {
+        return folderService.sharedFolderDetails(user(auth));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> get(@PathVariable String id, Authentication auth) {
         var userId = user(auth);

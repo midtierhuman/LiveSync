@@ -19,6 +19,11 @@ export interface DocumentDto {
   sharedWith: SharedDocumentDto[];
 }
 
+export interface FolderPathNode {
+  id: string;
+  name: string;
+}
+
 export interface SharedDocumentDto {
   id: string;
   documentId: string;
@@ -27,6 +32,7 @@ export interface SharedDocumentDto {
   userName?: string;
   sharedAt: string;
   accessLevel: string;
+  folderPath?: FolderPathNode[];
 }
 
 export interface CreateDocumentRequest {

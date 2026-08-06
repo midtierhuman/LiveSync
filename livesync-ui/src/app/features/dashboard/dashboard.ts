@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, HostListener, inject, signal, OnInit } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
@@ -13,9 +13,14 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../services/auth.service';
-import { DocumentService, DocumentDto, SharedDocumentDto } from '../../services/document.service';
+import { DocumentService, DocumentDto, SharedDocumentDto, FolderPathNode } from '../../services/document.service';
 import { FolderService, FolderDto, SharedFolderDto } from '../../services/folder.service';
 import { Editor } from '../editor/editor';
+
+const EXPLORER_WIDTH_STORAGE_KEY = 'livesync.explorerWidth';
+const EXPLORER_MIN_WIDTH = 180;
+const EXPLORER_MAX_WIDTH = 600;
+const EXPLORER_DEFAULT_WIDTH = 260;
 
 @Component({
   selector: 'app-dashboard',
@@ -44,6 +49,11 @@ export class Dashboard implements OnInit {
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
   private readonly router = inject(Router);
+
+  readonly explorerMinWidth = EXPLORER_MIN_WIDTH;
+  readonly explorerMaxWidth = EXPLORER_MAX_WIDTH;
+  explorerWidth = signal(EXPLORER_DEFAULT_WIDTH);
+  private isResizingExplorer = false;
 
   myDocuments = signal<DocumentDto[]>([]);
   sharedDocuments = signal<SharedDocumentDto[]>([]);
@@ -96,8 +106,13 @@ export class Dashboard implements OnInit {
   activeTabId = signal<string>('');
   targetParentFolderId = signal<string | null>(null);
 
-  async toggleFolderExpand(folderId: string, event?: Event) {
+  // Shared Folder Tree State
+  sharedFolderTree = signal<FolderDto[]>([]);
+  expandedSharedFolderIds = signal<Set<string>>(new Set());
+
+  async toggleFolderExpand(folder: FolderDto, event?: Event) {
     if (event) event.stopPropagation();
+    const folderId = folder.id;
     const current = new Set(this.expandedFolderIds());
     if (current.has(folderId)) {
       current.delete(folderId);
@@ -105,7 +120,7 @@ export class Dashboard implements OnInit {
     } else {
       current.add(folderId);
       this.expandedFolderIds.set(current);
-      if (!this.folderChildDocs()[folderId]) {
+      if (!folder.isStructural && !this.folderChildDocs()[folderId]) {
         try {
           const details = await this.folderService.getFolder(folderId);
           this.folderChildDocs.update((prev) => ({ ...prev, [folderId]: details.documents || [] }));
@@ -137,6 +152,166 @@ export class Dashboard implements OnInit {
   collapseAllFolders() {
     this.expandedFolderIds.set(new Set());
   }
+  getExplorerRootFolders(): FolderDto[] {
+    return this.mergeFolderLists(this.getFilteredFolders(), this.sharedFolderTree());
+  }
+
+  getExplorerRootDocs(): DocumentDto[] {
+    const sharedRootDocs = this.getFilteredSharedDocs()
+      .filter((doc) => !doc.folderPath || doc.folderPath.length === 0)
+      .map((doc) => this.sharedDocumentToDocumentDto(doc));
+    return [...this.getFilteredMyDocs(), ...sharedRootDocs];
+  }
+
+  getExplorerRootCount(): number {
+    return this.getExplorerRootFolders().length + this.getExplorerRootDocs().length;
+  }
+
+  isSharedExplorerDocument(doc: DocumentDto): boolean {
+    return !this.isOwnDocument(doc);
+  }
+
+  isManageableExplorerFolder(folder: FolderDto): boolean {
+    const userId = this.authService.user()?.id;
+    return Boolean(userId && !folder.isStructural && folder.ownerId === userId);
+  }
+
+  private isOwnDocument(doc: DocumentDto): boolean {
+    const userId = this.authService.user()?.id;
+    return Boolean(userId && doc.ownerId === userId);
+  }
+
+  private buildSharedAccessTree(sharedFolders: FolderDto[], sharedDocs: SharedDocumentDto[]): FolderDto[] {
+    const roots: FolderDto[] = [];
+
+    for (const folder of sharedFolders) {
+      const path = folder.folderPath && folder.folderPath.length > 0
+        ? folder.folderPath
+        : [{ id: folder.id, name: folder.name }];
+      this.ensureFolderPath(roots, path, folder);
+    }
+
+    for (const doc of sharedDocs) {
+      if (!doc.folderPath || doc.folderPath.length === 0) continue;
+      const leaf = this.ensureFolderPath(roots, doc.folderPath);
+      this.addDocumentToFolder(leaf, this.sharedDocumentToDocumentDto(doc));
+    }
+
+    return roots;
+  }
+
+  private mergeFolderLists(primary: FolderDto[], secondary: FolderDto[]): FolderDto[] {
+    const merged = primary.map((folder) => this.cloneFolder(folder));
+    for (const folder of secondary) {
+      this.upsertFolder(merged, this.cloneFolder(folder));
+    }
+    return merged;
+  }
+
+  private ensureFolderPath(roots: FolderDto[], path: FolderPathNode[], terminalFolder?: FolderDto): FolderDto {
+    let siblings = roots;
+    let current: FolderDto | undefined;
+    let parentFolderId: string | undefined;
+
+    path.forEach((node, index) => {
+      const isLeaf = index === path.length - 1;
+      current = siblings.find((folder) => folder.id === node.id);
+      if (!current) {
+        current = this.createStructuralFolder(node, parentFolderId);
+        siblings.push(current);
+      }
+
+      if (isLeaf && terminalFolder) {
+        this.mergeFolderInto(current, terminalFolder);
+      }
+
+      parentFolderId = node.id;
+      siblings = current.subfolders;
+    });
+
+    return current!;
+  }
+
+  private upsertFolder(siblings: FolderDto[], incoming: FolderDto): FolderDto {
+    const existing = siblings.find((folder) => folder.id === incoming.id);
+    if (!existing) {
+      siblings.push(incoming);
+      return incoming;
+    }
+
+    this.mergeFolderInto(existing, incoming);
+    return existing;
+  }
+
+  private mergeFolderInto(target: FolderDto, incoming: FolderDto) {
+    target.name = incoming.name || target.name;
+    target.ownerId = incoming.ownerId || target.ownerId;
+    target.parentFolderId = incoming.parentFolderId ?? target.parentFolderId;
+    target.shareCode = incoming.shareCode || target.shareCode;
+    target.defaultAccessLevel = incoming.defaultAccessLevel || target.defaultAccessLevel;
+    target.createdAt = incoming.createdAt || target.createdAt;
+    target.updatedAt = incoming.updatedAt || target.updatedAt;
+    target.subfoldersCount = Math.max(target.subfoldersCount || 0, incoming.subfoldersCount || 0);
+    target.documentsCount = Math.max(target.documentsCount || 0, incoming.documentsCount || 0);
+    target.folderPath = incoming.folderPath || target.folderPath;
+    target.isStructural = Boolean(target.isStructural && incoming.isStructural);
+
+    for (const subfolder of incoming.subfolders || []) {
+      this.upsertFolder(target.subfolders, this.cloneFolder(subfolder));
+    }
+    for (const doc of incoming.documents || []) {
+      this.addDocumentToFolder(target, doc);
+    }
+  }
+
+  private addDocumentToFolder(folder: FolderDto, doc: DocumentDto) {
+    if (!folder.documents.some((existing) => existing.id === doc.id)) {
+      folder.documents.push(doc);
+    }
+  }
+
+  private cloneFolder(folder: FolderDto): FolderDto {
+    return {
+      ...folder,
+      subfolders: (folder.subfolders || []).map((subfolder) => this.cloneFolder(subfolder)),
+      documents: [...(folder.documents || [])],
+      folderPath: folder.folderPath ? [...folder.folderPath] : undefined,
+    };
+  }
+
+  private createStructuralFolder(node: FolderPathNode, parentFolderId?: string): FolderDto {
+    return {
+      id: node.id,
+      name: node.name,
+      ownerId: '',
+      parentFolderId,
+      shareCode: '',
+      defaultAccessLevel: 'View',
+      createdAt: '',
+      updatedAt: '',
+      subfoldersCount: 0,
+      documentsCount: 0,
+      subfolders: [],
+      documents: [],
+      folderPath: [],
+      isStructural: true,
+    };
+  }
+
+  private sharedDocumentToDocumentDto(doc: SharedDocumentDto): DocumentDto {
+    return {
+      id: doc.documentId,
+      title: doc.documentTitle,
+      content: '',
+      ownerId: '',
+      folderId: doc.folderPath && doc.folderPath.length > 0 ? doc.folderPath[doc.folderPath.length - 1].id : undefined,
+      ownerName: doc.userName,
+      defaultAccessLevel: doc.accessLevel,
+      createdAt: doc.sharedAt,
+      updatedAt: doc.sharedAt,
+      sharedWith: [],
+    };
+  }
 
   getSubfoldersOf(folderId: string): FolderDto[] {
     const findSubfolders = (list: FolderDto[]): FolderDto[] | null => {
@@ -154,6 +329,8 @@ export class Dashboard implements OnInit {
 
     const nested = findSubfolders(this.myFolders());
     if (nested) return nested;
+    const sharedNested = findSubfolders(this.sharedFolderTree());
+    if (sharedNested) return sharedNested;
     return this.myFolders().filter((f) => f.parentFolderId === folderId);
   }
 
@@ -182,6 +359,8 @@ export class Dashboard implements OnInit {
 
     const nested = findDocs(this.myFolders());
     if (nested && nested.length > 0) return nested;
+    const sharedNested = findDocs(this.sharedFolderTree());
+    if (sharedNested && sharedNested.length > 0) return sharedNested;
     return this.myDocuments().filter((d) => d.folderId === folderId);
   }
 
@@ -305,20 +484,66 @@ export class Dashboard implements OnInit {
     return undefined;
   }
 
-  /** Recursively remove a folder by ID from the nested subfolders tree */
   private removeFolderFromTree(folders: FolderDto[], folderId: string): FolderDto[] {
-    return folders.map(f => {
-      if (f.subfolders && f.subfolders.length > 0) {
-        const filtered = f.subfolders.filter(sf => sf.id !== folderId);
-        const recursed = this.removeFolderFromTree(filtered, folderId);
-        if (recursed !== f.subfolders) {
-          return { ...f, subfolders: recursed };
-        }
+    return folders
+      .filter((folder) => folder.id !== folderId)
+      .map((folder) => ({
+        ...folder,
+        subfolders: this.removeFolderFromTree(folder.subfolders || [], folderId),
+      }));
+  }
+
+  private updateFolderInTree(folders: FolderDto[], folderId: string, update: (folder: FolderDto) => FolderDto): FolderDto[] {
+    return folders.map((folder) => {
+      if (folder.id === folderId) {
+        return update(folder);
       }
-      return f;
+      return {
+        ...folder,
+        subfolders: this.updateFolderInTree(folder.subfolders || [], folderId, update),
+      };
     });
   }
 
+  private insertFolderInTree(folders: FolderDto[], targetParentFolderId: string | null, folderToInsert: FolderDto): FolderDto[] {
+    const cleanedFolder = this.cloneFolder(folderToInsert);
+    if (!targetParentFolderId) {
+      return [cleanedFolder, ...this.removeFolderFromTree(folders, cleanedFolder.id)];
+    }
+
+    return this.updateFolderInTree(
+      this.removeFolderFromTree(folders, cleanedFolder.id),
+      targetParentFolderId,
+      (target) => ({
+        ...target,
+        subfolders: [
+          cleanedFolder,
+          ...(target.subfolders || []).filter((folder) => folder.id !== cleanedFolder.id),
+        ],
+      })
+    );
+  }
+
+  private removeFolderFromChildCache(folderId: string) {
+    this.folderChildSubfolders.update((prev) => {
+      const updated: Record<string, FolderDto[]> = {};
+      for (const parentId of Object.keys(prev)) {
+        updated[parentId] = prev[parentId].filter((folder) => folder.id !== folderId);
+      }
+      return updated;
+    });
+  }
+
+  private addFolderToChildCache(targetParentFolderId: string | null, folder: FolderDto) {
+    if (!targetParentFolderId) return;
+    this.folderChildSubfolders.update((prev) => ({
+      ...prev,
+      [targetParentFolderId]: [
+        this.cloneFolder(folder),
+        ...(prev[targetParentFolderId] || []).filter((child) => child.id !== folder.id),
+      ],
+    }));
+  }
   onDragStart(event: DragEvent, type: 'file' | 'folder', id: string) {
     event.stopPropagation();
     this.draggedItem.set({ id, type });
@@ -326,6 +551,10 @@ export class Dashboard implements OnInit {
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
 
+  onDragEnd() {
+    this.draggedItem.set(null);
+    this.dragOverFolderId.set(null);
+  }
   onDragOver(event: DragEvent, targetFolderId: string | null) {
     event.preventDefault();
     event.stopPropagation();
@@ -402,35 +631,18 @@ export class Dashboard implements OnInit {
 
       const folderToMove = this.findFolderById(this.myFolders(), dragged.id);
       if (!folderToMove) return;
-      const movedFolder: FolderDto = { ...folderToMove, parentFolderId: targetFolderId ?? undefined };
+      const movedFolder: FolderDto = this.cloneFolder({
+        ...folderToMove,
+        parentFolderId: targetFolderId ?? undefined,
+      });
 
-      // Optimistically remove from old parent
-      if (currentParentId) {
-        this.folderChildSubfolders.update((prev) => {
-          const updated = { ...prev };
-          if (updated[currentParentId]) {
-            updated[currentParentId] = updated[currentParentId].filter(f => f.id !== dragged.id);
-          }
-          return updated;
-        });
-      }
-      if (!currentParentId) {
-        this.myFolders.update(folders => folders.filter(f => f.id !== dragged.id));
-      }
-      this.myFolders.update(folders => this.removeFolderFromTree(folders, dragged.id));
+      this.myFolders.update((folders) => this.insertFolderInTree(folders, targetFolderId, movedFolder));
+      this.removeFolderFromChildCache(dragged.id);
+      this.addFolderToChildCache(targetFolderId, movedFolder);
 
-      // Optimistically add to new parent
       if (targetFolderId) {
-        this.folderChildSubfolders.update((prev) => {
-          const updated = { ...prev };
-          updated[targetFolderId] = [...(updated[targetFolderId] || []), movedFolder];
-          return updated;
-        });
-        this.expandedFolderIds.update(set => new Set([...set, targetFolderId]));
-      } else {
-        this.myFolders.update(folders => [...folders, movedFolder]);
+        this.expandedFolderIds.update((set) => new Set([...set, targetFolderId]));
       }
-
       try {
         await this.folderService.moveFolder(dragged.id, targetFolderId);
       } catch (err) {
@@ -503,6 +715,71 @@ export class Dashboard implements OnInit {
     });
   }
 
+  startExplorerResize(event: MouseEvent) {
+    event.preventDefault();
+    this.beginExplorerResize();
+  }
+
+  startExplorerTouchResize(event: TouchEvent) {
+    event.preventDefault();
+    this.beginExplorerResize();
+    const touch = event.touches[0];
+    if (touch) {
+      this.explorerWidth.set(this.clampExplorerWidth(touch.clientX));
+    }
+  }
+
+  private beginExplorerResize() {
+    this.isResizingExplorer = true;
+    if (typeof document !== 'undefined') {
+      document.body.classList.add('explorer-resizing');
+    }
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onExplorerResize(event: MouseEvent) {
+    if (!this.isResizingExplorer) return;
+    this.explorerWidth.set(this.clampExplorerWidth(event.clientX));
+  }
+
+  @HostListener('document:touchmove', ['$event'])
+  onExplorerTouchResize(event: TouchEvent) {
+    if (!this.isResizingExplorer) return;
+    const touch = event.touches[0];
+    if (touch) {
+      event.preventDefault();
+      this.explorerWidth.set(this.clampExplorerWidth(touch.clientX));
+    }
+  }
+
+  @HostListener('document:mouseup')
+  @HostListener('document:touchend')
+  @HostListener('document:touchcancel')
+  stopExplorerResize() {
+    if (!this.isResizingExplorer) return;
+    this.isResizingExplorer = false;
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('explorer-resizing');
+    }
+    this.persistExplorerWidth();
+  }
+
+  private restoreExplorerWidth() {
+    if (typeof localStorage === 'undefined') return;
+    const stored = Number(localStorage.getItem(EXPLORER_WIDTH_STORAGE_KEY));
+    if (Number.isFinite(stored)) {
+      this.explorerWidth.set(this.clampExplorerWidth(stored));
+    }
+  }
+
+  private persistExplorerWidth() {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(EXPLORER_WIDTH_STORAGE_KEY, String(this.explorerWidth()));
+  }
+
+  private clampExplorerWidth(width: number): number {
+    return Math.min(EXPLORER_MAX_WIDTH, Math.max(EXPLORER_MIN_WIDTH, Math.round(width)));
+  }
   getLanguageBadge(title: string): { name: string; class: string; icon: string } {
     const lowered = (title || '').toLowerCase();
     if (lowered.endsWith('.py')) return { name: 'Python', class: 'python', icon: 'code' };
@@ -513,22 +790,25 @@ export class Dashboard implements OnInit {
   }
 
   async ngOnInit() {
+    this.restoreExplorerWidth();
     await this.loadWorkspace();
   }
 
   async loadWorkspace() {
     this.isLoading.set(true);
     try {
-      const [myDocs, sharedDocs, folders, sharedF] = await Promise.all([
+      const [myDocs, sharedDocs, folders, sharedF, sharedFDetails] = await Promise.all([
         this.documentService.getMyDocuments(),
         this.documentService.getSharedDocuments(),
         this.folderService.getMyFolders(),
         this.folderService.getSharedFolders(),
+        this.folderService.getSharedFolderDetails().catch(() => [] as FolderDto[]),
       ]);
       this.myDocuments.set(myDocs);
       this.sharedDocuments.set(sharedDocs);
       this.myFolders.set(folders);
       this.sharedFolders.set(sharedF);
+      this.sharedFolderTree.set(this.buildSharedAccessTree(sharedFDetails, sharedDocs));
     } catch (error) {
       console.error('Error loading workspace:', error);
     } finally {
@@ -748,6 +1028,11 @@ export class Dashboard implements OnInit {
 
   openSharedDoc(docId: string) {
     this.openDocument(docId);
+  }
+
+  getSharedDocFolderPath(doc: SharedDocumentDto): string {
+    if (!doc.folderPath || doc.folderPath.length === 0) return '';
+    return doc.folderPath.map(n => n.name).join(' / ') + ' / ';
   }
 
   closeTab(tabId: string, event?: MouseEvent) {

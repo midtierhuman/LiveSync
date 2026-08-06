@@ -36,7 +36,7 @@
   <div class="dashboard-body">
 
     <!-- Fixed-Width VS Code Sidebar Dock -->
-    <aside class="sidebar-dock">
+    <aside class="sidebar-dock" [style.width.px]="explorerWidth()">
       @if (isLoading()) {
         <div class="sidebar-loading">
           <span class="spinner">⚡</span> Loading workspace...
@@ -90,7 +90,7 @@
           >
             <mat-icon class="section-chevron">expand_more</mat-icon>
             <span class="section-label">LIVESYNC WORKSPACE</span>
-            <span class="section-badge">{{ getFilteredFolders().length + getFilteredMyDocs().length }}</span>
+            <span class="section-badge">{{ getExplorerRootCount() }}</span>
           </div>
 
           <!-- Scrollable Tree Body -->
@@ -98,18 +98,19 @@
 
             <!-- Recursive Folder Tree Template -->
             <ng-template #folderTreeNode let-folder="folder" let-depth="depth">
-              <div class="tree-row folder-row"
+              <div class="tree-row folder-row" [class.structural]="folder.isStructural" [class.shared-row]="!isManageableExplorerFolder(folder)"
                 [style.paddingLeft.px]="depth * 12 + 8"
                 [class.expanded]="isFolderExpanded(folder.id)"
                 [class.drag-over]="dragOverFolderId() === folder.id"
-                draggable="true"
-                (dragstart)="onDragStart($event, 'folder', folder.id)"
-                (dragover)="onDragOver($event, folder.id)"
-                (dragenter)="onDragEnter($event, folder.id)"
-                (dragleave)="onDragLeave($event, folder.id)"
-                (drop)="onDrop($event, folder.id)"
-                (click)="toggleFolderExpand(folder.id, $event)"
-                (contextmenu)="onContextMenu($event, 'folder', folder)"
+                [draggable]="isManageableExplorerFolder(folder)"
+                (dragstart)="isManageableExplorerFolder(folder) && onDragStart($event, 'folder', folder.id)"
+                (dragend)="onDragEnd()"
+                (dragover)="isManageableExplorerFolder(folder) && onDragOver($event, folder.id)"
+                (dragenter)="isManageableExplorerFolder(folder) && onDragEnter($event, folder.id)"
+                (dragleave)="isManageableExplorerFolder(folder) && onDragLeave($event, folder.id)"
+                (drop)="isManageableExplorerFolder(folder) && onDrop($event, folder.id)"
+                (click)="toggleFolderExpand(folder, $event)"
+                (contextmenu)="isManageableExplorerFolder(folder) && onContextMenu($event, 'folder', folder)"
               >
                 <mat-icon class="row-chevron">{{ isFolderExpanded(folder.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
                 <mat-icon class="row-icon folder-color">{{ isFolderExpanded(folder.id) ? 'folder_open' : 'folder' }}</mat-icon>
@@ -141,12 +142,13 @@
                 }
                 <!-- Child Files -->
                 @for (doc of (folderChildDocs()[folder.id] || getDocsOf(folder.id)); track doc.id) {
-                  <div class="tree-row file-row"
+                  <div class="tree-row file-row" [class.shared-row]="isSharedExplorerDocument(doc)"
                     [style.paddingLeft.px]="(depth + 1) * 12 + 20"
-                    draggable="true"
-                    (dragstart)="onDragStart($event, 'file', doc.id)"
+                    [draggable]="!isSharedExplorerDocument(doc)"
+                    (dragstart)="!isSharedExplorerDocument(doc) && onDragStart($event, 'file', doc.id)"
+                    (dragend)="onDragEnd()"
                     (click)="openDocument(doc.id)"
-                    (contextmenu)="onContextMenu($event, 'file', doc)"
+                    (contextmenu)="!isSharedExplorerDocument(doc) && onContextMenu($event, 'file', doc)"
                   >
                     <mat-icon class="row-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
                     <span class="row-label">{{ doc.title }}</span>
@@ -171,18 +173,19 @@
             </ng-template>
 
             <!-- Root Folders -->
-            @for (folder of getFilteredFolders(); track folder.id) {
+            @for (folder of getExplorerRootFolders(); track folder.id) {
               <ng-container *ngTemplateOutlet="folderTreeNode; context: { folder: folder, depth: 1 }"></ng-container>
             }
 
             <!-- Root Documents -->
-            @for (doc of getFilteredMyDocs(); track doc.id) {
-              <div class="tree-row file-row"
+            @for (doc of getExplorerRootDocs(); track doc.id) {
+              <div class="tree-row file-row" [class.shared-row]="isSharedExplorerDocument(doc)"
                 [style.paddingLeft.px]="20"
-                draggable="true"
-                (dragstart)="onDragStart($event, 'file', doc.id)"
+                [draggable]="!isSharedExplorerDocument(doc)"
+                (dragstart)="!isSharedExplorerDocument(doc) && onDragStart($event, 'file', doc.id)"
+                (dragend)="onDragEnd()"
                 (click)="openDocument(doc.id)"
-                (contextmenu)="onContextMenu($event, 'file', doc)"
+                (contextmenu)="!isSharedExplorerDocument(doc) && onContextMenu($event, 'file', doc)"
               >
                 <mat-icon class="row-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
                 <span class="row-label">{{ doc.title }}</span>
@@ -203,6 +206,15 @@
           </div>
         </section>
       }
+      <div
+        class="explorer-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        [attr.aria-valuemin]="explorerMinWidth"
+        [attr.aria-valuemax]="explorerMaxWidth"
+        [attr.aria-valuenow]="explorerWidth()"
+        (mousedown)="startExplorerResize($event)"`r`n        (touchstart)="startExplorerTouchResize($event)"
+      ></div>
     </aside>
 
     <!-- Main Workspace Center Area (Right): Tabbed Editor Canvas -->

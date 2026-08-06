@@ -13,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import com.livesync.api.dto.FolderDtos;
 
 @Service
 public class DocumentService {
@@ -248,6 +250,7 @@ public class DocumentService {
     }
 
     private SharedDocumentDto sharedDto(SharedDocument s) {
+        var folderPath = buildDocFolderPath(s.getDocument());
         return new SharedDocumentDto(
                 s.getId(),
                 s.getDocumentId(),
@@ -255,7 +258,22 @@ public class DocumentService {
                 s.getUserId(),
                 s.getUser() == null ? "Unknown" : s.getUser().getUserName(),
                 s.getSharedAt(),
-                s.getAccessLevel()
+                s.getAccessLevel(),
+                folderPath
         );
+    }
+
+    private java.util.List<FolderDtos.FolderPathNode> buildDocFolderPath(Document doc) {
+        if (doc == null || doc.getFolderId() == null) return Collections.emptyList();
+        var path = new ArrayList<FolderDtos.FolderPathNode>();
+        String currentId = doc.getFolderId();
+        while (currentId != null) {
+            var folderOpt = folders.findById(currentId);
+            if (folderOpt.isEmpty()) break;
+            var folder = folderOpt.get();
+            path.add(0, new FolderDtos.FolderPathNode(folder.getId(), folder.getName()));
+            currentId = folder.getParentFolderId();
+        }
+        return path;
     }
 }

@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.util.List;
+import com.livesync.api.dto.FolderDtos;
 
 public final class DocumentDtos {
     private DocumentDtos() {
@@ -21,7 +22,7 @@ public final class DocumentDtos {
     }
 
     public record SharedDocumentDto(String id, String documentId, String documentTitle, String userId, String userName,
-                                    Instant sharedAt, String accessLevel) {
+                                    Instant sharedAt, String accessLevel, java.util.List<FolderDtos.FolderPathNode> folderPath) {
     }
 
     public record CreateDocumentRequest(@NotBlank @Size(max = 200) String title, String content) {
