@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject, DestroyRef } from '@angular/core';
 
 export interface OperationPayload {
   type: string;
@@ -35,6 +35,13 @@ export class TimeTravelService {
   readonly diffLines = signal<DiffLine[]>([]);
 
   private playTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.exitSession();
+    });
+  }
 
   startSession(fullContent: string, operations: OperationPayload[] = []) {
     this.stopPlayback();

@@ -20,12 +20,23 @@ export class EditorHub {
     this.state.setColor(socket.id, color).catch((err: unknown) => console.error('Error setting cursor color:', err));
     console.log(`Connection established: ${socket.id}`);
 
-    // Handler registrations supporting both PascalCase (JoinDocument) and camelCase (joinDocument)
-    socket.on('JoinDocument', (docId: string) => this.handleJoinDocument(socket, docId));
-    socket.on('joinDocument', (docId: string) => this.handleJoinDocument(socket, docId));
+    // Handler registrations supporting PascalCase, camelCase, and pub/sub subscribe/unsubscribe frames
+    const joinHandler = (arg: any) => {
+      const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || arg?.roomId || '');
+      return this.handleJoinDocument(socket, docId);
+    };
+    const leaveHandler = (arg: any) => {
+      const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || arg?.roomId || '');
+      return this.handleLeaveDocument(socket, docId);
+    };
 
-    socket.on('LeaveDocument', (docId: string) => this.handleLeaveDocument(socket, docId));
-    socket.on('leaveDocument', (docId: string) => this.handleLeaveDocument(socket, docId));
+    socket.on('JoinDocument', joinHandler);
+    socket.on('joinDocument', joinHandler);
+    socket.on('subscribe', joinHandler);
+
+    socket.on('LeaveDocument', leaveHandler);
+    socket.on('leaveDocument', leaveHandler);
+    socket.on('unsubscribe', leaveHandler);
 
     socket.on('SendContentUpdate', (arg1: any, arg2?: any) => this.handleSendContentUpdate(socket, arg1, arg2));
     socket.on('sendContentUpdate', (arg1: any, arg2?: any) => this.handleSendContentUpdate(socket, arg1, arg2));
@@ -36,8 +47,14 @@ export class EditorHub {
     socket.on('RequestMissedOperations', (arg1: any, arg2?: any) => this.handleRequestMissedOperations(socket, arg1, arg2));
     socket.on('requestMissedOperations', (arg1: any, arg2?: any) => this.handleRequestMissedOperations(socket, arg1, arg2));
 
-    socket.on('GetRevisionHistory', (docId: string) => this.handleGetRevisionHistory(socket, docId));
-    socket.on('getRevisionHistory', (docId: string) => this.handleGetRevisionHistory(socket, docId));
+    socket.on('GetRevisionHistory', (arg: any) => {
+      const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || '');
+      return this.handleGetRevisionHistory(socket, docId);
+    });
+    socket.on('getRevisionHistory', (arg: any) => {
+      const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || '');
+      return this.handleGetRevisionHistory(socket, docId);
+    });
 
     socket.on('SendCursorPosition', (arg1: any, arg2?: any) => this.handleSendCursorPosition(socket, arg1, arg2));
     socket.on('sendCursorPosition', (arg1: any, arg2?: any) => this.handleSendCursorPosition(socket, arg1, arg2));
@@ -235,10 +252,10 @@ export class EditorHub {
 
       const currentContent = await this.state.getContent(documentId);
       if (currentContent !== null && currentContent !== undefined) {
-        socket.emit('ReceiveContentUpdate', currentContent);
+        socket.emit('ReceiveContentUpdate', { documentId, content: currentContent });
       }
 
-      this.io.to(documentId).emit('UserJoined', socket.id, activeCount);
+      this.io.to(documentId).emit('UserJoined', socket.id, activeCount, documentId);
     } catch (error: any) {
       console.error(`Error joining document ${documentId}:`, error);
       socket.emit('Error', error.message || 'Failed to join document.');
@@ -275,7 +292,7 @@ export class EditorHub {
         this.lastSavedContent.delete(documentId);
       }
 
-      this.io.to(documentId).emit('UserLeft', socket.id, activeCount);
+      this.io.to(documentId).emit('UserLeft', socket.id, activeCount, documentId);
       this.removeDocumentToken(documentId, socket.id);
     } catch (error: any) {
       console.error(`Error leaving document ${documentId}:`, error);
@@ -287,7 +304,7 @@ export class EditorHub {
     let content: string;
 
     if (typeof arg1 === 'object' && arg1 !== null) {
-      documentId = arg1.documentId;
+      documentId = arg1.documentId || arg1.fileId;
       content = arg1.content;
     } else {
       documentId = arg1;
@@ -303,7 +320,7 @@ export class EditorHub {
 
       await this.state.setContent(documentId, content);
       this.lastEditorByDocument.set(documentId, socket.id);
-      socket.to(documentId).emit('ReceiveContentUpdate', content);
+      socket.to(documentId).emit('ReceiveContentUpdate', { documentId, content });
     } catch (error: any) {
       console.error(`Error sending content update for document ${documentId}:`, error);
       socket.emit('Error', error.message || 'Failed to send content update.');

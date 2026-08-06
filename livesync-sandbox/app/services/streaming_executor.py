@@ -115,42 +115,99 @@ class StreamingExecutorService:
             from app.utils.env_sanitizer import get_sanitized_env
             from app.utils.process_killer import kill_process_tree
 
-            # Spawn interactive subprocess with sanitized environment
-            process = await asyncio.create_subprocess_exec(
-                *full_cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=get_sanitized_env(),
-            )
+            has_pty = False
+            master_fd = None
+            slave_fd = None
+            session_id = init_data.get("sessionId") or init_data.get("terminalId")
+
+            if hasattr(os, "openpty"):
+                try:
+                    import fcntl
+                    import struct
+                    import termios
+
+                    master_fd, slave_fd = os.openpty()
+                    cols = int(init_data.get("cols") or 80)
+                    rows = int(init_data.get("rows") or 24)
+                    winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                    fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, winsize)
+                    has_pty = True
+                except Exception as pty_err:
+                    logger.warning(f"Failed to allocate PTY, falling back to standard pipe: {pty_err}")
+                    has_pty = False
+
+            if has_pty and master_fd is not None and slave_fd is not None:
+                process = await asyncio.create_subprocess_exec(
+                    *full_cmd,
+                    stdin=slave_fd,
+                    stdout=slave_fd,
+                    stderr=slave_fd,
+                    env=get_sanitized_env(),
+                    preexec_fn=os.setsid if hasattr(os, "setsid") else None,
+                )
+                os.close(slave_fd)
+                slave_fd = None
+
+                flags = fcntl.fcntl(master_fd, fcntl.F_GETFL)
+                fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+            else:
+                process = await asyncio.create_subprocess_exec(
+                    *full_cmd,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=get_sanitized_env(),
+                )
 
             # Send session started confirmation
             await websocket.send_json({
                 "type": "status",
                 "status": "Running",
                 "language": language,
+                "sessionId": session_id,
                 "timeComplexity": complexity.time_complexity,
                 "spaceComplexity": complexity.space_complexity,
                 "complexityExplanation": complexity.explanation,
             })
 
-            # Stream reader helper for stdout / stderr
-            async def read_stream(stream, stream_type: str):
-                try:
-                    while True:
-                        chunk = await stream.read(512)
-                        if not chunk:
-                            break
-                        text = chunk.decode("utf-8", errors="replace")
-                        await websocket.send_json({"type": stream_type, "data": text})
-                except Exception:
-                    return
+            # Stream reader tasks
+            if has_pty and master_fd is not None:
+                async def read_pty_master():
+                    loop = asyncio.get_running_loop()
+                    try:
+                        while True:
+                            data = await loop.run_in_executor(None, lambda: os.read(master_fd, 1024))
+                            if not data:
+                                break
+                            text = data.decode("utf-8", errors="replace")
+                            await websocket.send_json({
+                                "type": "stdout",
+                                "data": text,
+                                "sessionId": session_id,
+                            })
+                    except (OSError, Exception):
+                        pass
 
-            stdout_task = asyncio.create_task(read_stream(process.stdout, "stdout"))
-            stderr_task = asyncio.create_task(read_stream(process.stderr, "stderr"))
+                stdout_task = asyncio.create_task(read_pty_master())
+                stderr_task = asyncio.create_task(asyncio.sleep(0))
+            else:
+                async def read_stream(stream, stream_type: str):
+                    try:
+                        while True:
+                            chunk = await stream.read(512)
+                            if not chunk:
+                                break
+                            text = chunk.decode("utf-8", errors="replace")
+                            await websocket.send_json({"type": stream_type, "data": text, "sessionId": session_id})
+                    except Exception:
+                        return
+
+                stdout_task = asyncio.create_task(read_stream(process.stdout, "stdout"))
+                stderr_task = asyncio.create_task(read_stream(process.stderr, "stderr"))
 
             # Listen for client stdin input & control messages
             async def listen_client_input():
+                nonlocal master_fd
                 try:
                     while True:
                         msg_text = await websocket.receive_text()
@@ -161,13 +218,31 @@ class StreamingExecutorService:
 
                         msg_action = msg.get("action")
 
-                        if msg_action == "stdin":
+                        if msg_action in ("stdin", "input"):
                             stdin_data = msg.get("data", "")
-                            if process and process.stdin and not process.stdin.is_closing():
+                            if has_pty and master_fd is not None:
+                                try:
+                                    os.write(master_fd, stdin_data.encode("utf-8"))
+                                except Exception:
+                                    pass
+                            elif process and process.stdin and not process.stdin.is_closing():
                                 try:
                                     process.stdin.write(stdin_data.encode("utf-8"))
                                     await process.stdin.drain()
                                 except (BrokenPipeError, OSError, RuntimeError):
+                                    pass
+                        elif msg_action == "resize":
+                            if has_pty and master_fd is not None:
+                                try:
+                                    import fcntl
+                                    import struct
+                                    import termios
+
+                                    cols = int(msg.get("cols") or 80)
+                                    rows = int(msg.get("rows") or 24)
+                                    winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                                    fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
+                                except Exception:
                                     pass
                         elif msg_action == "kill":
                             if process:
@@ -243,6 +318,11 @@ class StreamingExecutorService:
                 pass
         finally:
             ACTIVE_EXECUTIONS_GAUGE.dec()
+            if master_fd is not None:
+                try:
+                    os.close(master_fd)
+                except Exception:
+                    pass
             if process and process.returncode is None:
                 try:
                     kill_process_tree(process.pid)

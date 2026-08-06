@@ -79,7 +79,7 @@ export interface ExecutionLanguageOption {
   styleUrl: './editor.scss',
   // Scope these services to each Editor instance so every open tab gets isolated
   // realtime, terminal, time-travel, and package manager state.
-  providers: [RealtimeService, ExecutionStreamService, TimeTravelService, PackageManagerService],
+  providers: [ExecutionStreamService, TimeTravelService, PackageManagerService],
 })
 export class Editor implements OnInit {
   readonly documentId = input<string>('');
@@ -97,6 +97,7 @@ export class Editor implements OnInit {
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private activeCleanupResizer?: () => void;
 
   readonly isPackageManagerOpen = signal(false);
   readonly packageSearchInput = signal('');
@@ -238,7 +239,7 @@ export class Editor implements OnInit {
       });
     }
 
-    this.destroyRef.onDestroy(async () => {
+    this.destroyRef.onDestroy(() => {
       if (this.debounceTimer) {
         clearTimeout(this.debounceTimer);
         this.debounceTimer = null;
@@ -247,12 +248,18 @@ export class Editor implements OnInit {
         clearTimeout(this.saveDebounceTimer);
         this.saveDebounceTimer = null;
       }
+      if (this.cursorThrottleTimer) {
+        clearTimeout(this.cursorThrottleTimer);
+        this.cursorThrottleTimer = null;
+      }
+      if (this.activeCleanupResizer) {
+        this.activeCleanupResizer();
+      }
 
       const currentDocId = this.docId();
       if (currentDocId) {
-        await this.realtimeService.leaveDocument(currentDocId);
+        void this.realtimeService.leaveDocument(currentDocId);
       }
-      this.realtimeService.disconnect();
 
       this.streamService.closeTerminal();
       this.editorView?.destroy();
@@ -354,8 +361,6 @@ export class Editor implements OnInit {
       await this.realtimeService.leaveDocument(id);
     } catch (err) {
       console.error('Error leaving realtime document:', err);
-    } finally {
-      this.realtimeService.disconnect();
     }
   }
 
@@ -569,7 +574,7 @@ export class Editor implements OnInit {
       if (!this.cursorThrottleTimer) {
         this.cursorThrottleTimer = setTimeout(() => {
           if (this.pendingCursorArgs && this.docId()) {
-            void             void this.realtimeService.sendCursorPosition(
+            void this.realtimeService.sendCursorPosition(
               this.docId(),
               this.pendingCursorArgs.pos,
               this.pendingCursorArgs.lineNumber,
@@ -1300,9 +1305,23 @@ export class Editor implements OnInit {
       return;
     }
 
+    let start = 0;
+    while (start < current.length && start < content.length && current[start] === content[start]) {
+      start++;
+    }
+
+    let endCurrent = current.length;
+    let endContent = content.length;
+    while (endCurrent > start && endContent > start && current[endCurrent - 1] === content[endContent - 1]) {
+      endCurrent--;
+      endContent--;
+    }
+
+    const replacement = content.slice(start, endContent);
+
     this.isUpdatingFromRemote = true;
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: content },
+      changes: { from: start, to: endCurrent, insert: replacement },
     });
     this.isUpdatingFromRemote = false;
   }

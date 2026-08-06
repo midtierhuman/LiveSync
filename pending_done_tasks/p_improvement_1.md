@@ -44,10 +44,10 @@ The environment supports executing full-fledged Web API workloads for live testi
 ### Tasks Pending to Implement
 
 #### Feature:
-- [ ] Implement application-layer multiplexing over a single persistent WebSocket connection.
-- [ ] Add client-side socket manager to handle routing of document updates by `fileId`.
-- [ ] Implement backend pub/sub room subscriptions (`subscribe` / `unsubscribe` frames) for dynamic tab switching.
+- [x] Implement application-layer multiplexing over a single persistent WebSocket connection.
+- [x] Add client-side socket manager to handle routing of document updates by `fileId`.
+- [x] Implement backend pub/sub room subscriptions (`subscribe` / `unsubscribe` frames) for dynamic tab switching.
 
 #### Bugs:
-- [ ] Fix string-matching replacement errors causing corruption during multi-block code edits.
-- [ ] Resolve memory leaks caused by unclosed WebSocket connections when closing editor tabs.
+- [x] Fix string-matching replacement errors causing corruption during multi-block code edits.
+- [x] Resolve memory leaks caused by unclosed WebSocket connections when closing editor tabs.
