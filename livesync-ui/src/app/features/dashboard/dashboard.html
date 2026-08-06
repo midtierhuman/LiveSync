@@ -53,7 +53,7 @@
               <button (click)="openCreateFolderModal()" matTooltip="New Folder">
                 <mat-icon>create_new_folder</mat-icon>
               </button>
-              <button (click)="goToAddShared()" matTooltip="Join Shared Room">
+              <button (click)="goToAddShared()" matTooltip="Add Shared Resource" aria-label="Add Shared Resource">
                 <mat-icon>group_add</mat-icon>
               </button>
               <button (click)="expandAllFolders()" matTooltip="Expand All">
@@ -115,12 +115,14 @@
                 <mat-icon class="row-chevron">{{ isFolderExpanded(folder.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
                 <mat-icon class="row-icon folder-color">{{ isFolderExpanded(folder.id) ? 'folder_open' : 'folder' }}</mat-icon>
                 <span class="row-label">{{ folder.name }}</span>
-                @if (folder.isShared || folder.isStructural) {
-                  <mat-icon class="shared-badge-icon" matTooltip="Shared with you">group</mat-icon>
-                }
-                @if ((getSubfoldersOf(folder.id).length + getDocsOf(folder.id).length) || folder.documentsCount) {
-                  <span class="row-badge">{{ (getSubfoldersOf(folder.id).length + getDocsOf(folder.id).length) || folder.documentsCount }}</span>
-                }
+                <span class="row-badges">
+                  @if (folder.isShared || folder.isStructural) {
+                    <mat-icon class="shared-badge-icon" matTooltip="Shared with you">group</mat-icon>
+                  }
+                  @if ((getSubfoldersOf(folder.id).length + getDocsOf(folder.id).length) || folder.documentsCount) {
+                    <span class="row-badge">{{ (getSubfoldersOf(folder.id).length + getDocsOf(folder.id).length) || folder.documentsCount }}</span>
+                  }
+                </span>
                 <div class="row-actions" (click)="$event.stopPropagation()">
                   <button (click)="openCreateInFolder(folder.id, 'file', $event)" matTooltip="New File">
                     <mat-icon>note_add</mat-icon>
@@ -155,14 +157,16 @@
                   >
                     <mat-icon class="row-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
                     <span class="row-label">{{ doc.title }}</span>
-                    @if (isSharedExplorerDocument(doc)) {
-                      @if (doc.permission === 'Edit') {
-                        <mat-icon class="permission-badge-icon edit-permission" matTooltip="Can Edit">edit</mat-icon>
-                      } @else {
-                        <mat-icon class="permission-badge-icon view-permission" matTooltip="Read Only">lock</mat-icon>
+                    <span class="row-badges">
+                      @if (isSharedExplorerDocument(doc)) {
+                        @if (doc.permission === 'Edit') {
+                          <mat-icon class="permission-badge-icon edit-permission" matTooltip="Can Edit">edit</mat-icon>
+                        } @else {
+                          <mat-icon class="permission-badge-icon view-permission" matTooltip="Read Only">lock</mat-icon>
+                        }
                       }
-                    }
-                    <span class="row-lang">{{ getLanguageBadge(doc.title).name }}</span>
+                      <span class="row-lang">{{ getLanguageBadge(doc.title).name }}</span>
+                    </span>
                     <div class="row-actions" (click)="$event.stopPropagation()">
                       <button (click)="openShareModal(doc)" matTooltip="Share">
                         <mat-icon>share</mat-icon>
@@ -199,14 +203,16 @@
               >
                 <mat-icon class="row-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
                 <span class="row-label">{{ doc.title }}</span>
-                @if (isSharedExplorerDocument(doc)) {
-                  @if (doc.permission === 'Edit') {
-                    <mat-icon class="permission-badge-icon edit-permission" matTooltip="Can Edit">edit</mat-icon>
-                  } @else {
-                    <mat-icon class="permission-badge-icon view-permission" matTooltip="Read Only">lock</mat-icon>
+                <span class="row-badges">
+                  @if (isSharedExplorerDocument(doc)) {
+                    @if (doc.permission === 'Edit') {
+                      <mat-icon class="permission-badge-icon edit-permission" matTooltip="Can Edit">edit</mat-icon>
+                    } @else {
+                      <mat-icon class="permission-badge-icon view-permission" matTooltip="Read Only">lock</mat-icon>
+                    }
                   }
-                }
-                <span class="row-lang">{{ getLanguageBadge(doc.title).name }}</span>
+                  <span class="row-lang">{{ getLanguageBadge(doc.title).name }}</span>
+                </span>
                 <div class="row-actions" (click)="$event.stopPropagation()">
                   <button (click)="openShareModal(doc)" matTooltip="Share">
                     <mat-icon>share</mat-icon>

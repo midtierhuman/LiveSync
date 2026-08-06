@@ -49,14 +49,14 @@ public class FolderService {
         folder.setUpdatedAt(Instant.now());
 
         var saved = folders.save(folder);
-        return toDto(saved, false);
+        return toDto(saved, false, userId);
     }
 
     @Transactional(readOnly = true)
     public List<FolderDto> owned(String userId) {
         return folders.findByOwnerIdAndParentFolderIdIsNullOrderByUpdatedAtDesc(userId)
                 .stream()
-                .map(f -> toDto(f, true))
+                .map(f -> toDto(f, true, userId))
                 .toList();
     }
 
@@ -91,7 +91,12 @@ public class FolderService {
                 .map(sf -> toDtoWithContents(sf.getFolder(), userId))
                 .toList();
     }
-
+    @Transactional(readOnly = true)
+    public Optional<FolderDto> byShareCode(String code) {
+        if (code == null || code.isBlank()) return Optional.empty();
+        return folders.findByShareCode(code.trim().toUpperCase())
+                .map(folder -> toDtoWithContents(folder, folder.getOwnerId()));
+    }
     @Transactional(readOnly = true)
     public Optional<FolderDto> find(String folderId, String userId) {
         var folderOpt = folders.findById(folderId);
@@ -115,7 +120,7 @@ public class FolderService {
 
         folder.setName(request.name().trim());
         folder.setUpdatedAt(Instant.now());
-        return Optional.of(toDto(folders.save(folder), false));
+        return Optional.of(toDto(folders.save(folder), false, userId));
     }
 
     public boolean delete(String folderId, String userId) {
@@ -224,7 +229,7 @@ public class FolderService {
     }
 
     public boolean addFolderShare(String shareCode, String userId) {
-        var folderOpt = folders.findByShareCode(shareCode);
+        var folderOpt = folders.findByShareCode(shareCode.trim().toUpperCase());
         if (folderOpt.isEmpty()) return false;
         var folder = folderOpt.get();
 
@@ -298,11 +303,18 @@ public class FolderService {
     }
 
     private FolderDto toDto(Folder f, boolean includeSubfolders) {
+        return toDto(f, includeSubfolders, f.getOwnerId());
+    }
+
+    private FolderDto toDto(Folder f, boolean includeSubfolders, String viewerUserId) {
         var subfolders = includeSubfolders ?
-                folders.findByParentFolderIdOrderByUpdatedAtDesc(f.getId()).stream().map(sf -> toDto(sf, true)).toList()
+                folders.findByParentFolderIdOrderByUpdatedAtDesc(f.getId()).stream().map(sf -> toDto(sf, true, viewerUserId)).toList()
                 : Collections.<FolderDto>emptyList();
 
         long docCount = documents.countByFolderId(f.getId());
+        boolean isShared = viewerUserId != null && !f.getOwnerId().equals(viewerUserId);
+        String permission = isShared ? accessLevel(f, viewerUserId) : "Edit";
+        if (permission == null) permission = "View";
 
         return new FolderDto(
                 f.getId(),
@@ -318,20 +330,20 @@ public class FolderService {
                 subfolders,
                 Collections.emptyList(),
                 Collections.emptyList(),
-                false,
-                "Edit"
+                isShared,
+                permission
         );
     }
 
     private FolderDto toDtoWithContents(Folder f, String userId) {
         var subfolders = folders.findByParentFolderIdOrderByUpdatedAtDesc(f.getId())
                 .stream()
-                .map(sf -> toDto(sf, true))
+                .map(sf -> toDto(sf, true, userId))
                 .toList();
 
         var docs = documents.findByFolderIdOrderByUpdatedAtDesc(f.getId())
                 .stream()
-                .map(documentService::dto)
+                .map(doc -> documentService.dto(doc, userId))
                 .toList();
 
         boolean isShared = userId != null && !f.getOwnerId().equals(userId);

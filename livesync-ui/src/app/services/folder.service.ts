@@ -68,6 +68,11 @@ export class FolderService {
     );
   }
 
+  async getFolderByShareCode(shareCode: string): Promise<FolderDto> {
+    return firstValueFrom(
+      this.http.get<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/share/${shareCode}`)
+    );
+  }
   async getFolder(id: string): Promise<FolderDto> {
     return firstValueFrom(
       this.http.get<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/${id}`)

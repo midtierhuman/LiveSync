@@ -1,20 +1,21 @@
 <div class="add-shared-container">
   <header class="add-shared-header">
-    <button (click)="goBack()" class="btn-back">← Back to Dashboard</button>
-    <h1>Join Shared Workspace</h1>
+    <button (click)="goBack()" class="btn-back">Back to Dashboard</button>
+    <h1>Add Shared Resource</h1>
   </header>
 
   <main class="add-shared-content">
     <section class="input-section">
-      <h2>Enter Share Code</h2>
-      <p>Ask the document owner for the unique share code</p>
+      <h2>Add Shared Item</h2>
+      <p>Enter a shared file or folder code from the owner</p>
 
       <div class="code-input-area">
         <input
           type="text"
-          [(ngModel)]="shareCode"
+          [ngModel]="shareCode()"
+          (ngModelChange)="shareCode.set($event)"
           (keyup.enter)="verifyShareCode()"
-          placeholder="Enter 8-character share code (e.g., ABC12345)"
+          placeholder="Enter shared file or folder code"
           class="share-code-input"
           [disabled]="isLoading()"
         />
@@ -28,20 +29,20 @@
       </div>
 
       @if (errorMessage()) {
-      <div class="error-message">⚠️ {{ errorMessage() }}</div>
+      <div class="error-message">! {{ errorMessage() }}</div>
       } @if (successMessage()) {
-      <div class="success-message">✓ {{ successMessage() }}</div>
+      <div class="success-message">{{ successMessage() }}</div>
       }
     </section>
 
-    <!-- Document Preview -->
+    <!-- Shared Item Preview -->
     @if (documentPreview()) {
     <section class="preview-section">
-      <h2>Document Preview</h2>
+      <h2>Shared Item Preview</h2>
       <div class="document-preview">
         <div class="preview-header">
-          <h3>{{ documentPreview()?.title }}</h3>
-          <span class="owner">by {{ documentPreview()?.ownerName }}</span>
+          <h3>{{ shareType() === 'folder' ? documentPreview()?.name : documentPreview()?.title }}</h3>
+          <span class="owner">{{ shareType() === 'folder' ? 'Folder' : 'File' }} shared by {{ documentPreview()?.ownerName || documentPreview()?.ownerId || 'Unknown' }}</span>
         </div>
 
         <div class="preview-details">
@@ -56,27 +57,28 @@
           </p>
           }
           <p>
-            <strong>Content Preview:</strong>
+            <strong>{{ shareType() === 'folder' ? 'Folder Contents:' : 'Content Preview:' }}</strong>
           </p>
           <div class="content-preview">
             {{
-              documentPreview()?.content
-                ? ($safeNavigationMigration(documentPreview()?.content) | slice : 0 : 200) + '...'
-                : '(Empty document)'
+              shareType() === 'folder'
+                ? ((documentPreview()?.documentsCount || 0) + ' files, ' + (documentPreview()?.subfoldersCount || 0) + ' folders')
+                : (documentPreview()?.content
+                  ? ($safeNavigationMigration(documentPreview()?.content) | slice : 0 : 200) + '...'
+                  : '(Empty document)')
             }}
           </div>
         </div>
 
         <div class="access-level-info">
           <p class="info-message">
-            <strong>Note:</strong> Your access level (View or Edit) is determined by the document
-            owner. You'll see your permissions after adding the document.
+            <strong>Note:</strong> Your access level (View or Edit) is determined by the owner. You'll see your permissions after adding the item.
           </p>
         </div>
 
         <div class="preview-actions">
           <button (click)="addDocument()" [disabled]="isLoading()" class="btn-add">
-            {{ isLoading() ? 'Adding...' : '✓ Add This Document' }}
+            {{ isLoading() ? 'Adding...' : 'Add Shared Item' }}
           </button>
         </div>
       </div>

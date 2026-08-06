@@ -34,21 +34,26 @@ export class AddShared {
 
     this.isLoading.set(true);
     this.errorMessage.set('');
+    this.successMessage.set('');
+    this.shareType.set(null);
+    this.documentPreview.set(null);
+
     try {
       const doc = await this.documentService.getDocumentByShareCode(code);
-      if (doc) {
-        this.documentPreview.set(doc);
-      } else {
-        this.errorMessage.set('Document not found with this share code');
+      this.shareType.set('document');
+      this.documentPreview.set(doc);
+    } catch (docError) {
+      try {
+        const folder = await this.folderService.getFolderByShareCode(code);
+        this.shareType.set('folder');
+        this.documentPreview.set(folder);
+      } catch (folderError) {
+        this.errorMessage.set('No shared file or folder was found for this code');
       }
-    } catch (error) {
-      this.errorMessage.set('Invalid share code or an error occurred');
-      this.documentPreview.set(null);
     } finally {
       this.isLoading.set(false);
     }
   }
-
   async addDocument() {
     const code = this.shareCode().trim().toUpperCase();
     if (!code) {
@@ -61,22 +66,30 @@ export class AddShared {
     this.successMessage.set('');
 
     try {
-      // Try document share code first
+      if (this.shareType() === 'folder') {
+        await this.folderService.joinSharedFolder(code);
+        this.successMessage.set('Shared folder added. Redirecting to dashboard...');
+        this.redirectToDashboard();
+        return;
+      }
+
+      if (this.shareType() === 'document') {
+        await this.documentService.addSharedDocument(code);
+        this.successMessage.set('Shared document added. Redirecting to dashboard...');
+        this.redirectToDashboard();
+        return;
+      }
+
       await this.documentService.addSharedDocument(code);
-      this.successMessage.set('Document added successfully! Redirecting to dashboard...');
-      setTimeout(() => {
-        this.router.navigate(['/dashboard']);
-      }, 1500);
+      this.successMessage.set('Shared document added. Redirecting to dashboard...');
+      this.redirectToDashboard();
     } catch (docError: any) {
-      // If document share code fails, try folder share code
       try {
         await this.folderService.joinSharedFolder(code);
-        this.successMessage.set('Folder joined successfully! Redirecting to dashboard...');
-        setTimeout(() => {
-          this.router.navigate(['/dashboard']);
-        }, 1500);
+        this.successMessage.set('Shared folder added. Redirecting to dashboard...');
+        this.redirectToDashboard();
       } catch (folderError: any) {
-        if (docError.status === 400) {
+        if (docError.status === 400 || folderError.status === 400) {
           this.errorMessage.set('You already have access to this item or the code is invalid');
         } else {
           this.errorMessage.set('Failed to join with this share code');
@@ -88,6 +101,11 @@ export class AddShared {
     }
   }
 
+  private redirectToDashboard() {
+    setTimeout(() => {
+      this.router.navigate(['/dashboard']);
+    }, 1500);
+  }
   goBack() {
     this.router.navigate(['/dashboard']);
   }
