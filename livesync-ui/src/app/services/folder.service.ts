@@ -19,6 +19,8 @@ export interface FolderDto {
   documents: DocumentDto[];
   folderPath?: FolderPathNode[];
   isStructural?: boolean;
+  isShared?: boolean;
+  permission?: string;
 }
 
 export interface SharedFolderDto {

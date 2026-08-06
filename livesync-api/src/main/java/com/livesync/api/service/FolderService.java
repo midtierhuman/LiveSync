@@ -317,7 +317,9 @@ public class FolderService {
                 (int) docCount,
                 subfolders,
                 Collections.emptyList(),
-                buildFolderPath(f.getId())
+                buildFolderPath(f.getId()),
+                false,
+                "Edit"
         );
     }
 
@@ -332,6 +334,10 @@ public class FolderService {
                 .map(documentService::dto)
                 .toList();
 
+        boolean isShared = userId != null && !f.getOwnerId().equals(userId);
+        String permission = isShared ? accessLevel(f, userId) : "Edit";
+        if (permission == null) permission = "View";
+
         return new FolderDto(
                 f.getId(),
                 f.getName(),
@@ -345,7 +351,9 @@ public class FolderService {
                 docs.size(),
                 subfolders,
                 docs,
-                buildFolderPath(f.getId())
+                buildFolderPath(f.getId()),
+                isShared,
+                permission
         );
     }
 }

@@ -38,7 +38,9 @@ public class FolderDtos {
             int documentsCount,
             List<FolderDto> subfolders,
             List<DocumentDto> documents,
-            List<FolderPathNode> folderPath
+            List<FolderPathNode> folderPath,
+            boolean isShared,
+            String permission
     ) {}
 
     public record SharedFolderDto(

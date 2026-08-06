@@ -1233,6 +1233,35 @@
     line-height: 22px;
   }
 
+  // ── Shared folder badge icon ──
+  .shared-badge-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #7aa2f7;
+    margin-left: 4px;
+    opacity: 0.8;
+  }
+
+  // ── Permission badge icon for shared files ──
+  .permission-badge-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    margin-left: 4px;
+    opacity: 0.85;
+
+    &.view-permission {
+      color: #e0a458;
+    }
+
+    &.edit-permission {
+      color: #73c991;
+    }
+  }
+
   // ── Right-aligned item count badge (pill) ──
   .row-badge {
     margin-left: auto;

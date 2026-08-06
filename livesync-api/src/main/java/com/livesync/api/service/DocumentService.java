@@ -44,12 +44,12 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public Optional<DocumentDto> find(String id, String userId) {
-        return documents.findById(id).filter(d -> canAccess(d, userId)).map(this::dto);
+        return documents.findById(id).filter(d -> canAccess(d, userId)).map(d -> dto(d, userId));
     }
 
     @Transactional(readOnly = true)
     public List<DocumentDto> owned(String userId) {
-        return documents.findByOwnerIdOrderByUpdatedAtDesc(userId).stream().map(this::dto).toList();
+        return documents.findByOwnerIdOrderByUpdatedAtDesc(userId).stream().map(d -> dto(d, userId)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -67,7 +67,7 @@ public class DocumentService {
         document.setOwner(users.getReferenceById(userId));
         document.setCreatedAt(now);
         document.setUpdatedAt(now);
-        return dto(documents.save(document));
+        return dto(documents.save(document), userId);
     }
 
     @Transactional
@@ -76,7 +76,7 @@ public class DocumentService {
             if (request.title() != null) d.setTitle(request.title().trim());
             if (request.content() != null) d.setContent(request.content());
             edited(d, request.lastEditedBy(), userId);
-            return dto(d);
+            return dto(d, userId);
         });
     }
 
@@ -85,7 +85,7 @@ public class DocumentService {
         return documents.findById(id).filter(d -> canEdit(d, userId)).map(d -> {
             d.setContent(request.content());
             edited(d, request.lastEditedBy(), userId);
-            return dto(d);
+            return dto(d, userId);
         });
     }
 
@@ -115,13 +115,13 @@ public class DocumentService {
                 code = code();
             } while (documents.existsByShareCode(code));
             d.setShareCode(code);
-            return dto(d);
+            return dto(d, userId);
         });
     }
 
     @Transactional(readOnly = true)
     public Optional<DocumentDto> byShareCode(String code) {
-        return documents.findByShareCode(code).map(this::dto);
+        return documents.findByShareCode(code).map(d -> dto(d, d.getOwnerId()));
     }
 
     @Transactional
@@ -226,12 +226,21 @@ public class DocumentService {
     }
 
     public DocumentDto dto(Document d) {
+        return dto(d, d.getOwnerId());
+    }
+
+    public DocumentDto dto(Document d, String viewerUserId) {
         String ownerName = "Unknown";
         try {
             if (d.getOwner() != null) {
                 ownerName = d.getOwner().getUserName();
             }
         } catch (Exception ignored) {}
+
+        boolean isShared = viewerUserId != null && !d.getOwnerId().equals(viewerUserId);
+        String permission = isShared ? access(d.getId(), viewerUserId) : "Edit";
+        if (permission == null) permission = "View";
+
         return new DocumentDto(
                 d.getId(),
                 d.getTitle(),
@@ -245,7 +254,9 @@ public class DocumentService {
                 d.getUpdatedAt(),
                 d.getLastEditedAt(),
                 d.getLastEditedBy(),
-                d.getSharedWith() == null ? Collections.emptyList() : d.getSharedWith().stream().map(this::sharedDto).toList()
+                d.getSharedWith() == null ? Collections.emptyList() : d.getSharedWith().stream().map(this::sharedDto).toList(),
+                isShared,
+                permission
         );
     }
 

@@ -255,6 +255,8 @@ export class Dashboard implements OnInit {
     target.documentsCount = Math.max(target.documentsCount || 0, incoming.documentsCount || 0);
     target.folderPath = incoming.folderPath || target.folderPath;
     target.isStructural = Boolean(target.isStructural && incoming.isStructural);
+    target.isShared = target.isShared || incoming.isShared;
+    target.permission = incoming.permission || target.permission;
 
     for (const subfolder of incoming.subfolders || []) {
       this.upsertFolder(target.subfolders, this.cloneFolder(subfolder));
@@ -295,6 +297,8 @@ export class Dashboard implements OnInit {
       documents: [],
       folderPath: [],
       isStructural: true,
+      isShared: true,
+      permission: 'View',
     };
   }
 
@@ -310,6 +314,8 @@ export class Dashboard implements OnInit {
       createdAt: doc.sharedAt,
       updatedAt: doc.sharedAt,
       sharedWith: [],
+      isShared: true,
+      permission: doc.accessLevel === 'Edit' ? 'Edit' : 'View',
     };
   }
 

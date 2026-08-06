@@ -17,6 +17,8 @@ export interface DocumentDto {
   lastEditedAt?: string;
   lastEditedBy?: string;
   sharedWith: SharedDocumentDto[];
+  isShared?: boolean;
+  permission?: string;
 }
 
 export interface FolderPathNode {
