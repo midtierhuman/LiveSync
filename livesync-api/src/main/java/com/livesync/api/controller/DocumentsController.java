@@ -2,14 +2,12 @@ package com.livesync.api.controller;
 
 import com.livesync.api.dto.DocumentDtos.*;
 import com.livesync.api.service.DocumentService;
-import com.livesync.api.service.SandboxExecutionClient;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -17,11 +15,9 @@ import java.util.Map;
 @RequestMapping("/api/documents")
 public class DocumentsController {
     private final DocumentService documents;
-    private final SandboxExecutionClient sandbox;
 
-    public DocumentsController(DocumentService documents, SandboxExecutionClient sandbox) {
+    public DocumentsController(DocumentService documents) {
         this.documents = documents;
-        this.sandbox = sandbox;
     }
 
     private String user(Authentication authentication) {
@@ -39,11 +35,6 @@ public class DocumentsController {
     @GetMapping("/shared-with-me")
     public List<SharedDocumentDto> shared(Authentication auth) {
         return documents.shared(user(auth));
-    }
-
-    @GetMapping("/execution-languages")
-    public List<ExecutionLanguageDescriptor> languages() {
-        return sandbox.languages();
     }
 
     @GetMapping("/{id}")
