@@ -538,7 +538,7 @@
             <pre class="terminal-json-body">{{ getFormattedJsonOutput() }}</pre>
           }
 
-          @if (streamService.isStreaming()) {
+          @if (streamService.isStreaming() || streamService.requiresInput()) {
             <div class="terminal-input-bar">
               <span class="prompt-symbol">&gt;</span>
               <input
@@ -548,7 +548,7 @@
                 (keyup.enter)="sendInteractiveInput()"
                 (keydown.arrowUp)="navigateStdinHistory('up'); $event.preventDefault()"
                 (keydown.arrowDown)="navigateStdinHistory('down'); $event.preventDefault()"
-                placeholder="Type stdin input and press Enter... (Use ↑/↓ for command history)"
+                [placeholder]="streamService.inputPrompt() || 'Type stdin input and press Enter... (Use ↑/↓ for history)'"
               />
               <button mat-raised-button color="primary" (click)="sendInteractiveInput()">Send</button>
             </div>

@@ -42,7 +42,7 @@ class SandboxServiceStub:
                 request_serializer=sandbox__pb2.ExecutionRequest.SerializeToString,
                 response_deserializer=sandbox__pb2.ExecutionResponse.FromString,
                 _registered_method=True)
-        self.StreamExecution = channel.unary_stream(
+        self.StreamExecution = channel.stream_stream(
                 '/sandbox.SandboxService/StreamExecution',
                 request_serializer=sandbox__pb2.ExecutionRequest.SerializeToString,
                 response_deserializer=sandbox__pb2.ExecutionChunk.FromString,
@@ -73,7 +73,7 @@ class SandboxServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def StreamExecution(self, request, context):
+    def StreamExecution(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -105,7 +105,7 @@ def add_SandboxServiceServicer_to_server(servicer, server):
                     request_deserializer=sandbox__pb2.ExecutionRequest.FromString,
                     response_serializer=sandbox__pb2.ExecutionResponse.SerializeToString,
             ),
-            'StreamExecution': grpc.unary_stream_rpc_method_handler(
+            'StreamExecution': grpc.stream_stream_rpc_method_handler(
                     servicer.StreamExecution,
                     request_deserializer=sandbox__pb2.ExecutionRequest.FromString,
                     response_serializer=sandbox__pb2.ExecutionChunk.SerializeToString,
@@ -164,7 +164,7 @@ class SandboxService:
             _registered_method=True)
 
     @staticmethod
-    def StreamExecution(request,
+    def StreamExecution(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -174,8 +174,8 @@ class SandboxService:
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
+        return grpc.experimental.stream_stream(
+            request_iterator,
             target,
             '/sandbox.SandboxService/StreamExecution',
             sandbox__pb2.ExecutionRequest.SerializeToString,

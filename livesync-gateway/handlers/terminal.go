@@ -3,14 +3,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/coder/websocket"
 	"github.com/creack/pty"
@@ -41,10 +40,12 @@ type StartWSMessage struct {
 }
 
 type StreamEventJSON struct {
-	Type                string  `json:"type"` // "status", "stdout", "stderr", "exit", "error"
+	Type                string  `json:"type"` // "status", "stdout", "stderr", "waiting_input", "exit", "error", "clear"
 	Data                string  `json:"data,omitempty"`
 	Message             string  `json:"message,omitempty"`
 	Status              string  `json:"status,omitempty"`
+	RequiresInput       bool    `json:"requiresInput,omitempty"`
+	Prompt              string  `json:"prompt,omitempty"`
 	ExitCode            int32   `json:"exitCode,omitempty"`
 	IsSuccess           bool    `json:"isSuccess,omitempty"`
 	SessionID           string  `json:"sessionId,omitempty"`
@@ -59,194 +60,95 @@ func (h *TerminalHandler) ServeExecutionStream(w http.ResponseWriter, r *http.Re
 		log.Printf("Failed to accept execution stream websocket: %v", err)
 		return
 	}
-	defer c.Close(websocket.StatusNormalClosure, "Execution ended")
+	defer c.Close(websocket.StatusNormalClosure, "Session ended")
 
-	ctx := r.Context()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 
-	// Read initial start message
-	_, msgBytes, err := c.Read(ctx)
+	grpcStream, err := h.grpcClient.StreamExecution(ctx)
 	if err != nil {
+		h.sendEvent(ctx, c, StreamEventJSON{Type: "error", Message: "Failed to connect to execution engine: " + err.Error()})
 		return
 	}
 
-	var initMsg StartWSMessage
-	if err := json.Unmarshal(msgBytes, &initMsg); err != nil {
-		h.sendEvent(ctx, c, StreamEventJSON{Type: "error", Message: "Invalid start JSON payload"})
-		return
-	}
+	var sessionID string = "default"
 
-	h.sendEvent(ctx, c, StreamEventJSON{Type: "status", Status: "Running", SessionID: initMsg.SessionID})
-
-	// Create temporary directory & file for source code execution
-	tempDir, err := os.MkdirTemp("", "livesync_exec_*")
-	if err != nil {
-		h.sendEvent(ctx, c, StreamEventJSON{Type: "error", Message: "Failed to create temp dir"})
-		return
-	}
-	defer os.RemoveAll(tempDir)
-
-	execCmd, fileName := h.resolveCmd(initMsg.Language)
-	scriptPath := filepath.Join(tempDir, fileName)
-
-	if err := os.WriteFile(scriptPath, []byte(initMsg.Code), 0644); err != nil {
-		h.sendEvent(ctx, c, StreamEventJSON{Type: "error", Message: "Failed to write source code file"})
-		return
-	}
-
-	var cmd *exec.Cmd
-	switch initMsg.Language {
-	case "python", "py":
-		cmd = exec.Command(execCmd, "-u", scriptPath)
-	case "javascript", "js", "node":
-		cmd = exec.Command(execCmd, scriptPath)
-	case "java":
-		cmd = exec.Command(execCmd, scriptPath)
-	case "csharp", "cs":
-		cmd = exec.Command(execCmd, "run", "--project", tempDir)
-	default:
-		cmd = exec.Command(execCmd, "-u", scriptPath)
-	}
-
-	cmd.Dir = tempDir
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1", "TERM=xterm-256color")
-
-	startNs := time.Now()
-
-	ptmx, ptyErr := pty.Start(cmd)
-	if ptyErr != nil {
-		// Fallback to gRPC ExecuteCode if PTY allocation fails
-		execResp, execErr := h.grpcClient.ExecuteCode(ctx, &pb.ExecutionRequest{
-			Language:      initMsg.Language,
-			Code:          initMsg.Code,
-			StandardInput: initMsg.Data,
-			TimeoutMs:     initMsg.TimeoutMS,
-		})
-		if execErr != nil {
-			h.sendEvent(ctx, c, StreamEventJSON{Type: "error", Message: execErr.Error(), SessionID: initMsg.SessionID})
-			return
-		}
-		if execResp.Stdout != "" {
-			h.sendEvent(ctx, c, StreamEventJSON{Type: "stdout", Data: execResp.Stdout, SessionID: initMsg.SessionID})
-		}
-		if execResp.Stderr != "" {
-			h.sendEvent(ctx, c, StreamEventJSON{Type: "stderr", Data: execResp.Stderr, SessionID: initMsg.SessionID})
-		}
-		h.sendEvent(ctx, c, StreamEventJSON{
-			Type:                "exit",
-			Status:              "Finished",
-			ExitCode:            execResp.ExitCode,
-			IsSuccess:           execResp.IsSuccess,
-			SessionID:           initMsg.SessionID,
-			ExecutionDurationMS: float64(execResp.ExecutionTimeMs),
-		})
-		return
-	}
-
-	defer func() {
-		_ = ptmx.Close()
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-	}()
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	// Stream PTY output -> WebSocket stdout
+	// Goroutine to receive chunks from gRPC stream and write to WebSocket
 	go func() {
-		defer wg.Done()
-		buf := make([]byte, 1024)
 		for {
-			n, readErr := ptmx.Read(buf)
-			if n > 0 {
+			chunk, recvErr := grpcStream.Recv()
+			if recvErr == io.EOF || recvErr != nil {
+				break
+			}
+
+			switch chunk.StreamType {
+			case "stdout":
+				h.sendEvent(ctx, c, StreamEventJSON{Type: "stdout", Data: chunk.Content, SessionID: sessionID})
+			case "stderr":
+				h.sendEvent(ctx, c, StreamEventJSON{Type: "stderr", Data: chunk.Content, SessionID: sessionID})
+			case "waiting_input":
 				h.sendEvent(ctx, c, StreamEventJSON{
-					Type:      "stdout",
-					Data:      string(buf[:n]),
-					SessionID: initMsg.SessionID,
+					Type:          "waiting_input",
+					RequiresInput: chunk.RequiresInput,
+					Prompt:        chunk.Prompt,
+					SessionID:     sessionID,
+				})
+			case "exit":
+				isSuccess := (chunk.ExitCode == 0)
+				h.sendEvent(ctx, c, StreamEventJSON{
+					Type:      "exit",
+					Status:    chunk.Status,
+					ExitCode:  chunk.ExitCode,
+					IsSuccess: isSuccess,
+					SessionID: sessionID,
 				})
 			}
-			if readErr != nil {
-				return
-			}
 		}
 	}()
 
-	// Pipe WebSocket client input -> PTY stdin
-	go func() {
-		defer wg.Done()
-		for {
-			_, inBytes, readErr := c.Read(ctx)
-			if readErr != nil {
-				return
+	// Loop to read incoming WebSocket messages from Angular UI
+	for {
+		_, msgBytes, readErr := c.Read(ctx)
+		if readErr != nil {
+			break
+		}
+
+		var msg StartWSMessage
+		if err := json.Unmarshal(msgBytes, &msg); err != nil {
+			h.sendEvent(ctx, c, StreamEventJSON{Type: "error", Message: "Invalid JSON frame"})
+			continue
+		}
+
+		if msg.SessionID != "" {
+			sessionID = msg.SessionID
+		}
+
+		switch msg.Action {
+		case "start":
+			h.sendEvent(ctx, c, StreamEventJSON{Type: "status", Status: "Running", SessionID: sessionID})
+			_ = grpcStream.Send(&pb.ExecutionRequest{
+				Action:        "start",
+				Language:      msg.Language,
+				Code:          msg.Code,
+				StandardInput: msg.Data,
+				TimeoutMs:     msg.TimeoutMS,
+			})
+
+		case "stdin", "input":
+			if msg.Data != "" {
+				_ = grpcStream.Send(&pb.ExecutionRequest{
+					Action:        "stdin",
+					StandardInput: msg.Data,
+				})
 			}
 
-			var inMsg StartWSMessage
-			if err := json.Unmarshal(inBytes, &inMsg); err == nil {
-				if inMsg.Action == "kill" {
-					if cmd.Process != nil {
-						_ = cmd.Process.Kill()
-					}
-					return
-				}
-				if (inMsg.Action == "stdin" || inMsg.Action == "input" || inMsg.Type == "input") && inMsg.Data != "" {
-					_, _ = ptmx.Write([]byte(inMsg.Data))
-					continue
-				}
-			}
-
-			_, _ = ptmx.Write(inBytes)
+		case "kill":
+			_ = grpcStream.Send(&pb.ExecutionRequest{
+				Action: "kill",
+			})
+			_ = grpcStream.CloseSend()
+			return
 		}
-	}()
-
-	_ = cmd.Wait()
-	wg.Wait()
-
-	durationMs := float64(time.Since(startNs).Milliseconds())
-	exitCode := int32(0)
-	if cmd.ProcessState != nil {
-		exitCode = int32(cmd.ProcessState.ExitCode())
-	}
-
-	h.sendEvent(ctx, c, StreamEventJSON{
-		Type:                "exit",
-		Status:              "Finished",
-		ExitCode:            exitCode,
-		IsSuccess:           exitCode == 0,
-		SessionID:           initMsg.SessionID,
-		ExecutionDurationMS: durationMs,
-	})
-}
-
-func (h *TerminalHandler) resolveCmd(language string) (string, string) {
-	switch language {
-	case "python", "py":
-		if path, err := exec.LookPath("python3"); err == nil {
-			return path, "script.py"
-		}
-		if path, err := exec.LookPath("py"); err == nil {
-			return path, "script.py"
-		}
-		if path, err := exec.LookPath("python"); err == nil {
-			return path, "script.py"
-		}
-		return "python", "script.py"
-	case "javascript", "js", "node":
-		if path, err := exec.LookPath("node"); err == nil {
-			return path, "script.js"
-		}
-		return "node", "script.js"
-	case "java":
-		if path, err := exec.LookPath("java"); err == nil {
-			return path, "Main.java"
-		}
-		return "java", "Main.java"
-	case "csharp", "cs":
-		if path, err := exec.LookPath("dotnet"); err == nil {
-			return path, "Program.cs"
-		}
-		return "dotnet", "Program.cs"
-	default:
-		return "python", "script.py"
 	}
 }
 

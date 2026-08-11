@@ -31,7 +31,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SandboxServiceClient interface {
 	ExecuteCode(ctx context.Context, in *ExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error)
-	StreamExecution(ctx context.Context, in *ExecutionRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecutionChunk], error)
+	StreamExecution(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecutionRequest, ExecutionChunk], error)
 	AnalyzeCode(ctx context.Context, in *AiAnalysisRequest, opts ...grpc.CallOption) (*AiAnalysisResponse, error)
 	SearchPackages(ctx context.Context, in *PackageSearchRequest, opts ...grpc.CallOption) (*PackageSearchResponse, error)
 	GetLanguages(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*LanguagesResponse, error)
@@ -55,24 +55,18 @@ func (c *sandboxServiceClient) ExecuteCode(ctx context.Context, in *ExecutionReq
 	return out, nil
 }
 
-func (c *sandboxServiceClient) StreamExecution(ctx context.Context, in *ExecutionRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecutionChunk], error) {
+func (c *sandboxServiceClient) StreamExecution(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecutionRequest, ExecutionChunk], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &SandboxService_ServiceDesc.Streams[0], SandboxService_StreamExecution_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	x := &grpc.GenericClientStream[ExecutionRequest, ExecutionChunk]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxService_StreamExecutionClient = grpc.ServerStreamingClient[ExecutionChunk]
+type SandboxService_StreamExecutionClient = grpc.BidiStreamingClient[ExecutionRequest, ExecutionChunk]
 
 func (c *sandboxServiceClient) AnalyzeCode(ctx context.Context, in *AiAnalysisRequest, opts ...grpc.CallOption) (*AiAnalysisResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -109,7 +103,7 @@ func (c *sandboxServiceClient) GetLanguages(ctx context.Context, in *Empty, opts
 // for forward compatibility.
 type SandboxServiceServer interface {
 	ExecuteCode(context.Context, *ExecutionRequest) (*ExecutionResponse, error)
-	StreamExecution(*ExecutionRequest, grpc.ServerStreamingServer[ExecutionChunk]) error
+	StreamExecution(grpc.BidiStreamingServer[ExecutionRequest, ExecutionChunk]) error
 	AnalyzeCode(context.Context, *AiAnalysisRequest) (*AiAnalysisResponse, error)
 	SearchPackages(context.Context, *PackageSearchRequest) (*PackageSearchResponse, error)
 	GetLanguages(context.Context, *Empty) (*LanguagesResponse, error)
@@ -126,7 +120,7 @@ type UnimplementedSandboxServiceServer struct{}
 func (UnimplementedSandboxServiceServer) ExecuteCode(context.Context, *ExecutionRequest) (*ExecutionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExecuteCode not implemented")
 }
-func (UnimplementedSandboxServiceServer) StreamExecution(*ExecutionRequest, grpc.ServerStreamingServer[ExecutionChunk]) error {
+func (UnimplementedSandboxServiceServer) StreamExecution(grpc.BidiStreamingServer[ExecutionRequest, ExecutionChunk]) error {
 	return status.Error(codes.Unimplemented, "method StreamExecution not implemented")
 }
 func (UnimplementedSandboxServiceServer) AnalyzeCode(context.Context, *AiAnalysisRequest) (*AiAnalysisResponse, error) {
@@ -178,15 +172,11 @@ func _SandboxService_ExecuteCode_Handler(srv interface{}, ctx context.Context, d
 }
 
 func _SandboxService_StreamExecution_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ExecutionRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(SandboxServiceServer).StreamExecution(m, &grpc.GenericServerStream[ExecutionRequest, ExecutionChunk]{ServerStream: stream})
+	return srv.(SandboxServiceServer).StreamExecution(&grpc.GenericServerStream[ExecutionRequest, ExecutionChunk]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxService_StreamExecutionServer = grpc.ServerStreamingServer[ExecutionChunk]
+type SandboxService_StreamExecutionServer = grpc.BidiStreamingServer[ExecutionRequest, ExecutionChunk]
 
 func _SandboxService_AnalyzeCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AiAnalysisRequest)
@@ -271,6 +261,7 @@ var SandboxService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "StreamExecution",
 			Handler:       _SandboxService_StreamExecution_Handler,
 			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "sandbox.proto",

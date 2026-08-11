@@ -6,7 +6,7 @@ option go_package = "github.com/livesync/livesync-gateway/pb";
 
 service SandboxService {
   rpc ExecuteCode (ExecutionRequest) returns (ExecutionResponse);
-  rpc StreamExecution (ExecutionRequest) returns (stream ExecutionChunk);
+  rpc StreamExecution (stream ExecutionRequest) returns (stream ExecutionChunk);
   rpc AnalyzeCode (AiAnalysisRequest) returns (AiAnalysisResponse);
   rpc SearchPackages (PackageSearchRequest) returns (PackageSearchResponse);
   rpc GetLanguages (Empty) returns (LanguagesResponse);
@@ -19,6 +19,7 @@ message ExecutionRequest {
   string code = 2;
   string standard_input = 3;
   int32 timeout_ms = 4;
+  string action = 5; // "start", "stdin", "kill"
 }
 
 message ExecutionResponse {
@@ -33,8 +34,12 @@ message ExecutionResponse {
 }
 
 message ExecutionChunk {
-  string stream_type = 1; // "stdout" or "stderr"
+  string stream_type = 1; // "stdout", "stderr", "waiting_input", "exit", "status"
   string content = 2;
+  bool requires_input = 3;
+  string prompt = 4;
+  int32 exit_code = 5;
+  string status = 6;
 }
 
 message LanguageDescriptor {

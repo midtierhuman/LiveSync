@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rsandbox.proto\x12\x07sandbox\"\x07\n\x05\x45mpty\"^\n\x10\x45xecutionRequest\x12\x10\n\x08language\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\x12\x16\n\x0estandard_input\x18\x03 \x01(\t\x12\x12\n\ntimeout_ms\x18\x04 \x01(\x05\"\xa8\x01\n\x11\x45xecutionResponse\x12\x10\n\x08language\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x12\n\nis_success\x18\x03 \x01(\x08\x12\x0f\n\x07message\x18\x04 \x01(\t\x12\x11\n\texit_code\x18\x05 \x01(\x05\x12\x0e\n\x06stdout\x18\x06 \x01(\t\x12\x0e\n\x06stderr\x18\x07 \x01(\t\x12\x19\n\x11\x65xecution_time_ms\x18\x08 \x01(\x03\"6\n\x0e\x45xecutionChunk\x12\x13\n\x0bstream_type\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"8\n\x12LanguageDescriptor\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\"C\n\x11LanguagesResponse\x12.\n\tlanguages\x18\x01 \x03(\x0b\x32\x1b.sandbox.LanguageDescriptor\"b\n\x11\x41iAnalysisRequest\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\t\x12\x0e\n\x06prompt\x18\x04 \x01(\t\x12\r\n\x05model\x18\x05 \x01(\t\"\x8a\x01\n\x12\x41iAnalysisResponse\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x13\n\x0b\x65xplanation\x18\x03 \x01(\t\x12\x13\n\x0bsuggestions\x18\x04 \x03(\t\x12\x16\n\x0egenerated_code\x18\x05 \x01(\t\x12\x10\n\x08provider\x18\x06 \x01(\t\">\n\x14PackageSearchRequest\x12\x17\n\x0fpackage_manager\x18\x01 \x01(\t\x12\r\n\x05query\x18\x02 \x01(\t\"A\n\x0bPackageItem\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\"N\n\x15PackageSearchResponse\x12\r\n\x05query\x18\x01 \x01(\t\x12&\n\x08packages\x18\x02 \x03(\x0b\x32\x14.sandbox.PackageItem2\xf4\x02\n\x0eSandboxService\x12\x44\n\x0b\x45xecuteCode\x12\x19.sandbox.ExecutionRequest\x1a\x1a.sandbox.ExecutionResponse\x12G\n\x0fStreamExecution\x12\x19.sandbox.ExecutionRequest\x1a\x17.sandbox.ExecutionChunk0\x01\x12\x46\n\x0b\x41nalyzeCode\x12\x1a.sandbox.AiAnalysisRequest\x1a\x1b.sandbox.AiAnalysisResponse\x12O\n\x0eSearchPackages\x12\x1d.sandbox.PackageSearchRequest\x1a\x1e.sandbox.PackageSearchResponse\x12:\n\x0cGetLanguages\x12\x0e.sandbox.Empty\x1a\x1a.sandbox.LanguagesResponseB)Z\'github.com/livesync/livesync-gateway/pbb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rsandbox.proto\x12\x07sandbox\"\x07\n\x05\x45mpty\"n\n\x10\x45xecutionRequest\x12\x10\n\x08language\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\x12\x16\n\x0estandard_input\x18\x03 \x01(\t\x12\x12\n\ntimeout_ms\x18\x04 \x01(\x05\x12\x0e\n\x06\x61\x63tion\x18\x05 \x01(\t\"\xa8\x01\n\x11\x45xecutionResponse\x12\x10\n\x08language\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x12\n\nis_success\x18\x03 \x01(\x08\x12\x0f\n\x07message\x18\x04 \x01(\t\x12\x11\n\texit_code\x18\x05 \x01(\x05\x12\x0e\n\x06stdout\x18\x06 \x01(\t\x12\x0e\n\x06stderr\x18\x07 \x01(\t\x12\x19\n\x11\x65xecution_time_ms\x18\x08 \x01(\x03\"\x81\x01\n\x0e\x45xecutionChunk\x12\x13\n\x0bstream_type\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\x12\x16\n\x0erequires_input\x18\x03 \x01(\x08\x12\x0e\n\x06prompt\x18\x04 \x01(\t\x12\x11\n\texit_code\x18\x05 \x01(\x05\x12\x0e\n\x06status\x18\x06 \x01(\t\"8\n\x12LanguageDescriptor\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\"C\n\x11LanguagesResponse\x12.\n\tlanguages\x18\x01 \x03(\x0b\x32\x1b.sandbox.LanguageDescriptor\"b\n\x11\x41iAnalysisRequest\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\t\x12\x0e\n\x06prompt\x18\x04 \x01(\t\x12\r\n\x05model\x18\x05 \x01(\t\"\x8a\x01\n\x12\x41iAnalysisResponse\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x13\n\x0b\x65xplanation\x18\x03 \x01(\t\x12\x13\n\x0bsuggestions\x18\x04 \x03(\t\x12\x16\n\x0egenerated_code\x18\x05 \x01(\t\x12\x10\n\x08provider\x18\x06 \x01(\t\">\n\x14PackageSearchRequest\x12\x17\n\x0fpackage_manager\x18\x01 \x01(\t\x12\r\n\x05query\x18\x02 \x01(\t\"A\n\x0bPackageItem\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\"N\n\x15PackageSearchResponse\x12\r\n\x05query\x18\x01 \x01(\t\x12&\n\x08packages\x18\x02 \x03(\x0b\x32\x14.sandbox.PackageItem2\xf6\x02\n\x0eSandboxService\x12\x44\n\x0b\x45xecuteCode\x12\x19.sandbox.ExecutionRequest\x1a\x1a.sandbox.ExecutionResponse\x12I\n\x0fStreamExecution\x12\x19.sandbox.ExecutionRequest\x1a\x17.sandbox.ExecutionChunk(\x01\x30\x01\x12\x46\n\x0b\x41nalyzeCode\x12\x1a.sandbox.AiAnalysisRequest\x1a\x1b.sandbox.AiAnalysisResponse\x12O\n\x0eSearchPackages\x12\x1d.sandbox.PackageSearchRequest\x1a\x1e.sandbox.PackageSearchResponse\x12:\n\x0cGetLanguages\x12\x0e.sandbox.Empty\x1a\x1a.sandbox.LanguagesResponseB)Z\'github.com/livesync/livesync-gateway/pbb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,25 +35,25 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_EMPTY']._serialized_start=26
   _globals['_EMPTY']._serialized_end=33
   _globals['_EXECUTIONREQUEST']._serialized_start=35
-  _globals['_EXECUTIONREQUEST']._serialized_end=129
-  _globals['_EXECUTIONRESPONSE']._serialized_start=132
-  _globals['_EXECUTIONRESPONSE']._serialized_end=300
-  _globals['_EXECUTIONCHUNK']._serialized_start=302
-  _globals['_EXECUTIONCHUNK']._serialized_end=356
-  _globals['_LANGUAGEDESCRIPTOR']._serialized_start=358
-  _globals['_LANGUAGEDESCRIPTOR']._serialized_end=414
-  _globals['_LANGUAGESRESPONSE']._serialized_start=416
-  _globals['_LANGUAGESRESPONSE']._serialized_end=483
-  _globals['_AIANALYSISREQUEST']._serialized_start=485
-  _globals['_AIANALYSISREQUEST']._serialized_end=583
-  _globals['_AIANALYSISRESPONSE']._serialized_start=586
-  _globals['_AIANALYSISRESPONSE']._serialized_end=724
-  _globals['_PACKAGESEARCHREQUEST']._serialized_start=726
-  _globals['_PACKAGESEARCHREQUEST']._serialized_end=788
-  _globals['_PACKAGEITEM']._serialized_start=790
-  _globals['_PACKAGEITEM']._serialized_end=855
-  _globals['_PACKAGESEARCHRESPONSE']._serialized_start=857
-  _globals['_PACKAGESEARCHRESPONSE']._serialized_end=935
-  _globals['_SANDBOXSERVICE']._serialized_start=938
-  _globals['_SANDBOXSERVICE']._serialized_end=1310
+  _globals['_EXECUTIONREQUEST']._serialized_end=145
+  _globals['_EXECUTIONRESPONSE']._serialized_start=148
+  _globals['_EXECUTIONRESPONSE']._serialized_end=316
+  _globals['_EXECUTIONCHUNK']._serialized_start=319
+  _globals['_EXECUTIONCHUNK']._serialized_end=448
+  _globals['_LANGUAGEDESCRIPTOR']._serialized_start=450
+  _globals['_LANGUAGEDESCRIPTOR']._serialized_end=506
+  _globals['_LANGUAGESRESPONSE']._serialized_start=508
+  _globals['_LANGUAGESRESPONSE']._serialized_end=575
+  _globals['_AIANALYSISREQUEST']._serialized_start=577
+  _globals['_AIANALYSISREQUEST']._serialized_end=675
+  _globals['_AIANALYSISRESPONSE']._serialized_start=678
+  _globals['_AIANALYSISRESPONSE']._serialized_end=816
+  _globals['_PACKAGESEARCHREQUEST']._serialized_start=818
+  _globals['_PACKAGESEARCHREQUEST']._serialized_end=880
+  _globals['_PACKAGEITEM']._serialized_start=882
+  _globals['_PACKAGEITEM']._serialized_end=947
+  _globals['_PACKAGESEARCHRESPONSE']._serialized_start=949
+  _globals['_PACKAGESEARCHRESPONSE']._serialized_end=1027
+  _globals['_SANDBOXSERVICE']._serialized_start=1030
+  _globals['_SANDBOXSERVICE']._serialized_end=1404
 # @@protoc_insertion_point(module_scope)

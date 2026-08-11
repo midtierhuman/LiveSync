@@ -63,6 +63,7 @@ type ExecutionRequest struct {
 	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	StandardInput string                 `protobuf:"bytes,3,opt,name=standard_input,json=standardInput,proto3" json:"standard_input,omitempty"`
 	TimeoutMs     int32                  `protobuf:"varint,4,opt,name=timeout_ms,json=timeoutMs,proto3" json:"timeout_ms,omitempty"`
+	Action        string                 `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"` // "start", "stdin", "kill"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -123,6 +124,13 @@ func (x *ExecutionRequest) GetTimeoutMs() int32 {
 		return x.TimeoutMs
 	}
 	return 0
+}
+
+func (x *ExecutionRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
 }
 
 type ExecutionResponse struct {
@@ -227,8 +235,12 @@ func (x *ExecutionResponse) GetExecutionTimeMs() int64 {
 
 type ExecutionChunk struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	StreamType    string                 `protobuf:"bytes,1,opt,name=stream_type,json=streamType,proto3" json:"stream_type,omitempty"` // "stdout" or "stderr"
+	StreamType    string                 `protobuf:"bytes,1,opt,name=stream_type,json=streamType,proto3" json:"stream_type,omitempty"` // "stdout", "stderr", "waiting_input", "exit", "status"
 	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	RequiresInput bool                   `protobuf:"varint,3,opt,name=requires_input,json=requiresInput,proto3" json:"requires_input,omitempty"`
+	Prompt        string                 `protobuf:"bytes,4,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	ExitCode      int32                  `protobuf:"varint,5,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -273,6 +285,34 @@ func (x *ExecutionChunk) GetStreamType() string {
 func (x *ExecutionChunk) GetContent() string {
 	if x != nil {
 		return x.Content
+	}
+	return ""
+}
+
+func (x *ExecutionChunk) GetRequiresInput() bool {
+	if x != nil {
+		return x.RequiresInput
+	}
+	return false
+}
+
+func (x *ExecutionChunk) GetPrompt() string {
+	if x != nil {
+		return x.Prompt
+	}
+	return ""
+}
+
+func (x *ExecutionChunk) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *ExecutionChunk) GetStatus() string {
+	if x != nil {
+		return x.Status
 	}
 	return ""
 }
@@ -702,13 +742,14 @@ var File_sandbox_proto protoreflect.FileDescriptor
 const file_sandbox_proto_rawDesc = "" +
 	"\n" +
 	"\rsandbox.proto\x12\asandbox\"\a\n" +
-	"\x05Empty\"\x88\x01\n" +
+	"\x05Empty\"\xa0\x01\n" +
 	"\x10ExecutionRequest\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12%\n" +
 	"\x0estandard_input\x18\x03 \x01(\tR\rstandardInput\x12\x1d\n" +
 	"\n" +
-	"timeout_ms\x18\x04 \x01(\x05R\ttimeoutMs\"\xf9\x01\n" +
+	"timeout_ms\x18\x04 \x01(\x05R\ttimeoutMs\x12\x16\n" +
+	"\x06action\x18\x05 \x01(\tR\x06action\"\xf9\x01\n" +
 	"\x11ExecutionResponse\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1d\n" +
@@ -718,11 +759,15 @@ const file_sandbox_proto_rawDesc = "" +
 	"\texit_code\x18\x05 \x01(\x05R\bexitCode\x12\x16\n" +
 	"\x06stdout\x18\x06 \x01(\tR\x06stdout\x12\x16\n" +
 	"\x06stderr\x18\a \x01(\tR\x06stderr\x12*\n" +
-	"\x11execution_time_ms\x18\b \x01(\x03R\x0fexecutionTimeMs\"K\n" +
+	"\x11execution_time_ms\x18\b \x01(\x03R\x0fexecutionTimeMs\"\xbf\x01\n" +
 	"\x0eExecutionChunk\x12\x1f\n" +
 	"\vstream_type\x18\x01 \x01(\tR\n" +
 	"streamType\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"K\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12%\n" +
+	"\x0erequires_input\x18\x03 \x01(\bR\rrequiresInput\x12\x16\n" +
+	"\x06prompt\x18\x04 \x01(\tR\x06prompt\x12\x1b\n" +
+	"\texit_code\x18\x05 \x01(\x05R\bexitCode\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\"K\n" +
 	"\x12LanguageDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\"N\n" +
@@ -750,10 +795,10 @@ const file_sandbox_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\"_\n" +
 	"\x15PackageSearchResponse\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x120\n" +
-	"\bpackages\x18\x02 \x03(\v2\x14.sandbox.PackageItemR\bpackages2\xf4\x02\n" +
+	"\bpackages\x18\x02 \x03(\v2\x14.sandbox.PackageItemR\bpackages2\xf6\x02\n" +
 	"\x0eSandboxService\x12D\n" +
-	"\vExecuteCode\x12\x19.sandbox.ExecutionRequest\x1a\x1a.sandbox.ExecutionResponse\x12G\n" +
-	"\x0fStreamExecution\x12\x19.sandbox.ExecutionRequest\x1a\x17.sandbox.ExecutionChunk0\x01\x12F\n" +
+	"\vExecuteCode\x12\x19.sandbox.ExecutionRequest\x1a\x1a.sandbox.ExecutionResponse\x12I\n" +
+	"\x0fStreamExecution\x12\x19.sandbox.ExecutionRequest\x1a\x17.sandbox.ExecutionChunk(\x010\x01\x12F\n" +
 	"\vAnalyzeCode\x12\x1a.sandbox.AiAnalysisRequest\x1a\x1b.sandbox.AiAnalysisResponse\x12O\n" +
 	"\x0eSearchPackages\x12\x1d.sandbox.PackageSearchRequest\x1a\x1e.sandbox.PackageSearchResponse\x12:\n" +
 	"\fGetLanguages\x12\x0e.sandbox.Empty\x1a\x1a.sandbox.LanguagesResponseB)Z'github.com/livesync/livesync-gateway/pbb\x06proto3"

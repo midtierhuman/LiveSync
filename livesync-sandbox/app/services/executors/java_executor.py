@@ -49,13 +49,13 @@ class JavaExecutor(BaseExecutor):
             process = await asyncio.create_subprocess_exec(
                 java_executable,
                 file_path,
-                stdin=asyncio.subprocess.PIPE if request.standard_input else None,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=get_sanitized_env(),
             )
 
-            stdin_data = request.standard_input.encode("utf-8") if request.standard_input else None
+            stdin_data = request.standard_input.encode("utf-8") if request.standard_input else b""
 
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
