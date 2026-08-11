@@ -9,6 +9,7 @@ class AiAnalysisRequest(BaseModel):
     language: str = Field(default="python")
     code: str
     prompt: str | None = None
+    model: str | None = None
 
 
 class AiAnalysisResponse(BaseModel):
@@ -19,4 +20,6 @@ class AiAnalysisResponse(BaseModel):
     explanation: str
     suggestions: list[str]
     generated_code: str | None = None
+    provider: str = Field(default="Local LLM (llama.cpp)")
+
 

@@ -93,6 +93,7 @@ export interface AiAnalysisResponse {
   explanation: string;
   suggestions: string[];
   generatedCode?: string;
+  provider?: string;
 }
 
 interface MessageResponse {

@@ -8,7 +8,62 @@ class Settings(BaseSettings):
     environment: str = "Development"
     default_timeout_ms: int = 15000
     max_timeout_ms: int = 120000
+
+    # -------------------------------------------------------------------------
+    # LOCAL LLM (llama.cpp / OpenAI-compatible Local Server)
+    # -------------------------------------------------------------------------
+    local_llm_url: str = "http://127.0.0.1:8080"
+    local_llm_chat_endpoint: str = "/v1/chat/completions"
+
+    # Registered Local Models List
+    local_llm_models: list[str] = [
+        "Qwen2.5-Coder-14B-Instruct-Q4_K_M",
+        "Qwen2.5-Coder-7B-Instruct-Q4_K_M",
+        "Qwen2.5-Coder-32B-Instruct-Q4_K_M",
+        "llama-3.2-3b-instruct",
+        "deepseek-r1-distill-qwen-14b",
+    ]
+
+    # Active Model Selection (Uncomment the active model to switch)
+    # local_llm_model: str = "Qwen2.5-Coder-7B-Instruct-Q4_K_M"
+    # local_llm_model: str = "Qwen2.5-Coder-32B-Instruct-Q4_K_M"
+    # local_llm_model: str = "deepseek-r1-distill-qwen-14b"
+    # ACTIVE MODEL IN WORK:
+    local_llm_model: str = "Qwen2.5-Coder-14B-Instruct-Q4_K_M"
+
+    # Provider Fallback Control Flags
+    # Set to False to strictly isolate and test the Local LLM without cloud fallbacks.
+    enable_gemini_fallback: bool = False
+    enable_groq_fallback: bool = False
+    enable_ast_fallback: bool = False
+
+    # -------------------------------------------------------------------------
+    # CLOUD AI PROVIDERS (Endpoints & Settings)
+    # -------------------------------------------------------------------------
     gemini_api_key: str | None = None
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/models"
+    gemini_models: list[str] = [
+        "gemini-3.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-flash-lite-latest",
+    ]
+
+    groq_api_key: str | None = None
+    groq_base_url: str = "https://api.groq.com/openai/v1/chat/completions"
+    groq_model: str = "llama-3.3-70b-versatile"
+
+    # -------------------------------------------------------------------------
+    # UPSTREAM PACKAGE REGISTRIES
+    # -------------------------------------------------------------------------
+    pypi_registry_url: str = "https://pypi.org/pypi/{package}/json"
+    npm_registry_url: str = "https://registry.npmjs.org/-/v1/search?text={query}&size=10"
+
+    # -------------------------------------------------------------------------
+    # SECURITY & CORS
+    # -------------------------------------------------------------------------
     jwt_secret: str | None = None
     jwt_issuer: str = "LiveSyncAuthAPI"
     jwt_audience: str = "LiveSyncClient"

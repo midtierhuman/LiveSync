@@ -85,12 +85,16 @@ services:
         limits:
           cpus: '1.5'
           memory: 512M
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     environment:
       - ENVIRONMENT=Development
       - DEFAULT_TIMEOUT_MS=15000
       - MAX_TIMEOUT_MS=120000
+      - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8080}
+      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-Qwen2.5-Coder-14B-Instruct-Q4_K_M}
       - JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
       - JWT_ISSUER=LiveSyncAuthAPI
       - JWT_AUDIENCE=LiveSyncClient

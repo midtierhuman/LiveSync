@@ -56,7 +56,8 @@ public final class DocumentDtos {
             String language,
             String explanation,
             List<String> suggestions,
-            @JsonProperty("generatedCode") @JsonAlias({"generated_code", "generatedCode"}) String generatedCode
+            @JsonProperty("generatedCode") @JsonAlias({"generated_code", "generatedCode"}) String generatedCode,
+            String provider
     ) {
     }
 }

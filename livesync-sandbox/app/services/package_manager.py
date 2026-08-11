@@ -7,6 +7,7 @@ import sys
 import urllib.request
 import urllib.parse
 from pydantic import BaseModel
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +158,7 @@ class PackageManagerService:
 
         # Try querying PyPI JSON API directly for exact or partial package matches
         try:
-            url = f"https://pypi.org/pypi/{urllib.parse.quote(query)}/json"
+            url = settings.pypi_registry_url.format(package=urllib.parse.quote(query))
             req = urllib.request.Request(url, headers={"User-Agent": "LiveSync-Sandbox/1.0"})
             with urllib.request.urlopen(req, timeout=2.5) as resp:
                 if resp.status == 200:
@@ -192,7 +193,7 @@ class PackageManagerService:
                 results.append(pkg)
 
         try:
-            url = f"https://registry.npmjs.org/-/v1/search?text={urllib.parse.quote(query)}&size=10"
+            url = settings.npm_registry_url.format(query=urllib.parse.quote(query))
             req = urllib.request.Request(url, headers={"User-Agent": "LiveSync-Sandbox/1.0"})
             with urllib.request.urlopen(req, timeout=2.5) as resp:
                 if resp.status == 200:

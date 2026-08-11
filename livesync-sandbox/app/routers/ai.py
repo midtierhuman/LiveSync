@@ -24,11 +24,18 @@ async def analyze_code(request: Request, body: AiAnalysisRequest):
         logger.error(str(ex))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sandbox auth is not configured.")
 
-    res = ai_assistant_service.analyze(body.action, body.language, body.code, custom_prompt=body.prompt)
+    res = ai_assistant_service.analyze(
+        body.action,
+        body.language,
+        body.code,
+        custom_prompt=body.prompt,
+        model=body.model
+    )
     return AiAnalysisResponse(
         action=res.action,
         language=res.language,
         explanation=res.explanation,
         suggestions=res.suggestions,
         generated_code=res.generated_code,
+        provider=res.provider,
     )

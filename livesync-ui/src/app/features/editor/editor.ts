@@ -71,6 +71,17 @@ export interface ExecutionLanguageOption {
   displayName: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  action?: string;
+  suggestions?: string[];
+  generatedCode?: string;
+  provider?: string;
+  timestamp: string;
+}
+
 @Component({
   selector: 'app-editor',
   standalone: true,
@@ -1542,15 +1553,28 @@ export class Editor implements OnInit {
   readonly aiAction = signal<string>('explain');
   readonly isAiLoading = signal<boolean>(false);
   readonly aiResult = signal<import('../../services/document.service').AiAnalysisResponse | null>(null);
+  readonly chatMessages = signal<ChatMessage[]>([]);
   readonly aiError = signal<string>('');
   readonly userCustomPrompt = signal<string>('');
-  readonly aiCopiedState = signal<boolean>(false);
+  readonly aiCopiedMessageId = signal<string>('');
+  readonly chatDrawerBody = viewChild<ElementRef<HTMLElement>>('chatDrawerBody');
+
+  private scrollToBottom(): void {
+    setTimeout(() => {
+      const el = this.chatDrawerBody()?.nativeElement;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 80);
+  }
 
   toggleAiDrawer(): void {
     this.showAiDrawer.update((v) => !v);
-    if (this.showAiDrawer() && !this.aiResult()) {
-      void this.runAiAnalysis('explain');
-    }
+  }
+
+  clearChatHistory(): void {
+    this.chatMessages.set([]);
+    this.aiResult.set(null);
   }
 
   refreshAiAnalysis(): void {
@@ -1573,36 +1597,72 @@ export class Editor implements OnInit {
     this.isAiLoading.set(true);
     this.aiError.set('');
 
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    let userMessageText = customPrompt;
+    if (!userMessageText) {
+      if (action === 'explain') userMessageText = 'Explain code snippet';
+      else if (action === 'refactor') userMessageText = 'Refactor & optimize code';
+      else if (action === 'generate-tests') userMessageText = 'Generate unit test suite';
+      else if (action === 'complexity') userMessageText = 'Analyze Big-O complexity';
+      else if (action === 'suggest') userMessageText = 'Suggest code completion';
+      else userMessageText = `Run action: ${action}`;
+    }
+
+    this.chatMessages.update((msgs) => [
+      ...msgs,
+      {
+        id: `user-${Date.now()}`,
+        sender: 'user',
+        text: userMessageText,
+        timestamp: timeStr,
+      },
+    ]);
+    this.scrollToBottom();
+
     try {
       const language = this.selectedExecutionLanguage() || this.currentLanguage() || 'python';
       const code = this.codeSignal();
       const result = await this.documentService.aiAssistant(docId, action, language, code, customPrompt);
       this.aiResult.set(result);
+
+      this.chatMessages.update((msgs) => [
+        ...msgs,
+        {
+          id: `ai-${Date.now()}`,
+          sender: 'ai',
+          text: result.explanation,
+          action: result.action,
+          suggestions: result.suggestions,
+          generatedCode: result.generatedCode || undefined,
+          provider: result.provider || 'Local LLM (llama.cpp)',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
     } catch (error: unknown) {
-      this.aiError.set('AI assistant request failed. Please try again.');
+      this.aiError.set('AI assistant request failed. Please verify endpoint connectivity.');
     } finally {
       this.isAiLoading.set(false);
+      this.scrollToBottom();
     }
   }
 
-  copyAiExplanation(): void {
-    const exp = this.aiResult()?.explanation;
-    if (exp) {
-      navigator.clipboard.writeText(exp);
-      this.aiCopiedState.set(true);
-      setTimeout(() => this.aiCopiedState.set(false), 2000);
+  copyMessageText(msgId: string, text: string): void {
+    if (text) {
+      navigator.clipboard.writeText(text);
+      this.aiCopiedMessageId.set(msgId);
+      setTimeout(() => this.aiCopiedMessageId.set(''), 2000);
     }
   }
 
-  applyAiGeneratedCode(): void {
-    const code = this.aiResult()?.generatedCode;
+  applyMessageCode(code?: string, action?: string): void {
     if (!code) return;
 
     const currentDocId = this.docId();
     if (!currentDocId || !this.isEditable()) return;
 
     let updatedCode = this.codeSignal();
-    if (this.aiAction() === 'generate-tests' || this.aiAction() === 'suggest') {
+    if (action === 'generate-tests' || action === 'suggest') {
       updatedCode += `\n\n${code}`;
     } else {
       updatedCode = code;
