@@ -57,16 +57,13 @@ async def test_package_manager_service_lock():
     assert package_manager_service.lock.locked() is False
 
 
-def test_list_packages_auth_required():
-    response = client.get("/api/packages/list?language=python")
-    assert response.status_code == 401
+@pytest.mark.asyncio
+async def test_package_manager_service_search_pypi():
+    results = await package_manager_service.search_packages("fastapi", "python")
+    assert isinstance(results, list)
 
 
-def test_install_packages_auth_required():
-    response = client.post("/api/packages/install", json={"language": "python", "package_name": "requests"})
-    assert response.status_code == 401
-
-
-def test_uninstall_packages_auth_required():
-    response = client.post("/api/packages/uninstall", json={"language": "python", "package_name": "requests"})
-    assert response.status_code == 401
+@pytest.mark.asyncio
+async def test_package_manager_service_search_npm():
+    results = await package_manager_service.search_packages("express", "javascript")
+    assert isinstance(results, list)

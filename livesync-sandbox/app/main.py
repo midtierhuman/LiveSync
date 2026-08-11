@@ -5,8 +5,9 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.config import settings
-from app.routers import execution, ai, packages
 from app.services.csharp_warmup import csharp_warmup_service
+
+from app.grpc_server import serve_grpc
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,9 @@ async def lifespan(app: FastAPI):
     logger.info("Pre-warming polyglot code execution runtimes...")
     loop = asyncio.get_running_loop()
     loop.run_in_executor(None, csharp_warmup_service.initialize)
+    grpc_server = serve_grpc(port=50051)
     yield
+    grpc_server.stop(grace=3)
 
 
 app = FastAPI(
@@ -38,17 +41,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API routers
-app.include_router(execution.router)
-app.include_router(ai.router)
-app.include_router(packages.router)
-
-
+# Health and Metrics endpoints for container orchestration
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {
         "status": "UP",
         "service": "livesync-sandbox",
+        "mode": "gRPC Worker",
         "environment": settings.environment,
     }
 

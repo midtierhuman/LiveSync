@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package sandbox;
+
+option go_package = "github.com/livesync/livesync-gateway/pb";
+
+service SandboxService {
+  rpc ExecuteCode (ExecutionRequest) returns (ExecutionResponse);
+  rpc StreamExecution (ExecutionRequest) returns (stream ExecutionChunk);
+  rpc AnalyzeCode (AiAnalysisRequest) returns (AiAnalysisResponse);
+  rpc SearchPackages (PackageSearchRequest) returns (PackageSearchResponse);
+  rpc GetLanguages (Empty) returns (LanguagesResponse);
+}
+
+message Empty {}
+
+message ExecutionRequest {
+  string language = 1;
+  string code = 2;
+  string standard_input = 3;
+  int32 timeout_ms = 4;
+}
+
+message ExecutionResponse {
+  string language = 1;
+  string status = 2;
+  bool is_success = 3;
+  string message = 4;
+  int32 exit_code = 5;
+  string stdout = 6;
+  string stderr = 7;
+  int64 execution_time_ms = 8;
+}
+
+message ExecutionChunk {
+  string stream_type = 1; // "stdout" or "stderr"
+  string content = 2;
+}
+
+message LanguageDescriptor {
+  string name = 1;
+  string display_name = 2;
+}
+
+message LanguagesResponse {
+  repeated LanguageDescriptor languages = 1;
+}
+
+message AiAnalysisRequest {
+  string action = 1;
+  string language = 2;
+  string code = 3;
+  string prompt = 4;
+  string model = 5;
+}
+
+message AiAnalysisResponse {
+  string action = 1;
+  string language = 2;
+  string explanation = 3;
+  repeated string suggestions = 4;
+  string generated_code = 5;
+  string provider = 6;
+}
+
+message PackageSearchRequest {
+  string package_manager = 1; // "pypi" or "npm"
+  string query = 2;
+}
+
+message PackageItem {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+}
+
+message PackageSearchResponse {
+  string query = 1;
+  repeated PackageItem packages = 2;
+}

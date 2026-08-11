@@ -116,6 +116,24 @@ services:
       - API_BASE_URL=http://api-loadbalancer:80/
       - CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
 
+  # 2d. Go High-Performance API Gateway & Live Terminal PTY Engine
+  gateway:
+    build:
+      context: ./livesync-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    depends_on:
+      - sandbox
+    environment:
+      - PORT=8081
+      - LIVESYNC_SANDBOX_BASE_URL=http://sandbox:8080
+      - LIVESYNC_SANDBOX_GRPC_URL=sandbox:50051
+      - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8080}
+      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-Qwen2.5-Coder-14B-Instruct-Q4_K_M}
+      - LIVESYNC_JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
+      - CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
+
   # =========================================================================
   # 4. NGINX LOAD BALANCER
   # =========================================================================

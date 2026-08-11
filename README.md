@@ -1,153 +1,106 @@
 # ⚡ LiveSync
 
-> **Enterprise Real-Time Collaborative Code Editor, Polyglot Execution Engine & Interactive REPL Terminal**
+> **Enterprise Real-Time Collaborative Code Editor, Go API Gateway, gRPC Polyglot Execution Sandbox & Interactive Live Terminal**
 
-LiveSync is a high-performance, real-time collaborative code editor built using a modern microservice architecture. It combines Google Docs-style real-time collaboration with an interactive multi-language code execution sandbox, automated AST Big-O complexity analysis, dynamic terminal streaming over WebSockets, role-based access control (RBAC), and document time-travel history.
+LiveSync is a high-performance, real-time collaborative code editor built on a decoupled microservices architecture. It combines Google Docs-style real-time collaboration with a gRPC-powered polyglot code execution sandbox, Go API Gateway & PTY terminal engine, AST Big-O complexity analysis, and local Vulkan LLM AI assistance.
 
 ---
 
-## 🚀 Key Features
+## 🚀 Key Capabilities
 
-* **🤝 Real-Time Collaboration**: Micro-second code synchronization with operational position tracking powered by Socket.IO & Redis backplane.
-* **⚡ Event-Driven Persistence**: Realtime publishes document saves to Redis Streams (`livesync:stream:document-saves`); the Java API consumes them and persists to PostgreSQL with consumer groups (`api-save-group`).
-* **💻 Polyglot Sandbox Execution Engine**: Safe, isolated code execution supporting:
-  * 🐍 **Python 3.14**
-  * 🟨 **JavaScript / Node.js 24**
-  * ☕ **Java 21**
-  * 🔷 **C# / .NET 8**
-  * ⚙️ **C++ / GCC**
-* **🔒 Enterprise Security & Hardware Masking**: Process tree killing (`psutil`), V8 heap memory caps (256MB), hardware specification obfuscation (`node_preload.js`), container CPU/RAM quotas, and `null`-origin sandboxed HTML previews.
-* **📺 Interactive REPL Terminal Stream**: Real-time bi-directional `stdin`/`stdout` streaming over WebSockets for terminal games, CLI scripts, and interactive applications.
-* **📊 AST Big-O Complexity Analyzer**: Automated static analysis of code AST to compute Time Complexity ($\mathcal{O}(N)$, $\mathcal{O}(N \log N)$, $\mathcal{O}(N^2)$, etc.) and Space Complexity with detailed explanations.
-* **🔐 Enterprise RBAC & Security**: Fine-grained permissions (Owner, Editor, Viewer) with folder hierarchy access inheritance.
-* **🕰️ Time Travel & Version History**: Snapshot timeline restoration allowing developers to view and restore previous document revisions.
-* **🎨 Modern UI/UX**: Built with Angular 22, CodeMirror 6, and Google Material Design with light/dark theme toggle, word wrap, and automatic formatting (Prettier).
+- **🤝 Real-Time Collaboration**: Operational Transformation (OT) engine with live cursor tracking powered by Node.js, Socket.IO, and Redis.
+- **⚡ Go API Gateway (`livesync-gateway`)**: High-throughput gateway handling JWT validation, CORS, PTY shell allocation (`cmd.exe`/`/bin/bash`), and HTTP/2 gRPC client pooling.
+- **🛡️ gRPC Polyglot Sandbox (`livesync-sandbox`)**: Isolated worker serving requests over gRPC (`port 50051`). Supports **Python 3.14**, **JavaScript/Node 24**, **Java 21**, and **C#/.NET 8**.
+- **📺 Interactive Live Terminal & Streaming**: Real-time bi-directional PTY shell and code execution streaming over WebSockets.
+- **📊 AST Big-O Complexity Analyzer**: Static AST code analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$) and Space complexity.
+- **🤖 Vulkan Local LLM AI Integration**: Integration with `llama-server` running local model `Qwen2.5-Coder-14B-Instruct-Q4_K_M` for code explanation, refactoring, and test generation.
+- **⚡ Event-Driven Persistence**: Realtime service appends saves to Redis Streams (`livesync:stream:document-saves`); Java API (`livesync-api`) consumes and persists to PostgreSQL.
 
 ---
 
 ## 🏗️ System Architecture
 
-LiveSync uses a decoupled, polyglot microservice stack designed for high throughput and security isolation:
-
 ```
-                      ┌────────────────────────────────────────┐
-                      │            Angular 22 UI               │
-                      │  (CodeMirror 6 + Terminal + Material)  │
-                      └──────────────────┬─────────────────────┘
-                                         │
-                                   Nginx Proxy
-                                         │
-       ┌─────────────────────────────────┼────────────────────────────────┐
-       │                                 │                                │
-       ▼                                 ▼                                ▼
-┌──────────────┐                ┌──────────────────┐             ┌──────────────────┐
-│ livesync-api │◄─(XREADGROUP)──│ livesync-realtime│             │ livesync-sandbox │
-│ (Spring Boot │                │ (Node.js/Socket) │             │ (FastAPI/Python) │
-│  Java 21)    │                └────────┬─────────┘             └────────┬─────────┘
-└──────┬───────┘                         │ (XADD Event)                   │
-       │                                 ▼                                ▼
-       ▼                         Redis Streams Log               Process Isolation &
-   PostgreSQL                      (single writer)              AST Complexity Analyzer
+                                  ┌────────────────────────────────────────┐
+                                  │           Angular 22 UI Client         │
+                                  │   (CodeMirror 6 + xterm.js + Material) │
+                                  └───────────────────┬────────────────────┘
+                                                      │
+                                             Nginx Edge Proxy (5038)
+                                                      │
+         ┌───────────────────────────────┬────────────┴──────────────────┬───────────────────────────────┐
+         │ (HTTP REST / Auth)            │ (WebSockets / Room Sync)      │ (HTTP REST & WS Streams)      │
+         ▼                               ▼                               ▼                               ▼
+┌──────────────────┐           ┌──────────────────┐           ┌──────────────────┐            ┌──────────────────┐
+│   livesync-api   │           │ livesync-realtime│           │ livesync-gateway │            │ local llama.exe  │
+│ (Spring Boot 3)  │           │(Node.js/Socket.IO│           │ (Go API Gateway) │            │ (Vulkan / REST)  │
+└────────┬─────────┘           └────────┬─────────┘           └────────┬─────────┘            └────────┬─────────┘
+         │                              │                              │                               ▲
+         │ (XREADGROUP)                 │ (XADD Event Stream)          │ gRPC (HTTP/2 Port 50051)      │
+         ▼                              ▼                              ▼                               │
+┌──────────────────────────────────────────────────┐          ┌──────────────────┐                     │
+│                Redis 7 (AOF)                     │          │ livesync-sandbox │─────────────────────┘
+│         (Streams & Socket.IO Bus)                │          │  (Python gRPC)   │
+└──────────────────────────────────────────────────┘          └──────────────────┘
 ```
 
-### Microservice Breakdown
+### Microservice Registry
 
-| Service | Stack | Description | Default Port |
+| Service | Technology | Role | Port |
 | :--- | :--- | :--- | :--- |
-| **Frontend (`livesync-ui`)** | Angular 22, TypeScript, CodeMirror 6 | Modern code editor interface with live cursor tracking & terminal | `4200` / `4000` |
-| **API Backend (`livesync-api`)** | Java 21, Spring Boot 3, Spring Data Redis | Auth, user sessions, document & folder metadata, Redis Streams Consumer | `5038` |
-| **Realtime Service (`livesync-realtime`)**| Node.js 24, TypeScript, Socket.IO 4.8, Redis | Low-latency room broadcasting, OT engine, Redis state & stream publisher | `5000` |
-| **Sandbox Engine (`livesync-sandbox`)** | Python 3.14, FastAPI, AsyncIO | Polyglot code execution, interactive WebSocket REPL, AST analysis | `8080` |
-| **Database (`livesync-postgres`)** | PostgreSQL 18 | Relational store for users, documents, folders, and permissions | `5432` |
-| **Streams & Cache (`livesync-redis`)** | Redis 7-alpine (AOF enabled) | Write-behind streams log & distributed message bus for Socket.IO | `6379` |
-| **Observability (`livesync-infra`)** | Prometheus & Grafana | Real-time system metrics, execution counters, and health monitoring | `9090` / `3000` |
+| **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Code editor single-page web app | `4000` / `4200` |
+| **`livesync-gateway`** | Go 1.26, PTY, gRPC client | API Gateway, live PTY shell, WS stream proxy | `8081` |
+| **`livesync-sandbox`** | Python 3.14, gRPC server | Polyglot execution, AST analyzer, package search | `50051` (gRPC) |
+| **`livesync-api`** | Java 21, Spring Boot 3 | Auth, user sessions, document metadata & Redis Stream consumer | `5038` |
+| **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | OT room broadcasting, cursor sync & Redis Stream publisher | `5000` |
+| **`livesync-postgres`** | PostgreSQL 18 | Primary relational metadata database | `5432` |
+| **`livesync-redis`** | Redis 7-alpine | Event streams log & Socket.IO pub/sub bus | `6379` |
 
 ---
 
-## 🛠️ Quick Start & Local Setup
+## 🛠️ Quick Start
 
-### Prerequisites
+### Running with Docker Compose
 
-* **Docker & Docker Compose** (Recommended)
-* **PowerShell** (for Windows local setup script)
-* **Node.js 24+** & **Python 3.14+** & **JDK 21** (for standalone local dev)
-
-### Option A: Running with Docker Compose (Recommended)
-
-To start the full polyglot stack (Postgres, Redis, Java API, Node Realtime, Python Sandbox, Frontend, Nginx, Prometheus, and Grafana):
+Build and launch the complete microservice stack:
 
 ```bash
 docker compose up --build
 ```
 
-Access the UI in your browser at `http://localhost:4000` (or `http://localhost:5038` via load balancer).
-
-### Option B: Local PowerShell Starter Script
-
-Run the automated dev launcher script:
-
-```powershell
-.\run-dev.ps1
-```
+Access the UI at `http://localhost:4000` (or `http://localhost:5038` via Nginx edge proxy).
 
 ---
 
-## 🎮 Interactive REPL Terminal & Execution Engine
-
-LiveSync handles both static batch runs and interactive CLI programs seamlessly:
-
-1. **Batch Mode (`POST /api/execution/run`)**:
-   - Executes code in isolated temporary directories.
-   - Captures output, execution duration, CPU time, and peak memory.
-   - Automatically computes Time & Space complexity via AST analysis.
-   - Timeout boundary: **15 seconds**.
-
-2. **Interactive Stream Mode (`WS /api/execution/stream`)**:
-   - Establishes a persistent bi-directional WebSocket connection.
-   - Enables character-by-character real-time streaming to the UI console.
-   - Accepts interactive `stdin` input (e.g., Python `input()`, C# `Console.ReadLine()`).
-   - Timeout boundary: **120 seconds**.
-
-Both execution modes are called **directly by the UI against the sandbox service**, not through the Java API.
-
----
-
-## 🧠 AST Complexity Analyzer
-
-LiveSync features a custom AST (Abstract Syntax Tree) analyzer for Python, JavaScript, and C# located in `livesync-sandbox`:
-
-* **Loop Nesting Depth**: Detects single, nested, and polynomial loop hierarchies ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$, $\mathcal{O}(N^k)$).
-* **Recursion Detection**: Contextually verifies if a function invokes itself inside its body.
-* **Divide & Conquer**: Detects logarithmic binary division patterns ($\mathcal{O}(\log N)$).
-* **Sorting Operations**: Detects built-in sort invocations ($\mathcal{O}(N \log N)$).
-* **Memory Allocation Tracking**: Detects list comprehensions, dynamic arrays, and 2D matrix allocations.
-
----
-
-## 📁 Repository Structure
+## 📁 Repository Layout
 
 ```
 LiveSync/
-├── livesync-api/        # Java 21 Spring Boot API (Auth, Documents, Folders, History)
-├── livesync-realtime/   # Node.js 24 + Socket.IO Realtime Collaboration Gateway
-├── livesync-sandbox/    # Python 3.14 FastAPI Polyglot Sandbox & AST Analyzer
+├── proto/               # Protobuf contracts (sandbox.proto)
+├── livesync-gateway/    # Go API Gateway, PTY Terminal Engine & gRPC Client
+├── livesync-sandbox/    # Python Polyglot Sandbox, gRPC Worker & AST Analyzer
+├── livesync-api/        # Java 21 Spring Boot REST API & Redis Stream Consumer
+├── livesync-realtime/   # Node.js 24 + Socket.IO Realtime Collaboration Service
 ├── livesync-ui/         # Angular 22 CodeMirror Workspace App
-├── livesync-common/     # Shared DTOs and contracts
-├── livesync-infra/      # Nginx proxy configuration, Prometheus & Grafana monitoring
-├── docker-compose.yml   # Complete multi-container deployment configuration
-└── run-dev.ps1          # Development launcher script
+├── livesync-infra/      # Nginx proxy configuration, Prometheus & Grafana
+├── docs/                # Technical documentation index
+└── docker-compose.yml   # Multi-container orchestration specification
 ```
 
 ---
 
-## 📄 Documentation Index
+## 📚 Technical Documentation Index
 
-Additional design docs and references are available in the [`docs/`](./docs/README.md) folder:
+Detailed service guides and specifications are located in the [`docs/`](./docs/DOCS_INDEX.md) folder:
 
-* [Testing Architecture Guide](./docs/TESTING.md)
-* [Conflict Resolution Design](./docs/CONFLICT_RESOLUTION_DESIGN.md)
-* [Project Roadmap](./docs/PROJECT_ROADMAP.md)
-* [AWS Deployment Guide](./docs/deployment/AWS_DEPLOYMENT_GUIDE.md)
+- **[Architecture Overview](./docs/SYSTEM_ARCHITECTURE.md)**
+- **[Go API Gateway Guide](./docs/GO_GATEWAY_SERVICE.md)**
+- **[Sandbox Execution Guide](./docs/SANDBOX_EXECUTION_SERVICE.md)**
+- **[Realtime Collaboration Guide](./docs/REALTIME_COLLABORATION_SERVICE.md)**
+- **[Spring Boot API Guide](./docs/SPRING_BOOT_API_SERVICE.md)**
+- **[Conflict Resolution Design](./docs/CONFLICT_RESOLUTION_DESIGN.md)**
+- **[Testing & Verification Guide](./docs/TESTING_GUIDE.md)**
+- **[Project Roadmap](./docs/PROJECT_ROADMAP.md)**
 
 ---
 
