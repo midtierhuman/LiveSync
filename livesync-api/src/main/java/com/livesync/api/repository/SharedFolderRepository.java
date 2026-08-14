@@ -20,4 +20,6 @@ public interface SharedFolderRepository extends JpaRepository<SharedFolder, Stri
     boolean existsByFolderIdAndUserId(String folderId, String userId);
 
     void deleteByFolderIdAndUserId(String folderId, String userId);
+
+    void deleteByFolderId(String folderId);
 }

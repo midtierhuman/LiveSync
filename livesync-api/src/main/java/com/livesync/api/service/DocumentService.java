@@ -127,7 +127,9 @@ public class DocumentService {
 
     @Transactional
     public boolean addShare(String code, String userId) {
-        var document = documents.findByShareCode(code);
+        if (code == null || code.isBlank()) return false;
+        String normalizedCode = code.trim().toUpperCase(java.util.Locale.ROOT);
+        var document = documents.findByShareCode(normalizedCode);
         if (document.isEmpty() || document.get().getOwnerId().equals(userId) || shares.findByDocumentIdAndUserId(document.get().getId(), userId).isPresent()) {
             return false;
         }
@@ -278,8 +280,9 @@ public class DocumentService {
     private java.util.List<FolderDtos.FolderPathNode> buildDocFolderPath(Document doc) {
         if (doc == null || doc.getFolderId() == null) return Collections.emptyList();
         var path = new ArrayList<FolderDtos.FolderPathNode>();
+        var visited = new java.util.HashSet<String>();
         String currentId = doc.getFolderId();
-        while (currentId != null) {
+        while (currentId != null && visited.add(currentId)) {
             var folderOpt = folders.findById(currentId);
             if (folderOpt.isEmpty()) break;
             var folder = folderOpt.get();

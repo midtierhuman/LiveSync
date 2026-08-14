@@ -7,6 +7,7 @@ import com.livesync.api.model.Folder;
 import com.livesync.api.model.SharedFolder;
 import com.livesync.api.repository.DocumentRepository;
 import com.livesync.api.repository.FolderRepository;
+import com.livesync.api.repository.SharedDocumentRepository;
 import com.livesync.api.repository.SharedFolderRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -22,12 +23,20 @@ public class FolderService {
     private static final String SHARE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private final FolderRepository folders;
     private final SharedFolderRepository sharedFolders;
+    private final SharedDocumentRepository sharedDocuments;
     private final DocumentRepository documents;
     private final DocumentService documentService;
 
-    public FolderService(FolderRepository folders, SharedFolderRepository sharedFolders, DocumentRepository documents, DocumentService documentService) {
+    public FolderService(
+            FolderRepository folders,
+            SharedFolderRepository sharedFolders,
+            SharedDocumentRepository sharedDocuments,
+            DocumentRepository documents,
+            DocumentService documentService
+    ) {
         this.folders = folders;
         this.sharedFolders = sharedFolders;
+        this.sharedDocuments = sharedDocuments;
         this.documents = documents;
         this.documentService = documentService;
     }
@@ -64,16 +73,15 @@ public class FolderService {
     public List<SharedFolderDto> shared(String userId) {
         return sharedFolders.findByUserIdOrderBySharedAtDesc(userId)
                 .stream()
+                .filter(sf -> sf.getFolder() != null)
                 .map(sf -> {
-                    var path = sf.getFolder() == null
-                            ? Collections.<FolderPathNode>emptyList()
-                            : buildFolderPath(sf.getFolder().getId());
+                    var path = buildFolderPath(sf.getFolder().getId());
                     return new SharedFolderDto(
                             sf.getId(),
                             sf.getFolderId(),
-                            sf.getFolder() != null ? sf.getFolder().getName() : "Shared Folder",
-                            sf.getFolder() != null ? sf.getFolder().getOwnerId() : "",
-                            sf.getFolder() != null && sf.getFolder().getOwner() != null ? sf.getFolder().getOwner().getEmail() : "",
+                            sf.getFolder().getName(),
+                            sf.getFolder().getOwnerId(),
+                            sf.getFolder().getOwner() != null ? sf.getFolder().getOwner().getEmail() : "",
                             sf.getSharedAt(),
                             sf.getAccessLevel(),
                             path.stream().map(FolderPathNode::id).toList(),
@@ -91,12 +99,14 @@ public class FolderService {
                 .map(sf -> toDtoWithContents(sf.getFolder(), userId))
                 .toList();
     }
+
     @Transactional(readOnly = true)
     public Optional<FolderDto> byShareCode(String code) {
         if (code == null || code.isBlank()) return Optional.empty();
-        return folders.findByShareCode(code.trim().toUpperCase())
+        return folders.findByShareCode(code.trim().toUpperCase(Locale.ROOT))
                 .map(folder -> toDtoWithContents(folder, folder.getOwnerId()));
     }
+
     @Transactional
     public Optional<FolderDto> generateShareCode(String id, String userId) {
         return folders.findById(id)
@@ -143,28 +153,31 @@ public class FolderService {
             return false;
         }
 
-        // Recursively delete all contents (true file-system behavior).
-        // JPA CascadeType.ALL + orphanRemoval on Folder handles:
-        //   - subfolders (recursive), documents, sharedWith entries
-        // We explicitly recurse to ensure deeply nested content is cleaned up
-        // even when the JPA managed collection isn't fully loaded.
+        // Clean up direct shares on this folder first
+        sharedFolders.deleteByFolderId(folderId);
+
+        // Recursively delete all contents and their associated shares
         deleteContentsRecursively(folderId);
 
         folders.delete(folder);
         return true;
     }
 
-    /** Recursively delete all documents and subfolders inside a folder */
+    /** Recursively delete all documents, subfolders, and associated shares inside a folder */
     private void deleteContentsRecursively(String parentFolderId) {
-        // Delete documents directly inside this folder
+        // Delete documents directly inside this folder and their shares
         var docsInside = documents.findByFolderIdOrderByUpdatedAtDesc(parentFolderId);
         if (!docsInside.isEmpty()) {
+            for (var doc : docsInside) {
+                sharedDocuments.deleteByDocumentId(doc.getId());
+            }
             documents.deleteAll(docsInside);
         }
 
-        // Recurse into child subfolders, then delete them
+        // Recurse into child subfolders, clean their shares, then delete them
         var childFolders = folders.findByParentFolderIdOrderByUpdatedAtDesc(parentFolderId);
         for (var child : childFolders) {
+            sharedFolders.deleteByFolderId(child.getId());
             deleteContentsRecursively(child.getId());
             folders.delete(child);
         }
@@ -240,7 +253,8 @@ public class FolderService {
     }
 
     public boolean addFolderShare(String shareCode, String userId) {
-        var folderOpt = folders.findByShareCode(shareCode.trim().toUpperCase());
+        if (shareCode == null || shareCode.isBlank()) return false;
+        var folderOpt = folders.findByShareCode(shareCode.trim().toUpperCase(Locale.ROOT));
         if (folderOpt.isEmpty()) return false;
         var folder = folderOpt.get();
 
@@ -271,8 +285,9 @@ public class FolderService {
     @Transactional(readOnly = true)
     public List<FolderPathNode> buildFolderPath(String folderId) {
         var path = new java.util.ArrayList<FolderPathNode>();
+        var visited = new java.util.HashSet<String>();
         String currentId = folderId;
-        while (currentId != null) {
+        while (currentId != null && visited.add(currentId)) {
             var folderOpt = folders.findById(currentId);
             if (folderOpt.isEmpty()) break;
             var folder = folderOpt.get();

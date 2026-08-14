@@ -37,9 +37,12 @@ public class AuthService {
         var user = new ApplicationUser();
         user.setId(UUID.randomUUID().toString());
         user.setEmail(email);
-        user.setUserName(email);
+        String preferredUserName = request.firstName() != null && !request.firstName().isBlank()
+                ? request.firstName().trim()
+                : email;
+        user.setUserName(preferredUserName);
         user.setNormalizedEmail(normalized);
-        user.setNormalizedUserName(normalized);
+        user.setNormalizedUserName(preferredUserName.toUpperCase(Locale.ROOT));
         user.setPasswordHash(passwords.hash(request.password()));
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
@@ -57,8 +60,14 @@ public class AuthService {
         var user = users.findByNormalizedEmail(key).or(() -> users.findByNormalizedUserName(key));
         if (user.isEmpty()) return failure("Invalid credentials.");
         var account = user.get();
-        if (account.getLockoutEnd() != null && account.getLockoutEnd().isAfter(Instant.now()))
-            return failure("Account is locked out. Please try again later.");
+        if (account.getLockoutEnd() != null) {
+            if (account.getLockoutEnd().isAfter(Instant.now())) {
+                return failure("Account is locked out. Please try again later.");
+            } else {
+                account.setLockoutEnd(null);
+                account.setAccessFailedCount(0);
+            }
+        }
         if (!passwords.matches(request.password(), account.getPasswordHash())) {
             if (account.isLockoutEnabled()) {
                 account.setAccessFailedCount(account.getAccessFailedCount() + 1);
@@ -91,7 +100,9 @@ public class AuthService {
     }
 
     private boolean validPassword(String password) {
-        return password.chars().anyMatch(Character::isDigit)
+        return password != null
+                && password.length() >= 6
+                && password.chars().anyMatch(Character::isDigit)
                 && password.chars().anyMatch(Character::isLowerCase)
                 && password.chars().anyMatch(Character::isUpperCase);
     }
