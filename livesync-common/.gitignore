@@ -1,8 +1,0 @@
-# Generated protobuf / gRPC code
-/gen/
-/dist/
-__pycache__/
-
-# IDEs
-.idea/
-.vscode/
