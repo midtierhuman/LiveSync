@@ -17,25 +17,28 @@ class Settings(BaseSettings):
 
     # Registered Local Models List
     local_llm_models: list[str] = [
+        "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
         "Qwen2.5-Coder-14B-Instruct-Q4_K_M",
+        "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
         "Qwen2.5-Coder-7B-Instruct-Q4_K_M",
+        "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
         "Qwen2.5-Coder-32B-Instruct-Q4_K_M",
         "llama-3.2-3b-instruct",
         "deepseek-r1-distill-qwen-14b",
     ]
 
     # Active Model Selection (Uncomment the active model to switch)
-    # local_llm_model: str = "Qwen2.5-Coder-7B-Instruct-Q4_K_M"
-    # local_llm_model: str = "Qwen2.5-Coder-32B-Instruct-Q4_K_M"
-    # local_llm_model: str = "deepseek-r1-distill-qwen-14b"
-    # ACTIVE MODEL IN WORK:
-    local_llm_model: str = "Qwen2.5-Coder-14B-Instruct-Q4_K_M"
+    local_llm_model: str = "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
+
+    # Primary Provider Preference ("gemini", "local", "groq", "ast")
+    default_ai_provider: str = "gemini"
 
     # Provider Fallback Control Flags
-    # Set to False to strictly isolate and test the Local LLM without cloud fallbacks.
-    enable_gemini_fallback: bool = False
+    # Set to True so cloud and local providers automatically handle requests.
+    enable_gemini_fallback: bool = True
+    enable_local_llm_fallback: bool = True
     enable_groq_fallback: bool = False
-    enable_ast_fallback: bool = False
+    enable_ast_fallback: bool = True
 
     # -------------------------------------------------------------------------
     # CLOUD AI PROVIDERS (Endpoints & Settings)
@@ -44,10 +47,10 @@ class Settings(BaseSettings):
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/models"
     gemini_models: list[str] = [
         "gemini-3.5-flash",
+        "gemini-flash-latest",
         "gemini-3-flash-preview",
         "gemini-3.1-flash-lite",
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
+        "gemini-2.5-flash",
         "gemini-flash-lite-latest",
     ]
 

@@ -85,15 +85,19 @@ func (h *AIHandler) AnalyzeCode(w http.ResponseWriter, r *http.Request) {
 func (h *AIHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	models := []string{
+		"gemini-3.5-flash",
+		"gemini-flash-latest",
+		"gemini-3-flash-preview",
+		"gemini-3.1-flash-lite",
+		"gemini-2.5-flash",
+		"Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
 		"Qwen2.5-Coder-14B-Instruct-Q4_K_M",
 		"Qwen2.5-Coder-7B-Instruct-Q4_K_M",
-		"Qwen2.5-Coder-32B-Instruct-Q4_K_M",
-		"llama-3.2-3b-instruct",
 		"deepseek-r1-distill-qwen-14b",
 	}
 
 	res := map[string]interface{}{
-		"activeModel":     h.cfg.LocalLLMModel,
+		"activeModel":     "gemini-3.5-flash",
 		"availableModels": models,
 	}
 

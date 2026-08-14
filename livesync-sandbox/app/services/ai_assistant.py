@@ -5,7 +5,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from app.config import settings
 from app.services.complexity_analyzer import complexity_analyzer
 
@@ -33,20 +33,28 @@ class AiAssistantService:
         lang = (language or "python").lower().strip()
         act = (action or "explain").lower().strip()
 
-        # 1. Primary Provider: Local LLM API (llama.cpp / OpenAI-compatible local server)
-        local_res = self._call_local_llm_api(act, lang, code, custom_prompt, model=model)
-        if local_res:
-            return local_res
+        # 1. Primary Provider Check: Gemini API (Preferred when GEMINI_API_KEY is available or requested)
+        api_key = user_api_key or settings.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        prefer_gemini = getattr(settings, "default_ai_provider", "gemini") == "gemini" or (model and "gemini" in model.lower())
 
-        # 2. Check for Gemini API (Only if enable_gemini_fallback is True)
-        if settings.enable_gemini_fallback:
-            api_key = user_api_key or settings.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-            if api_key:
-                llm_res = self._call_gemini_api(act, lang, code, api_key, custom_prompt)
-                if llm_res:
-                    return llm_res
+        if prefer_gemini and settings.enable_gemini_fallback and api_key:
+            gemini_res = self._call_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
+            if gemini_res:
+                return gemini_res
 
-        # 3. Check for Groq API (Only if enable_groq_fallback is True)
+        # 2. Local LLM API (llama.cpp / OpenAI-compatible local server)
+        if getattr(settings, "enable_local_llm_fallback", True):
+            local_res = self._call_local_llm_api(act, lang, code, custom_prompt, model=model)
+            if local_res:
+                return local_res
+
+        # 3. Secondary Gemini Call (if Local LLM was tried first but failed)
+        if not prefer_gemini and settings.enable_gemini_fallback and api_key:
+            gemini_res = self._call_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
+            if gemini_res:
+                return gemini_res
+
+        # 4. Check for Groq API (Only if enable_groq_fallback is True)
         if settings.enable_groq_fallback:
             groq_key = os.environ.get("GROQ_API_KEY") or settings.groq_api_key
             if groq_key:
@@ -54,7 +62,7 @@ class AiAssistantService:
                 if llm_res:
                     return llm_res
 
-        # 4. Fast CPU AST Structural Analyzer (Only if enable_ast_fallback is True)
+        # 5. Fast CPU AST Structural Analyzer (Only if enable_ast_fallback is True)
         if settings.enable_ast_fallback:
             if act in ("complexity", "bigo"):
                 comp = complexity_analyzer.analyze(lang, code)
@@ -81,17 +89,17 @@ class AiAssistantService:
             else:
                 return self._explain_code(lang, code)
 
-        # Explicit failure result when Local LLM fails and fallbacks are disabled
+        # Explicit failure result when primary providers fail and fallbacks are disabled
         return AiAnalysisResult(
             action=act,
             language=lang,
-            explanation=f"⚠️ **Local LLM Error**: Unable to reach local LLM server at `{settings.local_llm_url}`. Cloud and CPU fallbacks are disabled.",
+            explanation="⚠️ **AI Service Unavailable**: Unable to reach Google Gemini API or Local LLM server.",
             suggestions=[
-                f"Ensure your local LLM server is running on {settings.local_llm_url}.",
-                "If running in Docker, start llama-server with --host 0.0.0.0."
+                "Verify your GEMINI_API_KEY in .env configuration.",
+                "Ensure local LLM or internet connectivity is active."
             ],
             generated_code=None,
-            provider="Local LLM (Offline)",
+            provider="AI Assistant Engine (Offline)",
         )
 
     def _build_user_instruction(self, action: str, custom_prompt: str | None) -> str:
@@ -120,31 +128,43 @@ class AiAssistantService:
         env_url = os.environ.get("LOCAL_LLM_URL")
         if env_url and env_url.rstrip("/") not in urls_to_try:
             urls_to_try.append(env_url.rstrip("/"))
-        
-        default_urls = ["http://127.0.0.1:8080", "http://host.docker.internal:8080", "http://localhost:8080"]
+
+        # Try popular local LLM ports (8080: llama.cpp, 11434: Ollama, 1234: LM Studio)
+        default_urls = [
+            "http://127.0.0.1:8080",
+            "http://localhost:8080",
+            "http://host.docker.internal:8080",
+            "http://127.0.0.1:11434",
+            "http://localhost:11434",
+            "http://host.docker.internal:11434",
+            "http://127.0.0.1:1234",
+            "http://localhost:1234",
+            "http://host.docker.internal:1234",
+        ]
         for d_url in default_urls:
             if d_url not in urls_to_try:
                 urls_to_try.append(d_url)
 
         user_instruction = self._build_user_instruction(action, custom_prompt)
 
-        target_model = model or os.environ.get("LOCAL_LLM_MODEL") or settings.local_llm_model
-        if not target_model and settings.local_llm_models:
-            target_model = settings.local_llm_models[0]
+        # Attempt to auto-discover active model from /v1/models endpoint
+        discovered_model: str | None = None
+        working_base_url: str | None = None
 
-        if not target_model:
-            # Fallback auto-discovery from llama-server /v1/models endpoint if no model is set
-            for base_url in urls_to_try:
-                try:
-                    models_req = urllib.request.Request(f"{base_url}/v1/models")
-                    with urllib.request.urlopen(models_req, timeout=3) as m_resp:
-                        m_data = json.loads(m_resp.read().decode("utf-8"))
-                        if m_data.get("data") and len(m_data["data"]) > 0:
-                            target_model = m_data["data"][0].get("id")
-                            if target_model:
-                                break
-                except Exception:
-                    pass
+        for base_url in urls_to_try:
+            try:
+                models_req = urllib.request.Request(f"{base_url}/v1/models")
+                with urllib.request.urlopen(models_req, timeout=2) as m_resp:
+                    m_data = json.loads(m_resp.read().decode("utf-8"))
+                    if m_data.get("data") and len(m_data["data"]) > 0:
+                        discovered_model = m_data["data"][0].get("id")
+                        working_base_url = base_url
+                        logger.info(f"Auto-discovered local LLM model '{discovered_model}' on {base_url}")
+                        break
+            except Exception:
+                pass
+
+        target_model = model or discovered_model or os.environ.get("LOCAL_LLM_MODEL") or settings.local_llm_model
 
         prompt_text = f"""You are an expert AI software engineer pair programming assistant.
 {user_instruction}
@@ -159,34 +179,41 @@ Respond strictly with a JSON object containing:
 - "suggestions": list of strings
 - "generated_code": string or null (refactored code or generated code if requested)
 """
-        payload_dict = {
-            "messages": [
-                {"role": "system", "content": "You are a helpful AI coding assistant. Output strictly valid JSON."},
-                {"role": "user", "content": prompt_text}
-            ],
-            "temperature": 0.2,
-            "top_p": 0.95,
-            "max_tokens": 600,
-            "stream": False,
-        }
-        if target_model:
-            payload_dict["model"] = target_model
 
         endpoint_path = settings.local_llm_chat_endpoint
-        for base_url in urls_to_try:
+        candidate_urls = [working_base_url] if working_base_url else urls_to_try
+
+        for base_url in candidate_urls:
+            if not base_url:
+                continue
             endpoint = f"{base_url}{endpoint_path}"
 
-            # Attempt with response_format first, then fallback without response_format if HTTP 400 occurs
-            payloads_to_attempt = [
-                {**payload_dict, "response_format": {"type": "json_object"}},
-                payload_dict
-            ]
+            # Prepare candidate payloads (with/without model, with/without response_format)
+            payload_variants: list[dict[str, Any]] = []
 
-            for p_dict in payloads_to_attempt:
+            base_payload: dict[str, Any] = {
+                "messages": [
+                    {"role": "system", "content": "You are a helpful AI coding assistant. Output strictly valid JSON."},
+                    {"role": "user", "content": prompt_text}
+                ],
+                "temperature": 0.2,
+                "top_p": 0.95,
+                "max_tokens": 600,
+                "stream": False,
+            }
+
+            if target_model:
+                payload_variants.append({**base_payload, "model": target_model, "response_format": {"type": "json_object"}})
+                payload_variants.append({**base_payload, "model": target_model})
+            
+            payload_variants.append({**base_payload, "response_format": {"type": "json_object"}})
+            payload_variants.append(base_payload)
+
+            for p_dict in payload_variants:
                 payload = json.dumps(p_dict).encode("utf-8")
                 req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type": "application/json"})
                 try:
-                    with urllib.request.urlopen(req, timeout=12) as resp:
+                    with urllib.request.urlopen(req, timeout=15) as resp:
                         data = json.loads(resp.read().decode("utf-8"))
                         choices = data.get("choices")
                         if not choices:
@@ -201,7 +228,6 @@ Respond strictly with a JSON object containing:
                                 lines = lines[:-1]
                             content = "\n".join(lines).strip()
 
-                        # Robust parsing: Default explanation to full content if not valid JSON
                         explanation_str = content
                         suggestions_list = []
                         generated_code_str = None
@@ -209,26 +235,8 @@ Respond strictly with a JSON object containing:
                         try:
                             res_json = json.loads(content)
                             if isinstance(res_json, dict):
-                                explanation_raw = res_json.get("explanation")
-                                if isinstance(explanation_raw, dict):
-                                    explanation_str = "### 💡 Local AI Code Analysis\n\n"
-                                    for k, v in explanation_raw.items():
-                                        if isinstance(v, dict):
-                                            explanation_str += f"#### {k.capitalize()}\n"
-                                            for sub_k, sub_v in v.items():
-                                                explanation_str += f"- **{sub_k}**: {sub_v}\n"
-                                        else:
-                                            explanation_str += f"- **{k.capitalize()}**: {v}\n"
-                                elif isinstance(explanation_raw, list):
-                                    explanation_str = "\n".join(f"- {item}" for item in explanation_raw)
-                                elif explanation_raw:
-                                    explanation_str = str(explanation_raw)
-
-                                suggestions_raw = res_json.get("suggestions")
-                                if isinstance(suggestions_raw, list):
-                                    suggestions_list = [str(s) for s in suggestions_raw]
-                                elif isinstance(suggestions_raw, str):
-                                    suggestions_list = [suggestions_raw]
+                                explanation_str = self._parse_explanation_content(res_json.get("explanation", content))
+                                suggestions_list = self._parse_suggestions_content(res_json.get("suggestions"))
 
                                 generated_code_raw = res_json.get("generated_code") or res_json.get("generatedCode") or res_json.get("code")
                                 if isinstance(generated_code_raw, dict):
@@ -236,10 +244,10 @@ Respond strictly with a JSON object containing:
                                 elif generated_code_raw:
                                     generated_code_str = str(generated_code_raw)
                         except Exception:
-                            # Content is plain markdown or text; explanation_str is already content
                             pass
 
-                        provider_name = f"Local LLM ({target_model})" if target_model else "Local LLM (llama.cpp)"
+                        used_model = p_dict.get("model") or target_model or "local"
+                        provider_name = f"Local LLM ({used_model})"
 
                         return AiAnalysisResult(
                             action=action,
@@ -251,18 +259,68 @@ Respond strictly with a JSON object containing:
                         )
                 except urllib.error.HTTPError as http_err:
                     logger.warning(f"Local LLM HTTP Error {http_err.code} for {endpoint}: {http_err.reason}")
-                    if http_err.code == 400 and "response_format" in p_dict:
-                        # Retry without response_format field
-                        continue
-                    break
+                    continue
                 except Exception as ex:
                     logger.warning(f"Local LLM connection error for {endpoint}: {ex}")
                     break
 
         return None
 
-    def _call_gemini_api(self, action: str, language: str, code: str, api_key: str, custom_prompt: str | None = None) -> AiAnalysisResult | None:
-        models = settings.gemini_models
+    def _parse_explanation_content(self, explanation_raw: Any) -> str:
+        if isinstance(explanation_raw, str):
+            cleaned = explanation_raw.strip()
+            if (cleaned.startswith("{") and cleaned.endswith("}")) or (cleaned.startswith("[") and cleaned.endswith("]")):
+                try:
+                    nested = json.loads(cleaned)
+                    return self._parse_explanation_content(nested)
+                except Exception:
+                    pass
+            return cleaned
+
+        if isinstance(explanation_raw, dict):
+            if "explanation" in explanation_raw:
+                return self._parse_explanation_content(explanation_raw["explanation"])
+            explanation_str = "### 💡 AI Code Analysis\n\n"
+            for k, v in explanation_raw.items():
+                if isinstance(v, dict):
+                    explanation_str += f"#### {k.capitalize()}\n"
+                    for sub_k, sub_v in v.items():
+                        explanation_str += f"- **{sub_k}**: {sub_v}\n"
+                elif isinstance(v, list):
+                    explanation_str += f"#### {k.capitalize()}\n" + "\n".join(f"- {item}" for item in v) + "\n"
+                else:
+                    explanation_str += f"- **{k.capitalize()}**: {v}\n"
+            return explanation_str
+
+        if isinstance(explanation_raw, list):
+            return "\n".join(f"- {item}" for item in explanation_raw)
+
+        return str(explanation_raw or "AI analysis complete.")
+
+    def _parse_suggestions_content(self, suggestions_raw: Any) -> list[str]:
+        if isinstance(suggestions_raw, str):
+            cleaned = suggestions_raw.strip()
+            if cleaned.startswith("[") and cleaned.endswith("]"):
+                try:
+                    nested = json.loads(cleaned)
+                    return self._parse_suggestions_content(nested)
+                except Exception:
+                    pass
+            return [cleaned] if cleaned else []
+
+        if isinstance(suggestions_raw, list):
+            return [str(s) for s in suggestions_raw]
+
+        return []
+
+    def _call_gemini_api(self, action: str, language: str, code: str, api_key: str, custom_prompt: str | None = None, model: str | None = None) -> AiAnalysisResult | None:
+        models = list(settings.gemini_models)
+        if model and model not in models:
+            models.insert(0, model)
+        elif model and model in models:
+            models.remove(model)
+            models.insert(0, model)
+
         user_instruction = self._build_user_instruction(action, custom_prompt)
 
         prompt_text = f"""You are an expert AI software engineer pair programming assistant.
@@ -284,37 +342,17 @@ Respond strictly with a JSON object containing:
         }).encode("utf-8")
 
         base_url = settings.gemini_base_url.rstrip("/")
-        for model in models:
-            url = f"{base_url}/{model}:generateContent?key={api_key}"
+        for m in models:
+            url = f"{base_url}/{m}:generateContent?key={api_key}"
             req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
             try:
-                with urllib.request.urlopen(req, timeout=8) as resp:
+                with urllib.request.urlopen(req, timeout=12) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     text = data["candidates"][0]["content"]["parts"][0]["text"]
                     res_json = json.loads(text)
 
-                    explanation_raw = res_json.get("explanation")
-                    if isinstance(explanation_raw, dict):
-                        explanation_str = "### 💡 AI Code Analysis\n\n"
-                        for k, v in explanation_raw.items():
-                            if isinstance(v, dict):
-                                explanation_str += f"#### {k.capitalize()}\n"
-                                for sub_k, sub_v in v.items():
-                                    explanation_str += f"- **{sub_k}**: {sub_v}\n"
-                            else:
-                                explanation_str += f"- **{k.capitalize()}**: {v}\n"
-                    elif isinstance(explanation_raw, list):
-                        explanation_str = "\n".join(f"- {item}" for item in explanation_raw)
-                    else:
-                        explanation_str = str(explanation_raw or "AI analysis complete.")
-
-                    suggestions_raw = res_json.get("suggestions")
-                    if isinstance(suggestions_raw, list):
-                        suggestions_list = [str(s) for s in suggestions_raw]
-                    elif isinstance(suggestions_raw, str):
-                        suggestions_list = [suggestions_raw]
-                    else:
-                        suggestions_list = []
+                    explanation_str = self._parse_explanation_content(res_json.get("explanation"))
+                    suggestions_list = self._parse_suggestions_content(res_json.get("suggestions"))
 
                     generated_code_raw = res_json.get("generated_code") or res_json.get("generatedCode") or res_json.get("code")
                     if isinstance(generated_code_raw, dict):
@@ -330,14 +368,14 @@ Respond strictly with a JSON object containing:
                         explanation=explanation_str,
                         suggestions=suggestions_list,
                         generated_code=generated_code_str,
-                        provider=f"Google Gemini API ({model})"
+                        provider=f"Google Gemini API ({m})"
                     )
             except urllib.error.HTTPError as http_err:
                 if http_err.code == 429:
                     continue
-                print(f"Gemini API HTTP Error {http_err.code} ({model}): {http_err.reason}")
+                logger.warning(f"Gemini API HTTP Error {http_err.code} ({m}): {http_err.reason}")
             except Exception as ex:
-                print(f"Gemini API Error ({model}):", ex)
+                logger.warning(f"Gemini API Error ({m}): {ex}")
 
         return None
 
