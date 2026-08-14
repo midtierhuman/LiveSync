@@ -43,24 +43,23 @@ User B at time 1: Inserts "world" at position 0  →  Doc: "world"  (A's edit lo
 The `ConflictResolver.TransformAgainstConcurrent(op1, op2)` method handles all 4 operation combinations:
 
 **Insert vs Insert** (same position):
-- Use Operation ID for tie-breaking (lexicographic ordering)
-- If concurrent insert has lower ID, it "wins" and shifts our insert right
-- Ensures deterministic behavior across all replicas
+- Use Operation ID (`clock` + `siteId`) for deterministic tie-breaking.
+- If concurrent insert has lower ID, it takes the left position, shifting base insert right.
+- Ensures identical converged text across all replicas.
 
 **Insert vs Delete**:
-- If delete removes our insert position, shift insert to delete start
-- If delete is before our insert, shift insert left by deletion length
-- If delete is after our insert, no change
+- If insert position is $\le$ delete start: insert is unaffected.
+- If insert position is $>$ delete end: shift insert left by deletion length.
+- If insert position is inside the deleted span: collapses to delete start with empty string (prevents divergence with concurrent delete expansion).
 
 **Delete vs Insert**:
-- If insert is before our deletion, shift deletion right
-- If insert is within our deletion, extend deletion length
-- If insert is after our deletion, no change
+- If insert position is $\le$ delete start: shift delete position right by insert length.
+- If insert position is $\ge$ delete end: delete is unaffected.
+- If insert position is strictly within the deletion span: extend deletion length to consume concurrent insert.
 
 **Delete vs Delete**:
-- Calculate overlap between deletions
-- Adjust position and length to account for deletions already applied
-- Preserve the intent: "delete these N characters starting here"
+- If disjoint: shift position if after concurrent deletion, otherwise unaffected.
+- If overlapping: compute exact overlap span $\max(0, \min(\text{baseEnd}, \text{concurrentEnd}) - \max(\text{baseStart}, \text{concurrentStart}))$, adjust remainder length, and shift start position deterministically.
 
 #### Determinism
 

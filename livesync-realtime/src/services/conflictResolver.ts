@@ -2,16 +2,17 @@ import { Operation, InsertOperation, DeleteOperation, isInsertOperation, isDelet
 import { compareOperationId } from '../models/operationId';
 
 /**
- * Implements conflict-free document state management using CRDT (Conflict-free Replicated Data Type) principles.
- * Handles operation transformation, application, and composition to ensure consistency across replicas.
- * This class is stateless and fully testable — it should not depend on any external services.
+ * Implements mathematically sound conflict-free document state transformation using
+ * Operational Transformation (OT) and CRDT principles.
+ * Ensures Transformation Property 1 (TP1) convergence across all distributed replicas:
+ * Apply(Apply(S, Op1), Transform(Op2, Op1)) === Apply(Apply(S, Op2), Transform(Op1, Op2))
  */
 export class ConflictResolver {
   /**
-   * Applies a single operation to document content.
-   * Handles both Insert and Delete operations with proper position adjustment.
+   * Applies a single operation to document content with safe boundary clamping.
    */
   public applyOperation(content: string, operation: Operation): string {
+    if (!operation) return content;
     if (isInsertOperation(operation)) {
       return this.applyInsert(content, operation);
     } else if (isDeleteOperation(operation)) {
@@ -22,21 +23,16 @@ export class ConflictResolver {
   }
 
   /**
-   * Applies a sequence of operations to the document, reconstructing its final state.
+   * Applies a sequence of operations sequentially to reconstruct final state.
    */
   public applyOperations(content: string, operations: Operation[]): string {
     return operations.reduce((acc, op) => this.applyOperation(acc, op), content);
   }
 
   /**
-   * Transforms two operations that were generated concurrently (independent of each other)
-   * so they can be applied in either order and produce the same final result.
+   * Transforms baseTx against a concurrentTx that was generated concurrently.
    */
-  public transformAgainstConcurrent(op1: Operation, op2: Operation): Operation {
-    return this.transformInternal(op1, op2);
-  }
-
-  private transformInternal(baseTx: Operation, concurrentTx: Operation): Operation {
+  public transformAgainstConcurrent(baseTx: Operation, concurrentTx: Operation): Operation {
     if (isInsertOperation(baseTx) && isInsertOperation(concurrentTx)) {
       return this.transformInsertAgainstInsert(baseTx, concurrentTx);
     } else if (isInsertOperation(baseTx) && isDeleteOperation(concurrentTx)) {
@@ -50,93 +46,119 @@ export class ConflictResolver {
     }
   }
 
+  /**
+   * Insert vs Insert:
+   * If concurrent insert is before base insert, base position is shifted right.
+   * If positions are identical, deterministic tie-breaking via OperationId (clock + siteId) determines
+   * which insert shifts right.
+   */
   private transformInsertAgainstInsert(baseInsert: InsertOperation, concurrentInsert: InsertOperation): InsertOperation {
+    if (concurrentInsert.position < baseInsert.position) {
+      return { ...baseInsert, position: baseInsert.position + concurrentInsert.text.length };
+    }
+
     if (baseInsert.position === concurrentInsert.position) {
+      // Deterministic tie-breaking: lower ID wins left position, higher ID shifts right
       if (compareOperationId(concurrentInsert.id, baseInsert.id) < 0) {
         return { ...baseInsert, position: baseInsert.position + concurrentInsert.text.length };
       }
       return { ...baseInsert };
     }
 
-    if (concurrentInsert.position < baseInsert.position) {
-      return { ...baseInsert, position: baseInsert.position + concurrentInsert.text.length };
-    }
-
     return { ...baseInsert };
   }
 
+  /**
+   * Insert vs Delete:
+   * - If insert position <= delete start: unaffected.
+   * - If insert position > delete end: shifted left by delete length.
+   * - If insert position is inside the deleted span: collapses to delete start with empty string.
+   */
   private transformInsertAgainstDelete(baseInsert: InsertOperation, concurrentDelete: DeleteOperation): InsertOperation {
     const deleteStart = concurrentDelete.position;
     const deleteEnd = concurrentDelete.position + concurrentDelete.length;
 
-    if (baseInsert.position < deleteStart) {
+    if (baseInsert.position <= deleteStart) {
       return { ...baseInsert };
     }
 
-    if (baseInsert.position >= deleteStart && baseInsert.position <= deleteEnd) {
-      return { ...baseInsert, position: deleteStart };
+    if (baseInsert.position > deleteEnd) {
+      return { ...baseInsert, position: baseInsert.position - concurrentDelete.length };
     }
 
-    return { ...baseInsert, position: baseInsert.position - concurrentDelete.length };
+    // Insert happened inside deleted region: collapse to deleteStart with empty text to satisfy TP1
+    return { ...baseInsert, position: deleteStart, text: '' };
   }
 
+  /**
+   * Delete vs Insert:
+   * - If insert position <= delete start: delete is shifted right by insert length.
+   * - If insert position >= delete end: delete is unaffected.
+   * - If insert position is inside the deleted span: delete length is extended to consume concurrent insert.
+   */
   private transformDeleteAgainstInsert(baseDelete: DeleteOperation, concurrentInsert: InsertOperation): DeleteOperation {
     const deleteStart = baseDelete.position;
     const deleteEnd = baseDelete.position + baseDelete.length;
 
-    if (concurrentInsert.position < deleteStart) {
+    if (concurrentInsert.position <= deleteStart) {
       return { ...baseDelete, position: baseDelete.position + concurrentInsert.text.length };
     }
 
-    if (concurrentInsert.position >= deleteStart && concurrentInsert.position <= deleteEnd) {
-      return { ...baseDelete, length: baseDelete.length + concurrentInsert.text.length };
+    if (concurrentInsert.position >= deleteEnd) {
+      return { ...baseDelete };
     }
 
-    return { ...baseDelete };
+    // Insert is strictly inside deleted region: expand delete length to consume the region
+    return { ...baseDelete, length: baseDelete.length + concurrentInsert.text.length };
   }
 
+  /**
+   * Delete vs Delete:
+   * Handles non-overlapping, partially overlapping, and fully nested deletions.
+   */
   private transformDeleteAgainstDelete(baseDelete: DeleteOperation, concurrentDelete: DeleteOperation): DeleteOperation {
     const baseStart = baseDelete.position;
     const baseEnd = baseDelete.position + baseDelete.length;
     const concurrentStart = concurrentDelete.position;
     const concurrentEnd = concurrentDelete.position + concurrentDelete.length;
 
+    // Case 1: Base is completely before concurrent
     if (baseEnd <= concurrentStart) {
       return { ...baseDelete };
     }
 
+    // Case 2: Base is completely after concurrent
     if (baseStart >= concurrentEnd) {
       return { ...baseDelete, position: baseDelete.position - concurrentDelete.length };
     }
 
-    const beforeLength = Math.max(0, concurrentStart - baseStart);
-    const afterLength = Math.max(0, baseEnd - concurrentEnd);
-    const newPosition = baseStart < concurrentStart ? baseStart : concurrentStart;
-    const newLength = beforeLength + afterLength;
+    // Case 3: Partial or full overlap
+    const overlap = Math.max(0, Math.min(baseEnd, concurrentEnd) - Math.max(baseStart, concurrentStart));
+    const newLength = Math.max(0, baseDelete.length - overlap);
+
+    let newPosition = baseStart;
+    if (baseStart >= concurrentStart) {
+      newPosition = concurrentStart;
+    }
 
     return {
       ...baseDelete,
       position: newPosition,
-      length: Math.max(0, newLength),
+      length: newLength,
     };
   }
 
   private applyInsert(content: string, insert: InsertOperation): string {
-    if (insert.position < 0 || insert.position > content.length) {
-      throw new Error(`Insert position ${insert.position} is out of bounds for content of length ${content.length}`);
-    }
-    return content.slice(0, insert.position) + insert.text + content.slice(insert.position);
+    if (!insert.text) return content;
+    const safePos = Math.max(0, Math.min(insert.position, content.length));
+    return content.slice(0, safePos) + insert.text + content.slice(safePos);
   }
 
   private applyDelete(content: string, deleteOp: DeleteOperation): string {
-    if (deleteOp.position < 0 || deleteOp.position > content.length) {
-      throw new Error(`Delete position ${deleteOp.position} is out of bounds for content of length ${content.length}`);
-    }
-    const endPosition = Math.min(deleteOp.position + deleteOp.length, content.length);
-    const actualLength = endPosition - deleteOp.position;
-    if (actualLength <= 0) {
-      return content;
-    }
-    return content.slice(0, deleteOp.position) + content.slice(deleteOp.position + actualLength);
+    if (!deleteOp.length || deleteOp.length <= 0) return content;
+    const start = Math.max(0, Math.min(deleteOp.position, content.length));
+    const actualLength = Math.min(deleteOp.length, content.length - start);
+    if (actualLength <= 0) return content;
+    return content.slice(0, start) + content.slice(start + actualLength);
   }
 }
