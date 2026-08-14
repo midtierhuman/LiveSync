@@ -17,3 +17,4 @@ docker_compose.bat
 .vscode
 screenshots
 pending_task.txt
+*.exe
