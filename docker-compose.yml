@@ -127,7 +127,6 @@ services:
       - sandbox
     environment:
       - PORT=8081
-      - LIVESYNC_SANDBOX_BASE_URL=http://sandbox:8080
       - LIVESYNC_SANDBOX_GRPC_URL=sandbox:50051
       - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8080}
       - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-Qwen2.5-Coder-14B-Instruct-Q4_K_M}

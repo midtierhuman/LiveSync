@@ -28,6 +28,6 @@ COPY . .
 RUN useradd --create-home --uid 10001 sandbox && chown -R sandbox:sandbox /app
 USER sandbox
 
-EXPOSE 8080 50051
+EXPOSE 50051
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "app.main"]

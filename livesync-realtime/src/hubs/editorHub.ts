@@ -23,7 +23,8 @@ export class EditorHub {
     // Handler registrations supporting PascalCase, camelCase, and pub/sub subscribe/unsubscribe frames
     const joinHandler = (arg: any) => {
       const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || arg?.roomId || '');
-      return this.handleJoinDocument(socket, docId);
+      const initialContent = typeof arg === 'object' ? arg?.initialContent : undefined;
+      return this.handleJoinDocument(socket, docId, initialContent);
     };
     const leaveHandler = (arg: any) => {
       const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || arg?.roomId || '');
@@ -194,7 +195,7 @@ export class EditorHub {
           }
 
           this.removeDocumentToken(documentId, connectionId);
-          this.io.to(documentId).emit('UserLeft', connectionId, count);
+          this.io.to(documentId).emit('UserLeft', connectionId, count, documentId);
           await this.state.removeConnection(connectionId);
           swept++;
         }
@@ -220,7 +221,7 @@ export class EditorHub {
     return '';
   }
 
-  private async handleJoinDocument(socket: Socket, documentId: string): Promise<void> {
+  private async handleJoinDocument(socket: Socket, documentId: string, initialContent?: string): Promise<void> {
     try {
       if (!documentId || !documentId.trim()) {
         socket.emit('Error', 'A document id is required.');
@@ -250,7 +251,12 @@ export class EditorHub {
 
       console.log(`User ${socket.id} joined document ${documentId}. Active users: ${activeCount}`);
 
-      const currentContent = await this.state.getContent(documentId);
+      let currentContent = await this.state.getContent(documentId);
+      if ((currentContent === null || currentContent === undefined) && typeof initialContent === 'string' && initialContent.length > 0) {
+        await this.state.setContent(documentId, initialContent);
+        currentContent = initialContent;
+      }
+
       if (currentContent !== null && currentContent !== undefined) {
         socket.emit('ReceiveContentUpdate', { documentId, content: currentContent });
       }
@@ -332,7 +338,7 @@ export class EditorHub {
     let operation: Operation;
 
     if (typeof arg1 === 'object' && arg1 !== null && 'operation' in arg1) {
-      documentId = arg1.documentId;
+      documentId = arg1.documentId || arg1.fileId;
       operation = arg1.operation;
     } else {
       documentId = arg1;
@@ -479,6 +485,7 @@ export class EditorHub {
 
       const color = (await this.state.getColor(socket.id)) || '#2196F3';
       socket.to(documentId).emit('ReceiveCursorUpdate', {
+        documentId,
         userId: socket.id,
         position: payload.position ?? 0,
         lineNumber: payload.lineNumber ?? 1,
@@ -537,7 +544,7 @@ export class EditorHub {
           this.lastSavedContent.delete(documentId);
         }
 
-        this.io.to(documentId).emit('UserLeft', socket.id, count);
+        this.io.to(documentId).emit('UserLeft', socket.id, count, documentId);
         this.removeDocumentToken(documentId, socket.id);
       }
 

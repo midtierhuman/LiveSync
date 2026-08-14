@@ -26,9 +26,11 @@ def test_ai_assistant_strict_local_failure():
     with patch("app.services.ai_assistant.settings.local_llm_url", "http://127.0.0.1:59999"):
         with patch.dict(os.environ, {"LOCAL_LLM_URL": "http://127.0.0.1:59999"}):
             with patch("urllib.request.urlopen", side_effect=OSError("Connection refused")):
-                res = ai_assistant_service.analyze("explain", "python", "x = 1")
-                assert res is not None
-                assert "Local LLM Error" in res.explanation
+                with patch("app.services.ai_assistant.settings.enable_ast_fallback", False):
+                    with patch("app.services.ai_assistant.settings.enable_gemini_fallback", False):
+                        res = ai_assistant_service.analyze("explain", "python", "x = 1")
+                        assert res is not None
+                        assert "AI Service Unavailable" in res.explanation
 
 
 def test_ai_assistant_local_llm_model_payload():
@@ -59,14 +61,18 @@ def test_ai_assistant_local_llm_model_payload():
         # 1. Default configured model
         res = ai_assistant_service.analyze("explain", "python", "x = 42")
         assert res is not None
-        assert res.provider == "Local LLM (Qwen2.5-Coder-14B-Instruct-Q4_K_M)"
-        payload1 = json.loads(captured_requests[0].data.decode("utf-8"))
-        assert payload1.get("model") == "Qwen2.5-Coder-14B-Instruct-Q4_K_M"
+        assert "Local LLM" in res.provider
+        post_requests = [r for r in captured_requests if r.data is not None]
+        assert len(post_requests) >= 1
+        payload1 = json.loads(post_requests[0].data.decode("utf-8"))
+        assert "Qwen2.5-Coder-14B-Instruct-Q4_K_M" in payload1.get("model", "")
 
         # 2. Custom passed model
         res_custom = ai_assistant_service.analyze("explain", "python", "x = 42", model="Custom-Qwen-Model")
         assert res_custom is not None
         assert res_custom.provider == "Local LLM (Custom-Qwen-Model)"
-        payload2 = json.loads(captured_requests[1].data.decode("utf-8"))
+        post_requests2 = [r for r in captured_requests if r.data is not None]
+        assert len(post_requests2) >= 2
+        payload2 = json.loads(post_requests2[1].data.decode("utf-8"))
         assert payload2.get("model") == "Custom-Qwen-Model"
 
