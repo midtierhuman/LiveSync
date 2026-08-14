@@ -278,9 +278,27 @@ export class Editor implements OnInit {
     });
   }
 
+  readonly activeCollaborators = computed(() => {
+    const id = this.docId();
+    return id ? this.realtimeService.getOrCreateDocumentState(id).activeCollaborators() : [];
+  });
+
+  readonly comments = computed(() => {
+    const id = this.docId();
+    return id ? this.realtimeService.getOrCreateDocumentState(id).comments() : [];
+  });
+
+  readonly activeUserCount = computed(() => {
+    const id = this.docId();
+    return id ? this.realtimeService.getOrCreateDocumentState(id).activeUserCount() : 0;
+  });
+
   constructor() {
     effect(() => {
-      const newContent = this.realtimeService.contentUpdate();
+      const currentDocId = this.docId();
+      if (!currentDocId) return;
+      const state = this.realtimeService.getOrCreateDocumentState(currentDocId);
+      const newContent = state.contentUpdate();
       if (newContent) {
         this.codeSignal.set(newContent);
         this.updateEditorDocument(newContent);
@@ -288,7 +306,10 @@ export class Editor implements OnInit {
     });
 
     effect(() => {
-      const update = this.realtimeService.cursorUpdate();
+      const currentDocId = this.docId();
+      if (!currentDocId) return;
+      const state = this.realtimeService.getOrCreateDocumentState(currentDocId);
+      const update = state.cursorUpdate();
       const followedId = this.realtimeService.followedUserId();
 
       if (update && followedId && update.userId === followedId && this.editorView) {
@@ -614,14 +635,14 @@ export class Editor implements OnInit {
   followedUserName(): string {
     const id = this.realtimeService.followedUserId();
     if (!id) return '';
-    const collaborator = this.realtimeService.activeCollaborators().find((c) => c.userId === id);
+    const collaborator = this.activeCollaborators().find((c) => c.userId === id);
     return collaborator?.userName || collaborator?.userId || id;
   }
 
   followedLineNumber(): number {
     const id = this.realtimeService.followedUserId();
     if (!id) return 1;
-    const collaborator = this.realtimeService.activeCollaborators().find((c) => c.userId === id);
+    const collaborator = this.activeCollaborators().find((c) => c.userId === id);
     return collaborator?.lineNumber || 1;
   }
 
@@ -970,7 +991,15 @@ export class Editor implements OnInit {
       });
       this.lastSaved.set(new Date());
 
-      this.streamService.startExecution(this.selectedExecutionLanguage(), this.codeSignal());
+      this.streamService.startExecution(
+        this.selectedExecutionLanguage(),
+        this.codeSignal(),
+        120000,
+        80,
+        24,
+        undefined,
+        currentDocId,
+      );
       this.activeTerminalTab.set('repl');
     } catch (error: unknown) {
       this.executionError.set(this.getErrorMessage(error, 'Streaming execution setup failed.'));

@@ -1073,15 +1073,42 @@ export class Dashboard implements OnInit {
     }
   }
 
+  private findDocumentTitle(docId: string): string {
+    const ownDoc = this.myDocuments().find((doc) => doc.id === docId);
+    if (ownDoc?.title) return ownDoc.title;
+
+    const sharedDoc = this.sharedDocuments().find((doc) => doc.documentId === docId || doc.id === docId);
+    if (sharedDoc?.documentTitle) return sharedDoc.documentTitle;
+
+    for (const folderId in this.folderChildDocs()) {
+      const cached = this.folderChildDocs()[folderId]?.find((doc) => doc.id === docId);
+      if (cached?.title) return cached.title;
+    }
+
+    const searchFolders = (folders: FolderDto[]): string | null => {
+      for (const f of folders) {
+        const found = f.documents?.find((d) => d.id === docId);
+        if (found?.title) return found.title;
+        if (f.subfolders?.length) {
+          const subFound = searchFolders(f.subfolders);
+          if (subFound) return subFound;
+        }
+      }
+      return null;
+    };
+
+    const fromFolders = searchFolders(this.myFolders()) || searchFolders(this.sharedFolderTree());
+    if (fromFolders) return fromFolders;
+
+    return 'Untitled';
+  }
+
   openDocument(docId: string) {
     // Add tab if not already open
-    const existing = this.openTabs().find(t => t.id === docId);
+    const existing = this.openTabs().find((t) => t.id === docId);
     if (!existing) {
-      // Find the document title from all docs
-      const ownDoc = this.myDocuments().find((doc) => doc.id === docId);
-      const sharedDoc = this.sharedDocuments().find((doc) => doc.documentId === docId || doc.id === docId);
-      const title = ownDoc?.title || sharedDoc?.documentTitle || 'Untitled';
-      this.openTabs.update(tabs => [...tabs, { id: docId, title }]);
+      const title = this.findDocumentTitle(docId);
+      this.openTabs.update((tabs) => [...tabs, { id: docId, title }]);
     }
     this.activeTabId.set(docId);
   }
@@ -1092,12 +1119,12 @@ export class Dashboard implements OnInit {
 
   getSharedDocFolderPath(doc: SharedDocumentDto): string {
     if (!doc.folderPath || doc.folderPath.length === 0) return '';
-    return doc.folderPath.map(n => n.name).join(' / ') + ' / ';
+    return doc.folderPath.map((n) => n.name).join(' / ') + ' / ';
   }
 
   closeTab(tabId: string, event?: MouseEvent) {
     event?.stopPropagation();
-    this.openTabs.update(tabs => tabs.filter(t => t.id !== tabId));
+    this.openTabs.update((tabs) => tabs.filter((t) => t.id !== tabId));
     // If closing the active tab, switch to the last remaining tab or clear
     if (this.activeTabId() === tabId) {
       const remaining = this.openTabs();
@@ -1179,6 +1206,13 @@ export class Dashboard implements OnInit {
         doc.sharedWith = doc.sharedWith.filter((s) => s.userId !== userId);
         this.myDocuments.set([...this.myDocuments()]);
       }
+      const selected = this.selectedDocForShare();
+      if (selected && selected.id === docId) {
+        this.selectedDocForShare.set({
+          ...selected,
+          sharedWith: (selected.sharedWith || []).filter((s) => s.userId !== userId),
+        });
+      }
     } catch (error) {
       console.error('Error removing shared access:', error);
       alert('Failed to remove shared access');
@@ -1240,6 +1274,13 @@ export class Dashboard implements OnInit {
       }
       return updated;
     });
+
+    // 3. Close open editor tabs for deleted document
+    this.openTabs.update((tabs) => tabs.filter((t) => t.id !== docId));
+    if (this.activeTabId() === docId) {
+      const remaining = this.openTabs();
+      this.activeTabId.set(remaining.length > 0 ? remaining[remaining.length - 1].id : '');
+    }
 
     this.showDeleteConfirm.set(false);
     this.deleteDocId.set('');

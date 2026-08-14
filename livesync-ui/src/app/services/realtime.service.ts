@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, DestroyRef, inject, WritableSignal } from '@angular/core';
+import { Injectable, signal, computed, DestroyRef, inject, WritableSignal, effect } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { AuthService } from './auth.service';
 import { appEndpoints } from '../app-endpoints';
@@ -100,6 +100,15 @@ export class RealtimeService {
       this.disconnect();
     });
 
+    // Auto-disconnect and reset states if user logs out
+    effect(() => {
+      const isAuth = this.authService.isAuthenticated();
+      const token = this.authService.token();
+      if (!isAuth || !token) {
+        this.disconnect();
+      }
+    });
+
     const serverUrl = appEndpoints.realtimeBaseUrl || window.location.origin;
     this.socket = io(serverUrl, {
       autoConnect: false,
@@ -151,7 +160,7 @@ export class RealtimeService {
       let docId = this.currentDocumentId();
 
       if (typeof arg1 === 'object' && arg1 !== null) {
-        docId = arg1.documentId || docId;
+        docId = arg1.documentId || arg1.fileId || docId;
         connId = arg1.connectionId || '';
         count = arg1.count ?? 0;
       } else {
@@ -173,7 +182,7 @@ export class RealtimeService {
       let docId = this.currentDocumentId();
 
       if (typeof arg1 === 'object' && arg1 !== null) {
-        docId = arg1.documentId || docId;
+        docId = arg1.documentId || arg1.fileId || docId;
         connId = arg1.connectionId || '';
         count = arg1.count ?? 0;
       } else {
@@ -200,7 +209,7 @@ export class RealtimeService {
 
       if (typeof arg1 === 'object' && arg1 !== null) {
         data = arg1;
-        docId = arg1.documentId || docId;
+        docId = arg1.documentId || arg1.fileId || docId;
       } else {
         data = {
           userId: arg1,
@@ -210,6 +219,8 @@ export class RealtimeService {
           scrollLine: 1,
         };
       }
+
+      data.documentId = docId || undefined;
 
       if (docId) {
         const state = this.getOrCreateDocumentState(docId);
@@ -227,16 +238,16 @@ export class RealtimeService {
     });
 
     // Threaded Comment listeners
-    this.socket.on('ReceiveComment', (comment: CodeComment) => {
-      const docId = comment.documentId || this.currentDocumentId();
+    this.socket.on('ReceiveComment', (comment: CodeComment & { fileId?: string }) => {
+      const docId = comment.documentId || comment.fileId || this.currentDocumentId();
       if (docId) {
         const state = this.getOrCreateDocumentState(docId);
         state.comments.update((prev) => [...prev, comment]);
       }
     });
 
-    this.socket.on('ReceiveCommentReply', (reply: CodeCommentReply & { documentId?: string }) => {
-      const docId = reply.documentId || this.currentDocumentId();
+    this.socket.on('ReceiveCommentReply', (reply: CodeCommentReply & { documentId?: string; fileId?: string }) => {
+      const docId = reply.documentId || reply.fileId || this.currentDocumentId();
       if (docId) {
         const state = this.getOrCreateDocumentState(docId);
         state.comments.update((prev) =>
@@ -245,8 +256,8 @@ export class RealtimeService {
       }
     });
 
-    this.socket.on('ReceiveCommentResolved', (data: { documentId?: string; commentId: string; resolved: boolean }) => {
-      const docId = data.documentId || this.currentDocumentId();
+    this.socket.on('ReceiveCommentResolved', (data: { documentId?: string; fileId?: string; commentId: string; resolved: boolean }) => {
+      const docId = data.documentId || data.fileId || this.currentDocumentId();
       if (docId) {
         const state = this.getOrCreateDocumentState(docId);
         state.comments.update((prev) =>
@@ -255,8 +266,8 @@ export class RealtimeService {
       }
     });
 
-    this.socket.on('ReceiveCommentDeleted', (data: { documentId?: string; commentId: string }) => {
-      const docId = data.documentId || this.currentDocumentId();
+    this.socket.on('ReceiveCommentDeleted', (data: { documentId?: string; fileId?: string; commentId: string }) => {
+      const docId = data.documentId || data.fileId || this.currentDocumentId();
       if (docId) {
         const state = this.getOrCreateDocumentState(docId);
         state.comments.update((prev) => prev.filter((c) => c.id !== data.commentId));
@@ -289,7 +300,9 @@ export class RealtimeService {
 
   disconnect(): void {
     if (this.socket) {
-      this.socket.disconnect();
+      if (this.socket.connected) {
+        this.socket.disconnect();
+      }
       this.connectionState.set('disconnected');
       this.documentStates.clear();
       this.currentDocumentId.set(null);
@@ -297,8 +310,16 @@ export class RealtimeService {
   }
 
   async startConnection(): Promise<void> {
-    if (this.socket.connected) {
-      this.connectionState.set('connected');
+    const currentToken = this.authService.token() || '';
+
+    if (this.socket && this.socket.connected) {
+      // Reconnect if token changed
+      if ((this.socket.auth as any)?.token !== currentToken) {
+        this.socket.auth = { token: currentToken };
+        this.socket.disconnect().connect();
+      } else {
+        this.connectionState.set('connected');
+      }
       return;
     }
 
@@ -306,9 +327,7 @@ export class RealtimeService {
     this.isStarting = true;
 
     try {
-      const token = this.authService.token() || '';
-      this.socket.auth = { token };
-
+      this.socket.auth = { token: currentToken };
       this.socket.connect();
     } catch (err) {
       this.connectionState.set('error');
@@ -418,10 +437,22 @@ export class RealtimeService {
 
   resolveComment(docId: string, commentId: string) {
     const state = this.getOrCreateDocumentState(docId);
+    let newResolved = true;
     state.comments.update((prev) =>
-      prev.map((c) => (c.id === commentId ? { ...c, resolved: !c.resolved } : c)),
+      prev.map((c) => {
+        if (c.id === commentId) {
+          newResolved = !c.resolved;
+          return { ...c, resolved: newResolved };
+        }
+        return c;
+      }),
     );
-    this.socket.emit('ResolveComment', { documentId: docId, fileId: docId, commentId, resolved: true });
+    this.socket.emit('ResolveComment', {
+      documentId: docId,
+      fileId: docId,
+      commentId,
+      resolved: newResolved,
+    });
   }
 
   deleteComment(docId: string, commentId: string) {

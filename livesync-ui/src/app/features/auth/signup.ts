@@ -59,6 +59,7 @@ export class SignUp {
       this.email(),
       this.password(),
       this.confirmPassword(),
+      this.username(),
     );
 
     if (result.success) {

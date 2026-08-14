@@ -22,10 +22,10 @@
           <span>{{ realtimeService.connectionState() }}</span>
         </div>
 
-        @if (realtimeService.activeUserCount() > 0) {
+        @if (activeUserCount() > 0) {
           <div class="active-users">
             <mat-icon>people</mat-icon>
-            <span>{{ realtimeService.activeUserCount() }} active</span>
+            <span>{{ activeUserCount() }} active</span>
           </div>
         }
       </div>
@@ -97,7 +97,7 @@
 
         <!-- Active Collaborators Follow Mode Avatars -->
         <div class="collaborator-avatars">
-          @for (collaborator of realtimeService.activeCollaborators(); track collaborator.userId) {
+          @for (collaborator of activeCollaborators(); track collaborator.userId) {
             <button
               class="collaborator-badge"
               [class.following]="realtimeService.followedUserId() === collaborator.userId"
@@ -118,11 +118,11 @@
         <button
           mat-icon-button
           (click)="toggleCommentsSidebar()"
-          [matTooltip]="'Threaded Code Comments (' + realtimeService.comments().length + ')'"
+          [matTooltip]="'Threaded Code Comments (' + comments().length + ')'"
         >
           <mat-icon>chat_bubble_outline</mat-icon>
-          @if (realtimeService.comments().length > 0) {
-            <span class="comment-count-badge">{{ realtimeService.comments().length }}</span>
+          @if (comments().length > 0) {
+            <span class="comment-count-badge">{{ comments().length }}</span>
           }
         </button>
       </div>
@@ -181,7 +181,7 @@
 
         <!-- Threaded Comments List -->
         <div class="comments-list">
-          @for (comment of realtimeService.comments(); track comment.id) {
+          @for (comment of comments(); track comment.id) {
             <div class="comment-card" [class.resolved]="comment.resolved">
               <div class="comment-card-header">
                 <span class="author-name">{{ comment.authorName }}</span>

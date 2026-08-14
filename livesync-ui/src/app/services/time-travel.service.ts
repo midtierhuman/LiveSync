@@ -167,12 +167,32 @@ export class TimeTravelService {
       return list;
     }
 
-    // Reconstruct step by step if operation log is available (capped at last 30)
+    // Reconstruct step by step if operation log is available (capped at last 30 snapshots)
     let currentDoc = '';
     const maxOps = 30;
-    const opsToProcess = operations.length > maxOps ? operations.slice(operations.length - maxOps) : operations;
-    
-    opsToProcess.forEach((op, idx) => {
+    const startIndex = operations.length > maxOps ? operations.length - maxOps : 0;
+
+    // Fast-forward base document state up to startIndex so character positions remain mathematically valid
+    for (let i = 0; i < startIndex; i++) {
+      const op = operations[i];
+      if (op.type === 'insert') {
+        currentDoc = currentDoc.slice(0, op.position) + op.text + currentDoc.slice(op.position);
+      } else if (op.type === 'delete') {
+        currentDoc = currentDoc.slice(0, op.position) + currentDoc.slice(op.position + op.text.length);
+      }
+    }
+
+    if (startIndex > 0) {
+      list[0] = {
+        revision: startIndex,
+        content: currentDoc,
+        timestamp: `Rev ${startIndex} (Base)`,
+        changeDescription: `Base state after ${startIndex} prior revisions`,
+      };
+    }
+
+    for (let i = startIndex; i < operations.length; i++) {
+      const op = operations[i];
       if (op.type === 'insert') {
         currentDoc = currentDoc.slice(0, op.position) + op.text + currentDoc.slice(op.position);
       } else if (op.type === 'delete') {
@@ -180,12 +200,12 @@ export class TimeTravelService {
           currentDoc.slice(0, op.position) + currentDoc.slice(op.position + op.text.length);
       }
       list.push({
-        revision: op.serverRevision || idx + 1,
+        revision: op.serverRevision || i + 1,
         content: currentDoc,
-        timestamp: `Rev ${op.serverRevision || idx + 1}`,
+        timestamp: `Rev ${op.serverRevision || i + 1}`,
         changeDescription: `${op.type.toUpperCase()} at pos ${op.position}: "${op.text.substring(0, 20)}"`,
       });
-    });
+    }
 
     return list;
   }

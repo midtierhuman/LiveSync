@@ -29,8 +29,10 @@ export class ExecutionStreamService {
   private readonly destroyRef = inject(DestroyRef);
   private socket: WebSocket | null = null;
   private currentLanguage: string = 'python';
+  private currentDocumentId: string = '';
   private activeSessionId: string = 'default';
   private isClosedManually: boolean = false;
+  private pendingConnectedCallbacks: (() => void)[] = [];
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -53,17 +55,14 @@ export class ExecutionStreamService {
         return;
       }
       if (this.socket.readyState === WebSocket.CONNECTING) {
-        const activeSocket = this.socket;
-        const prevOnOpen = activeSocket.onopen;
-        activeSocket.onopen = (ev) => {
-          if (prevOnOpen) prevOnOpen.call(activeSocket, ev);
-          onConnected();
-        };
+        this.pendingConnectedCallbacks.push(onConnected);
         return;
       }
       // If socket is in CLOSING or CLOSED state, close and nullify it first
       this.close();
     }
+
+    this.pendingConnectedCallbacks.push(onConnected);
 
     const httpBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || window.location.origin;
     const wsUrl = httpBase
@@ -76,7 +75,9 @@ export class ExecutionStreamService {
 
       this.socket.onopen = () => {
         this.streamStatus.set('Connected');
-        onConnected();
+        const callbacks = [...this.pendingConnectedCallbacks];
+        this.pendingConnectedCallbacks = [];
+        callbacks.forEach((cb) => cb());
       };
 
       this.socket.onmessage = (event) => {
@@ -99,6 +100,7 @@ export class ExecutionStreamService {
 
       this.socket.onclose = () => {
         this.socket = null;
+        this.pendingConnectedCallbacks = [];
         this.isStreaming.set(false);
         if ((this.streamStatus() === 'Running' || this.streamStatus() === 'Connected') && !this.isClosedManually) {
           this.streamStatus.set('Finished');
@@ -107,6 +109,7 @@ export class ExecutionStreamService {
     } catch (err: any) {
       this.streamStatus.set('Failed to connect');
       this.isStreaming.set(false);
+      this.pendingConnectedCallbacks = [];
     }
   }
 
@@ -117,8 +120,10 @@ export class ExecutionStreamService {
     cols: number = 80,
     rows: number = 24,
     sessionId?: string,
+    documentId?: string,
   ) {
     this.currentLanguage = language;
+    this.currentDocumentId = documentId || '';
     this.activeSessionId = sessionId || `term_${Date.now()}`;
     this.isClosedManually = false;
     this.isStreaming.set(true);
@@ -229,6 +234,7 @@ export class ExecutionStreamService {
       } catch {}
       this.socket = null;
     }
+    this.pendingConnectedCallbacks = [];
     this.isStreaming.set(false);
   }
 
@@ -274,7 +280,7 @@ export class ExecutionStreamService {
         this.streamStatus.set(payload.status || 'Finished');
         this.isStreaming.set(false);
         this.finalExecutionResult.set({
-          documentId: '',
+          documentId: this.currentDocumentId,
           language,
           status: payload.status || 'Finished',
           isSuccess: payload.isSuccess ?? (payload.exitCode === 0),
