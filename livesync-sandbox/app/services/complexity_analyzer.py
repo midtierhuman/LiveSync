@@ -21,8 +21,6 @@ class ComplexityAnalyzer:
             return self._analyze_python(code)
         elif lang in ("node", "javascript", "js", "typescript", "ts"):
             return self._analyze_javascript(code)
-        elif lang in ("csharp", "cs"):
-            return self._analyze_csharp(code)
         else:
             return self._fallback_analysis(code)
 

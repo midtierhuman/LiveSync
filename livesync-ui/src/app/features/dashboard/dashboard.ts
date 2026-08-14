@@ -815,10 +815,8 @@ export class Dashboard implements OnInit {
   getLanguageBadge(title: string): { name: string; class: string; icon: string } {
     const lowered = (title || '').toLowerCase();
     if (lowered.endsWith('.py')) return { name: 'Python', class: 'python', icon: 'code' };
-    if (lowered.endsWith('.cs')) return { name: 'C# .NET', class: 'csharp', icon: 'terminal' };
-    if (lowered.endsWith('.java')) return { name: 'Java', class: 'java', icon: 'coffee' };
     if (lowered.endsWith('.js') || lowered.endsWith('.ts')) return { name: 'Node.js', class: 'javascript', icon: 'javascript' };
-    return { name: 'Polyglot', class: 'generic', icon: 'data_object' };
+    return { name: 'Code', class: 'generic', icon: 'data_object' };
   }
 
   async ngOnInit() {

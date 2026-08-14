@@ -4,7 +4,7 @@
 LiveSync is a high-performance, real-time collaborative code editor built on a decoupled polyglot microservices architecture:
 - **`livesync-ui`**: Angular 21 (Zoneless signals, CodeMirror 6, xterm.js).
 - **`livesync-gateway`**: Go 1.26 (PTY live terminal, WebSocket streaming, JWT auth, gRPC client pool).
-- **`livesync-sandbox`**: Python 3.14 (Pure native gRPC server on port `50051`, AST Big-O complexity analyzer, hybrid AI code assistant).
+- **`livesync-sandbox`**: Python 3.14 (Pure native gRPC server on port `50051`, supporting Python 3.14 & Node.js 24, AST Big-O complexity analyzer, hybrid AI code assistant).
 - **`livesync-api`**: Java 21 Spring Boot 3 (PostgreSQL storage, identity & RBAC, Redis Stream write-behind persistence consumer).
 - **`livesync-realtime`**: Node.js 24 + Socket.IO 4.8 (CRDT & OT conflict resolution, presence, Redis adapter).
 

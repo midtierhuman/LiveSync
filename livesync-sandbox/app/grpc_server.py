@@ -64,7 +64,7 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
         code = first_req.code
 
         temp_dir = tempfile.mkdtemp(prefix="livesync_pty_")
-        file_name = "script.py" if lang in ("python", "py") else ("script.js" if lang in ("node", "javascript", "js") else "Main.java")
+        file_name = "script.py" if lang in ("python", "py") else "script.js"
         file_path = os.path.join(temp_dir, file_name)
 
         try:

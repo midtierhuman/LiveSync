@@ -4,13 +4,11 @@ The `livesync-sandbox` microservice is an isolated execution engine and AI worke
 
 ---
 
-## 🚀 Polyglot Language Runtimes
-
+## 🚀 Language Runtimes
+ 
 The sandbox manages isolated subprocess execution, timeouts, and resource monitoring for:
 - 🐍 **Python 3.14** (`python`) — Executed with unbuffered stdout and process memory tracking.
 - 🟨 **JavaScript / Node.js 24** (`javascript`) — Executed with isolated heap limit (`--max-old-space-size=256`) and process tree cleanup.
-- ☕ **Java 21** (`java`) — Single-file source-code execution with classpath isolation.
-- 🔷 **C# / .NET 8** (`csharp`) — Pre-warmed compilation cache via `csharp_warmup_service` for sub-second execution overhead.
 
 ---
 

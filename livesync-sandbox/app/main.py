@@ -1,10 +1,8 @@
 import logging
 import signal
 import sys
-import threading
 from app.config import settings
 from app.grpc_server import serve_grpc
-from app.services.csharp_warmup import csharp_warmup_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,16 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    logger.info("Initializing LiveSync Polyglot Sandbox gRPC Worker...")
+    logger.info("Initializing LiveSync Ultra-Light Python & JavaScript Sandbox gRPC Worker...")
     logger.info(f"Environment: {settings.environment}")
-
-    # Pre-warm polyglot runtime environments (C# Roslyn / .NET) asynchronously
-    warmup_thread = threading.Thread(
-        target=csharp_warmup_service.initialize,
-        name="RuntimeWarmupThread",
-        daemon=True,
-    )
-    warmup_thread.start()
 
     # Start the gRPC server on port 50051
     grpc_port = 50051

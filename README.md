@@ -10,7 +10,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 
 - **🤝 Real-Time Collaboration**: Conflict-free collaborative editing with multi-cursor presence, follow mode, and inline threaded comments powered by Node.js, Socket.IO, and Redis.
 - **⚡ Go API Gateway (`livesync-gateway`)**: High-throughput gateway handling JWT validation, CORS, PTY shell allocation (`cmd.exe`/`/bin/bash`), and HTTP/2 gRPC client connection pooling.
-- **🛡️ Pure gRPC Polyglot Sandbox (`livesync-sandbox`)**: Dedicated worker serving requests over native gRPC (`port 50051`). Supports **Python 3.14**, **JavaScript/Node 24**, **Java 21**, and **C#/.NET 8**.
+- **🛡️ Pure gRPC Polyglot Sandbox (`livesync-sandbox`)**: Dedicated worker serving requests over native gRPC (`port 50051`). Supports **Python 3.14** and **JavaScript/Node 24**.
 - **📺 Interactive Live Terminal & Streaming**: Real-time bi-directional PTY shell and code execution streaming over WebSockets.
 - **📊 AST Big-O Complexity Analyzer**: Static AST code analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$) and Space complexity.
 - **🤖 Hybrid AI Assistance**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) & Google Gemini with zero-cost offline AST structural analysis fallback.

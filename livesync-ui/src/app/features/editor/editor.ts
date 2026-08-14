@@ -413,7 +413,7 @@ export class Editor implements OnInit {
       this.updateEditorDocument(content, language);
 
       const execLang = language === 'typescript' ? 'javascript' : language;
-      if (['python', 'javascript', 'csharp', 'java'].includes(execLang)) {
+      if (['python', 'javascript'].includes(execLang)) {
         this.selectedExecutionLanguage.set(execLang);
       }
 
@@ -1430,8 +1430,6 @@ export class Editor implements OnInit {
     const defaultFallback: ExecutionLanguageOption[] = [
       { name: 'python', displayName: 'Python' },
       { name: 'javascript', displayName: 'JavaScript (Node.js)' },
-      { name: 'csharp', displayName: 'C# (.NET)' },
-      { name: 'java', displayName: 'Java' },
     ];
 
     try {
