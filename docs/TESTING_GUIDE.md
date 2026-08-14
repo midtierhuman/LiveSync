@@ -1,15 +1,31 @@
 # LiveSync Testing & Verification Guide
 
-This guide details how to run unit and integration tests across the LiveSync microservices stack.
+This guide details how to run unit, integration, and build tests across the entire LiveSync full-stack architecture.
+
+---
+
+## 🅰️ Angular Frontend Tests (`livesync-ui`)
+
+Runs Karma/Jasmine unit tests with headless Chrome and builds the production bundle:
+
+```powershell
+cd livesync-ui
+# Run all unit tests once
+npm test -- --watch=false
+
+# Validate production build & AOT compilation
+npm run build
+```
 
 ---
 
 ## 🐍 Python Sandbox Tests (`livesync-sandbox`)
 
-Runs `pytest` verifying executor services, AST complexity analyzer, package manager, and gRPC endpoints:
+Runs `pytest` verifying polyglot executor runtimes, AST Big-O complexity analyzer, package discovery, and gRPC endpoints:
 
 ```powershell
-cd D:\Projects\LiveSync\livesync-sandbox
+cd livesync-sandbox
+# Run all pytest suites
 .\venv\Scripts\python.exe -m pytest
 ```
 
@@ -17,22 +33,29 @@ cd D:\Projects\LiveSync\livesync-sandbox
 
 ## 🔷 Go Gateway Tests (`livesync-gateway`)
 
-Compiles and tests Go gateway handlers, JWT middleware, and gRPC client connection:
+Compiles the Go gateway binary and runs package tests:
 
 ```powershell
-cd D:\Projects\LiveSync\livesync-gateway
+cd livesync-gateway
+# Run package unit tests
 go test ./...
-go build -o livesync-gateway.exe .
+
+# Verify Go compilation
+go build -v .
 ```
 
 ---
 
 ## ☕ Java Spring Boot API Tests (`livesync-api`)
 
-Runs Gradle test task:
+Compiles Java sources and runs Gradle test tasks:
 
 ```powershell
-cd D:\Projects\LiveSync\livesync-api
+cd livesync-api
+# Compile and run test classes
+.\gradlew.bat testClasses
+
+# Run full test suite
 .\gradlew.bat test
 ```
 
@@ -40,9 +63,28 @@ cd D:\Projects\LiveSync\livesync-api
 
 ## 🟨 Node.js Realtime Tests (`livesync-realtime`)
 
-Runs Jest unit tests for Socket.IO room handling and OT engine:
+Runs native TypeScript tests and validates TypeScript compilation:
 
 ```powershell
-cd D:\Projects\LiveSync\livesync-realtime
+cd livesync-realtime
+# Run test suite
 npm test
+
+# Verify TypeScript build
+npm run build
+```
+
+---
+
+## 🐳 Docker Stack Verification
+
+```powershell
+# Build and start all services
+docker compose up --build -d
+
+# Verify all containers are healthy
+docker compose ps
+
+# Check logs across services
+docker compose logs -f gateway sandbox api realtime ui
 ```
