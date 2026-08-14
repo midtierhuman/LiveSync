@@ -5,7 +5,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 - **`livesync-ui`**: Angular 21 (Zoneless signals, CodeMirror 6, xterm.js).
 - **`livesync-gateway`**: Go 1.26 (PTY live terminal, WebSocket streaming, JWT auth, gRPC client pool).
 - **`livesync-sandbox`**: Python 3.14 (Pure native gRPC server on port `50051`, supporting Python 3.14 & Node.js 24, AST Big-O complexity analyzer, hybrid AI code assistant).
-- **`livesync-api`**: Java 21 Spring Boot 3 (PostgreSQL storage, identity & RBAC, Redis Stream write-behind persistence consumer).
+- **`livesync-api`**: Go 1.26 (PostgreSQL storage via pgxpool, identity & RBAC, Redis Stream write-behind persistence consumer).
 - **`livesync-realtime`**: Node.js 24 + Socket.IO 4.8 (CRDT & OT conflict resolution, presence, Redis adapter).
 
 ---
@@ -34,5 +34,5 @@ Every code modification must be reflected across corresponding documentation:
   - **Angular**: `npm test -- --watch=false` and `npm run build`
   - **Python Sandbox**: `.\venv\Scripts\python -m pytest`
   - **Go Gateway**: `go test ./...` and `go build -v .`
-  - **Java API**: `.\gradlew.bat testClasses`
+  - **Go API (`livesync-api`)**: `cd livesync-api && go test ./...` and `go build -v .`
   - **Node Realtime**: `npm test` and `npm run build`

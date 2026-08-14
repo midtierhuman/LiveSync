@@ -19,7 +19,7 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
          ▼                               ▼                               ▼                               ▼
 ┌──────────────────┐           ┌──────────────────┐           ┌──────────────────┐            ┌──────────────────┐
 │   livesync-api   │           │ livesync-realtime│           │ livesync-gateway │            │ local llama.cpp  │
-│ (Spring Boot 3)  │           │(Node.js/Socket.IO│           │ (Go API Gateway) │            │ (OpenAI Compat)  │
+│ (Go 1.26 REST)   │           │(Node.js/Socket.IO│           │ (Go API Gateway) │            │ (OpenAI Compat)  │
 └────────┬─────────┘           └────────┬─────────┘           └────────┬─────────┘            └────────┬─────────┘
          │                              │                              │                               ▲
          │ (XREADGROUP)                 │ (XADD Event Stream)          │ gRPC (HTTP/2 Port 50051)      │
@@ -38,7 +38,7 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
 | :--- | :--- | :--- | :--- | :--- |
 | **`livesync-gateway`** | Go 1.26, `creack/pty`, `coder/websocket` | API Gateway, Live PTY shell, JWT middleware & gRPC client proxy | HTTP/1.1, WS, gRPC client | `8081` |
 | **`livesync-sandbox`** | Python 3.14, Native gRPC, Pytest | Polyglot execution worker, AST Big-O analyzer, PyPI/npm manager | gRPC (HTTP/2) | `50051` (gRPC) |
-| **`livesync-api`** | Java 21, Spring Boot 3, PostgreSQL 18 | Metadata, user authentication, document storage & Redis Stream consumer | REST / JDBC | `8080` (Direct) / `5038` (Nginx) |
+| **`livesync-api`** | Go 1.26, `chi`, `pgxpool`, PostgreSQL 18 | Metadata, user authentication, document storage & Redis Stream consumer | REST / SQL | `8080` (Direct) / `5038` (Nginx) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | Low-latency room broadcasting, CRDT collaboration & Redis Stream publisher | WebSockets / Redis | `5000` |
 | **`livesync-ui`** | Angular 21, CodeMirror 6, xterm.js | Single-page application code editor & live terminal | HTTP | `4200` (Dev) / `4000` (Prod) |
 | **`api-loadbalancer`**| Nginx Alpine | Reverse proxy, path-based routing & SSL termination | HTTP / WS | `5038` |

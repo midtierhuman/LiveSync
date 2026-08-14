@@ -1,31 +1,36 @@
-# Build Stage
-FROM gradle:8.14.5-jdk21-alpine AS build
+# ==============================================================================
+# LiveSync REST API & Redis Persistence Engine (Go 1.26 Multi-Stage Build)
+# ==============================================================================
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
-# Copy Gradle build files
-COPY build.gradle settings.gradle ./
-COPY gradle gradle
+# Install build dependencies & git
+RUN apk add --no-cache git ca-certificates tzdata
 
-# Copy source code and build bootable JAR
-COPY src src
-RUN gradle bootJar -x test --no-daemon
+# Cache Go modules
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Final Runtime Stage
-FROM eclipse-temurin:21-jre-alpine AS production
+# Copy source code
+COPY . .
+
+# Build statically linked standalone binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o /app/livesync-api .
+
+# ==============================================================================
+# Final Minimal Runtime Image
+# ==============================================================================
+FROM alpine:3.21
 
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup -S livesync && adduser -S livesync -G livesync
+RUN apk add --no-cache ca-certificates tzdata
 
-# Copy compiled JAR from build stage
-COPY --from=build /app/build/libs/*.jar app.jar
-
-USER livesync
+COPY --from=builder /app/livesync-api /app/livesync-api
 
 EXPOSE 8080
 
-ENV SPRING_PROFILES_ACTIVE=development
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["/app/livesync-api"]

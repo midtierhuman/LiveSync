@@ -46,17 +46,17 @@ go build -v .
 
 ---
 
-## ☕ Java Spring Boot API Tests (`livesync-api`)
+## 🔷 Go Core REST API Tests (`livesync-api`)
 
-Compiles Java sources and runs Gradle test tasks:
+Compiles the Go REST API binary and runs package tests:
 
 ```powershell
 cd livesync-api
-# Compile and run test classes
-.\gradlew.bat testClasses
+# Run package unit tests
+go test -v ./...
 
-# Run full test suite
-.\gradlew.bat test
+# Verify Go compilation
+go build -v .
 ```
 
 ---

@@ -86,10 +86,10 @@ docker compose up -d postgres redis
 
 #### Step 2: Launch the Services
 
-* **Java Core API (`livesync-api`)**:
+* **Go Core API (`livesync-api`)**:
   ```powershell
   cd livesync-api
-  .\gradlew.bat bootRun
+  go run main.go
   ```
 
 * **Python Sandbox Worker (`livesync-sandbox`)**:
@@ -125,10 +125,10 @@ LiveSync/
 ├── proto/               # Protobuf contracts (sandbox.proto)
 ├── livesync-gateway/    # Go API Gateway, PTY Terminal Engine & gRPC Client
 ├── livesync-sandbox/    # Python Polyglot Sandbox, Native gRPC Worker & AST Analyzer
-├── livesync-api/        # Java 21 Spring Boot REST API & Redis Stream Consumer
+├── livesync-api/        # Go 1.26 REST API, PostgreSQL & Redis Stream Consumer
 ├── livesync-realtime/   # Node.js 24 + Socket.IO Realtime Collaboration Service
 ├── livesync-ui/         # Angular 21 CodeMirror & xterm.js Workspace App
-├── livesync-infra/      # Nginx proxy configuration, Prometheus & Grafana
+├── livesync-infra/      # Nginx proxy configuration
 ├── docs/                # Comprehensive technical documentation
 └── docker-compose.yml   # Multi-container orchestration specification
 ```

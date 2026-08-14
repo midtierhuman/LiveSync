@@ -55,7 +55,7 @@ services:
   # =========================================================================
   # 2. POLYGLOT BACKEND MICROSERVICES
   # =========================================================================
-  # 2a. Java Spring Boot REST API
+  # 2a. Go High-Performance REST API & Persistence Engine
   api:
     build:
       context: ./livesync-api
@@ -63,16 +63,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      sandbox:
-        condition: service_started
+      redis:
+        condition: service_healthy
     environment:
-      - SPRING_PROFILES_ACTIVE=development
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - LIVESYNC_DATABASE_URL=jdbc:postgresql://postgres:5432/livesync?options=-c%20timezone=UTC
-      - LIVESYNC_DATABASE_USERNAME=${LIVESYNC_POSTGRES_USERNAME:-devuser}
-      - LIVESYNC_DATABASE_PASSWORD=${LIVESYNC_POSTGRES_PASSWORD:-devpassword}
+      - PORT=8080
+      - ENVIRONMENT=development
+      - LIVESYNC_POSTGRES_USERNAME=${LIVESYNC_POSTGRES_USERNAME:-devuser}
+      - LIVESYNC_POSTGRES_PASSWORD=${LIVESYNC_POSTGRES_PASSWORD:-devpassword}
+      - LIVESYNC_DATABASE_URL=postgres://${LIVESYNC_POSTGRES_USERNAME:-devuser}:${LIVESYNC_POSTGRES_PASSWORD:-devpassword}@postgres:5432/livesync?sslmode=disable
+      - LIVESYNC_REDIS_URL=redis://:${LIVESYNC_REDIS_PASSWORD:-LocalDevPassword123!}@redis:6379/0
       - LIVESYNC_JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
-      - LIVESYNC_SANDBOX_BASE_URL=http://sandbox:8080/
+      - LIVESYNC_JWT_ISSUER=LiveSyncAuthAPI
+      - LIVESYNC_JWT_AUDIENCE=LiveSyncClient
       - LIVESYNC_CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
 
   # 2b. Python FastAPI Code Execution Sandbox
