@@ -148,25 +148,25 @@ services:
       - sandbox
 
   # =========================================================================
-  # 5. OBSERVABILITY (PROMETHEUS & GRAFANA)
+  # 5. OBSERVABILITY (PROMETHEUS & GRAFANA) - (Disabled in Dev)
   # =========================================================================
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./livesync-infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on:
-      - sandbox
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-    depends_on:
-      - prometheus
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./livesync-infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #   depends_on:
+  #     - sandbox
+  #
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+  #   depends_on:
+  #     - prometheus
 
 volumes:
   postgres-data:
