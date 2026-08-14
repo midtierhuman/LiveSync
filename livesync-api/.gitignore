@@ -1,29 +1,18 @@
-# Built application files
-/build/
-/target/
-.gradle/
-**/build/
-**/target/
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 
-# IntelliJ IDEA specific files
-.idea/
-*.iml
-*.iws
-*.ipr
-out/
+# Test binary, built with `go test -c`
+*.test
 
-# Gradle wrapper caches and configurations
-.gradletasknamecache
+# Output of the go coverage tool
+*.out
 
-# Log files and application logs
-*.log
+# Dependency directories (remove the comment below to include it)
+# vendor/
 
-# Spring Boot specific files
-.DS_Store
-Thumbs.db
-ehcache-*.data
-
-# Environment and local properties overrides
-application-local.yml
-application-local.properties
-.env
+# Go workspace file
+go.work

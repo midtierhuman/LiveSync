@@ -14,7 +14,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 - **📺 Interactive Live Terminal & Streaming**: Real-time bi-directional PTY shell and code execution streaming over WebSockets.
 - **📊 AST Big-O Complexity Analyzer**: Static AST code analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$) and Space complexity.
 - **🤖 Hybrid AI Assistance**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) & Google Gemini with zero-cost offline AST structural analysis fallback.
-- **⚡ Event-Driven Persistence**: Realtime service appends saves to Redis Streams (`livesync:stream:document-saves`); Java API (`livesync-api`) consumes and persists to PostgreSQL.
+- **⚡ Event-Driven Persistence**: Realtime service appends saves to Redis Streams (`livesync:stream:document-saves`); Go API (`livesync-api`) consumes and persists to PostgreSQL.
 
 ---
 
@@ -22,7 +22,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 
 ```
                                   ┌────────────────────────────────────────┐
-                                  │           Angular 21 UI Client         │
+                                  │           Angular 22 UI Client         │
                                   │   (CodeMirror 6 + xterm.js + Material) │
                                   └───────────────────┬────────────────────┘
                                                       │
@@ -33,7 +33,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
          ▼                               ▼                               ▼                               ▼
 ┌──────────────────┐           ┌──────────────────┐           ┌──────────────────┐            ┌──────────────────┐
 │   livesync-api   │           │ livesync-realtime│           │ livesync-gateway │            │ local llama.cpp  │
-│ (Spring Boot 3)  │           │(Node.js/Socket.IO│           │ (Go API Gateway) │            │ (OpenAI Compat)  │
+│ (Go 1.26 REST)   │           │(Node.js/Socket.IO│           │ (Go API Gateway) │            │ (OpenAI Compat)  │
 └────────┬─────────┘           └────────┬─────────┘           └────────┬─────────┘            └────────┬─────────┘
          │                              │                              │                               ▲
          │ (XREADGROUP)                 │ (XADD Event Stream)          │ gRPC (HTTP/2 Port 50051)      │
@@ -48,10 +48,10 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 
 | Service | Technology | Role | Port |
 | :--- | :--- | :--- | :--- |
-| **`livesync-ui`** | Angular 21, CodeMirror 6, xterm.js | Single-page reactive editor & terminal | `4200` (Dev) / `4000` (Prod) |
+| **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Single-page reactive editor & terminal | `4200` (Dev) / `4000` (Prod) |
 | **`livesync-gateway`** | Go 1.26, PTY, gRPC client | API Gateway, live PTY shell, WS stream proxy | `8081` |
 | **`livesync-sandbox`** | Python 3.14, Native gRPC | Polyglot execution worker, AST analyzer, package search | `50051` (gRPC) |
-| **`livesync-api`** | Java 21, Spring Boot 3 | Auth, user sessions, document/folder CRUD, Redis Stream consumer | `8080` (Internal) |
+| **`livesync-api`** | Go 1.26, Chi, pgxpool | Auth, user sessions, document/folder CRUD, Redis Stream consumer | `8080` (Internal) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | CRDT room broadcasting, cursor sync & Redis Stream publisher | `5000` |
 | **`api-loadbalancer`** | Nginx Alpine | Reverse proxy & API Gateway Router | `5038` |
 | **`postgres`** | PostgreSQL 18 | Primary relational metadata database | `5432` |
@@ -127,7 +127,7 @@ LiveSync/
 ├── livesync-sandbox/    # Python Polyglot Sandbox, Native gRPC Worker & AST Analyzer
 ├── livesync-api/        # Go 1.26 REST API, PostgreSQL & Redis Stream Consumer
 ├── livesync-realtime/   # Node.js 24 + Socket.IO Realtime Collaboration Service
-├── livesync-ui/         # Angular 21 CodeMirror & xterm.js Workspace App
+├── livesync-ui/         # Angular 22 CodeMirror & xterm.js Workspace App
 ├── livesync-infra/      # Nginx proxy configuration
 ├── docs/                # Comprehensive technical documentation
 └── docker-compose.yml   # Multi-container orchestration specification
@@ -143,7 +143,7 @@ Detailed service guides and specifications are located in the [`docs/`](./docs/D
 - **[Go API Gateway Guide](./docs/GO_GATEWAY_SERVICE.md)**
 - **[Sandbox Execution Guide](./docs/SANDBOX_EXECUTION_SERVICE.md)**
 - **[Realtime Collaboration Guide](./docs/REALTIME_COLLABORATION_SERVICE.md)**
-- **[Spring Boot API Guide](./docs/SPRING_BOOT_API_SERVICE.md)**
+- **[Go REST API Guide](./docs/GO_API_SERVICE.md)**
 - **[Conflict Resolution Design](./docs/CONFLICT_RESOLUTION_DESIGN.md)**
 - **[Testing & Verification Guide](./docs/TESTING_GUIDE.md)**
 - **[Project Roadmap](./docs/PROJECT_ROADMAP.md)**

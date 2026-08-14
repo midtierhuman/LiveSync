@@ -2,7 +2,7 @@
 
 ## 📌 Project Overview
 LiveSync is a high-performance, real-time collaborative code editor built on a decoupled polyglot microservices architecture:
-- **`livesync-ui`**: Angular 21 (Zoneless signals, CodeMirror 6, xterm.js).
+- **`livesync-ui`**: Angular 22 (Zoneless signals, CodeMirror 6, xterm.js).
 - **`livesync-gateway`**: Go 1.26 (PTY live terminal, WebSocket streaming, JWT auth, gRPC client pool).
 - **`livesync-sandbox`**: Python 3.14 (Pure native gRPC server on port `50051`, supporting Python 3.14 & Node.js 24, AST Big-O complexity analyzer, hybrid AI code assistant).
 - **`livesync-api`**: Go 1.26 (PostgreSQL storage via pgxpool, identity & RBAC, Redis Stream write-behind persistence consumer).
@@ -22,7 +22,7 @@ Every code modification must be reflected across corresponding documentation:
 4. **Service Documentation**:
    - Updates to Go gateway -> Update [`docs/GO_GATEWAY_SERVICE.md`](./docs/GO_GATEWAY_SERVICE.md).
    - Updates to Python sandbox / gRPC / AI -> Update [`docs/SANDBOX_EXECUTION_SERVICE.md`](./docs/SANDBOX_EXECUTION_SERVICE.md).
-   - Updates to Java Spring Boot -> Update [`docs/SPRING_BOOT_API_SERVICE.md`](./docs/SPRING_BOOT_API_SERVICE.md).
+   - Updates to Go API -> Update [`docs/GO_API_SERVICE.md`](./docs/GO_API_SERVICE.md).
    - Updates to Realtime / Socket.IO -> Update [`docs/REALTIME_COLLABORATION_SERVICE.md`](./docs/REALTIME_COLLABORATION_SERVICE.md).
    - Updates to OT / CRDT algorithms -> Update [`docs/CONFLICT_RESOLUTION_DESIGN.md`](./docs/CONFLICT_RESOLUTION_DESIGN.md).
 5. **[`docs/TESTING_GUIDE.md`](./docs/TESTING_GUIDE.md)**: Keep test and verification commands working and up-to-date.
