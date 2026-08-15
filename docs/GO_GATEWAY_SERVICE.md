@@ -35,10 +35,10 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
 | Endpoint | Protocol | Handler | Target Backend |
 | :--- | :--- | :--- | :--- |
 | `WS /api/terminal/ws` | WebSocket | `TerminalHandler.ServeWS` | Native OS PTY (`powershell.exe` / `/bin/bash`) anchored in `./workspaces/{projectId}` |
-| `GET /api/execution/languages` | HTTP REST | `ExecutionHandler.GetLanguages` | `SandboxService.GetLanguages` (gRPC) |
-| `POST /api/ai/analyze` | HTTP REST | `AIHandler.AnalyzeCode` | `SandboxService.AnalyzeCode` (gRPC) |
+| `GET /api/execution/languages` | HTTP REST | `ExecutionHandler.GetLanguages` | `AIService.GetLanguages` (gRPC) |
+| `POST /api/ai/analyze` | HTTP REST | `AIHandler.AnalyzeCode` | `AIService.AnalyzeCode` (gRPC) |
 | `GET /api/ai/models` | HTTP REST | `AIHandler.ListModels` | In-memory local & cloud model registry |
-| `GET /api/packages/` | HTTP REST | `PackagesHandler.SearchPackages` | `SandboxService.SearchPackages` (gRPC) |
+| `GET /api/packages/` | HTTP REST | `PackagesHandler.SearchPackages` | Direct PyPI / npm registry search |
 | `GET /health` | HTTP REST | Inline anonymous handler | Gateway health status JSON |
 
 ---
@@ -48,7 +48,7 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
 | `PORT` | `8081` | Gateway HTTP/WS listening port |
-| `LIVESYNC_SANDBOX_GRPC_URL` | `127.0.0.1:50051` | Target Python Sandbox gRPC worker address |
+| `LIVESYNC_AI_GRPC_URL` | `127.0.0.1:50051` | Target Python AI gRPC worker address |
 | `LIVESYNC_JWT_SECRET` | `LiveSync-Development-Only-Secret-Change-Me!` | JWT signing secret |
 | `LOCAL_LLM_URL` | `http://127.0.0.1:8080` | Local LLM server address |
 | `LOCAL_LLM_MODEL` | `Qwen2.5-Coder-14B-Instruct-Q4_K_M` | Active local LLM model identifier |

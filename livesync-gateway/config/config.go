@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Port               string
+	AIGRPCURL          string
 	SandboxBaseURL     string
 	SandboxGRPCURL     string
 	LocalLLMURL        string
@@ -20,7 +21,7 @@ type Config struct {
 func LoadConfig() *Config {
 	port := getEnv("PORT", "8081")
 	sandboxURL := getEnv("LIVESYNC_SANDBOX_BASE_URL", "http://127.0.0.1:8080")
-	sandboxGRPCURL := getEnv("LIVESYNC_AI_GRPC_URL", getEnv("LIVESYNC_SANDBOX_GRPC_URL", "127.0.0.1:50051"))
+	aiGRPCURL := getEnv("LIVESYNC_AI_GRPC_URL", getEnv("LIVESYNC_SANDBOX_GRPC_URL", "127.0.0.1:50051"))
 	localLLMURL := getEnv("LOCAL_LLM_URL", "http://127.0.0.1:8080")
 	localLLMModel := getEnv("LOCAL_LLM_MODEL", "Qwen2.5-Coder-14B-Instruct-Q4_K_M")
 	jwtSecret := getEnv("LIVESYNC_JWT_SECRET", "LiveSync-Development-Only-Secret-Change-Me!")
@@ -32,8 +33,9 @@ func LoadConfig() *Config {
 
 	return &Config{
 		Port:               port,
+		AIGRPCURL:          aiGRPCURL,
 		SandboxBaseURL:     strings.TrimRight(sandboxURL, "/"),
-		SandboxGRPCURL:     sandboxGRPCURL,
+		SandboxGRPCURL:     aiGRPCURL,
 		LocalLLMURL:        strings.TrimRight(localLLMURL, "/"),
 		LocalLLMModel:      localLLMModel,
 		JWTSecret:          jwtSecret,

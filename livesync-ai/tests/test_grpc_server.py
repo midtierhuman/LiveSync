@@ -1,15 +1,15 @@
 import pytest
-from app.grpc_server import SandboxServiceServicer
-from app.pb import sandbox_pb2
+from app.grpc_server import AIServiceServicer
+from app.pb import ai_pb2
 
 
 @pytest.fixture
 def servicer():
-    return SandboxServiceServicer()
+    return AIServiceServicer()
 
 
 def test_grpc_get_languages(servicer):
-    req = sandbox_pb2.Empty()
+    req = ai_pb2.Empty()
     res = servicer.GetLanguages(req, None)
     assert len(res.languages) > 0
     names = [l.name for l in res.languages]
@@ -17,7 +17,7 @@ def test_grpc_get_languages(servicer):
 
 
 def test_grpc_analyze_code(servicer):
-    req = sandbox_pb2.AiAnalysisRequest(
+    req = ai_pb2.AiAnalysisRequest(
         action="explain",
         language="python",
         code="def add(a, b):\n    return a + b\n"

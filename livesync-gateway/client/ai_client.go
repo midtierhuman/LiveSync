@@ -11,26 +11,33 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type SandboxClient struct {
+type AIClient struct {
 	conn   *grpc.ClientConn
-	Client pb.SandboxServiceClient
+	Client pb.AIServiceClient
 }
 
-func NewSandboxClient(cfg *config.Config) (*SandboxClient, error) {
+func NewAIClient(cfg *config.Config) (*AIClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	targetURL := cfg.AIGRPCURL
+	if targetURL == "" {
+		targetURL = cfg.SandboxGRPCURL
+	}
+	if targetURL == "" {
+		targetURL = "127.0.0.1:50051"
+	}
+
 	conn, err := grpc.DialContext(
 		ctx,
-		cfg.SandboxGRPCURL,
+		targetURL,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	)
 	if err != nil {
-		// Non-blocking fallback connection attempt
-		log.Printf("Warning: Direct gRPC block dial to %s failed (%v), creating lazy connection.", cfg.SandboxGRPCURL, err)
+		log.Printf("Warning: Direct gRPC block dial to %s failed (%v), creating lazy connection.", targetURL, err)
 		conn, err = grpc.Dial(
-			cfg.SandboxGRPCURL,
+			targetURL,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		if err != nil {
@@ -38,14 +45,14 @@ func NewSandboxClient(cfg *config.Config) (*SandboxClient, error) {
 		}
 	}
 
-	client := pb.NewSandboxServiceClient(conn)
-	return &SandboxClient{
+	client := pb.NewAIServiceClient(conn)
+	return &AIClient{
 		conn:   conn,
 		Client: client,
 	}, nil
 }
 
-func (s *SandboxClient) Close() {
+func (s *AIClient) Close() {
 	if s.conn != nil {
 		s.conn.Close()
 	}

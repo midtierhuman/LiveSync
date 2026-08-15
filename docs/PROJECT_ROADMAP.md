@@ -9,14 +9,35 @@
 
 | ID | Category | Summary | Service Scope | Priority | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| **BUG-01** | 🐛 Bug | Terminal-to-Workspace File System Watcher Disconnect (Scoped Service Isolation) | `livesync-ui` | Critical | 📋 Backlog |
+| **BUG-02** | 🐛 Bug | Duplicate "Split-Brain" Panels in Workspace & Editor (AI, Packages, Comments) | `livesync-ui` | High | 📋 Backlog |
 | **PERF-01** | ⚡ Optimization | O(N²) Line Diff in Time-Travel Timeline Scrubber | `livesync-ui` | Medium | 🚫 Deprecated & Removed |
 | **PERF-02** | ⚡ Optimization | Data Loss Prevention on Tab Close / Debounced Save Unmount | `livesync-ui` | High | ✅ Done |
+| **PERF-03** | ⚡ Optimization | Decomposition of 1700+ Line Monolithic God Components (`workspace.ts`, `editor.ts`) | `livesync-ui` | High | 📋 Backlog |
+| **PERF-04** | ⚡ Optimization | Multi-User Remote Selection Range Highlighting & CRDT Delta Sync | `livesync-ui`, `livesync-realtime` | Medium | 📋 Backlog |
 | **FEAT-01** | 🚀 Feature | True Workspace Terminal & Background Process Mode | `livesync-ui`, `livesync-gateway` | Low | ✅ Done |
 | **FEAT-02** | 🚀 Feature | Smart Project Entrypoints & Auto-Dependency Resolver | `livesync-ui`, `livesync-gateway` | High | ✅ Done |
 | **FEAT-03** | 🚀 Feature | VS Code-Style Inline File/Folder Creation with Deep Path Parsing | `livesync-ui` | High | ✅ Done |
 | **FEAT-04** | 🚀 Feature | Bi-Directional `fsnotify` Terminal Disk Watcher & Real-time Tree Sync | `livesync-gateway`, `livesync-ui` | High | ✅ Done |
 | **FEAT-05** | 🚀 Feature | Path-Aware Virtual Filesystem (VFS) Indexer | `livesync-ui`, `livesync-ai` | Medium | ✅ Done |
 | **FEAT-06** | 🚀 Feature | Directory Drag-and-Drop Upload & Project ZIP Export | `livesync-ui`, `livesync-api` | Medium | ✅ Done |
+| **FEAT-07** | 🚀 Feature | Quick File Switcher & Command Palette (`Ctrl+P` / `Ctrl+Shift+P`) | `livesync-ui` | High | 📋 Backlog |
+| **FEAT-08** | 🚀 Feature | Workspace-Wide Multi-File Search & Replace (`Ctrl+Shift+F`) | `livesync-ui`, `livesync-gateway` | High | 📋 Backlog |
+| **FEAT-09** | 🚀 Feature | Code Diagnostics & Linter / Problems Panel Integration | `livesync-ui`, `livesync-ai` | Medium | 📋 Backlog |
+| **FEAT-10** | 🚀 Feature | Unified IDE Status Bar & Document Metrics (Line/Col, Spaces, Encoding, Sync) | `livesync-ui` | Medium | 📋 Backlog |
+| **FEAT-11** | 🚀 Feature | Unsaved Changes Guard & Dirty State Machine for File Tabs | `livesync-ui` | High | 📋 Backlog |
+| **FEAT-12** | 🚀 Feature | Multi-Terminal Tabs & Resilient `FitAddon` Layout Resize Handling | `livesync-ui`, `livesync-gateway` | Medium | 📋 Backlog |
+
+---
+
+## 🎯 Active & Upcoming Milestones
+
+### **Milestone 11: Production-Grade Cloud IDE Hardening & Architecture Cleanliness** (IN PLANNING 📋)
+- [ ] **BUG-01: Global Terminal Service Synchronization**: Refactor `LiveTerminalService` into a workspace-level singleton or message bus so terminal `fs_change` events reliably refresh the active file tree.
+- [ ] **BUG-02: Single Source of Truth for IDE Tooling**: Remove duplicated floating panels in `editor.html` and consolidate AI Assistant, Package Hub, and Code Comments entirely into the primary sidebar dock and bottom drawer.
+- [ ] **FEAT-07: Command Palette & Quick Open (`Ctrl+P`)**: Modal overlay with fuzzy search for rapid file navigation and IDE action dispatching without mouse navigation.
+- [ ] **FEAT-10 & FEAT-11: IDE Status Bar & Unsaved Changes Guard**: Rich bottom telemetry bar (Line/Col, Spaces, Encoding, Language, Sync status) and dirty tracking with confirmation modal before closing modified files.
+- [ ] **PERF-03: Component Decomposition**: Split `workspace.ts` and `editor.ts` into isolated components (`FileTreeComponent`, `StatusBarComponent`, `CommandPaletteComponent`, `TerminalPanelComponent`).
 
 ---
 

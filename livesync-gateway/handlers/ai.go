@@ -11,10 +11,10 @@ import (
 
 type AIHandler struct {
 	cfg        *config.Config
-	grpcClient pb.SandboxServiceClient
+	grpcClient pb.AIServiceClient
 }
 
-func NewAIHandler(cfg *config.Config, grpcClient pb.SandboxServiceClient) *AIHandler {
+func NewAIHandler(cfg *config.Config, grpcClient pb.AIServiceClient) *AIHandler {
 	return &AIHandler{cfg: cfg, grpcClient: grpcClient}
 }
 

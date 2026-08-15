@@ -10,10 +10,10 @@ import (
 
 type ExecutionHandler struct {
 	cfg        *config.Config
-	grpcClient pb.SandboxServiceClient
+	grpcClient pb.AIServiceClient
 }
 
-func NewExecutionHandler(cfg *config.Config, grpcClient pb.SandboxServiceClient) *ExecutionHandler {
+func NewExecutionHandler(cfg *config.Config, grpcClient pb.AIServiceClient) *ExecutionHandler {
 	return &ExecutionHandler{cfg: cfg, grpcClient: grpcClient}
 }
 

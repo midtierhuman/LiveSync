@@ -18,18 +18,18 @@ import (
 func main() {
 	cfg := config.LoadConfig()
 
-	// Initialize gRPC Sandbox Client
-	sbClient, err := client.NewSandboxClient(cfg)
+	// Initialize gRPC AI Client
+	aiClient, err := client.NewAIClient(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize Sandbox gRPC Client: %v", err)
+		log.Fatalf("Failed to initialize AI gRPC Client: %v", err)
 	}
-	defer sbClient.Close()
+	defer aiClient.Close()
 
 	mux := http.NewServeMux()
 
 	// Handlers
-	execHandler := handlers.NewExecutionHandler(cfg, sbClient.Client)
-	aiHandler := handlers.NewAIHandler(cfg, sbClient.Client)
+	execHandler := handlers.NewExecutionHandler(cfg, aiClient.Client)
+	aiHandler := handlers.NewAIHandler(cfg, aiClient.Client)
 	termHandler := handlers.NewTerminalHandler(cfg)
 	pkgHandler := handlers.NewPackagesHandler(cfg)
 

@@ -126,7 +126,7 @@ docker compose up -d postgres redis
 
 ```
 LiveSync/
-├── proto/               # Protobuf contracts (sandbox.proto)
+├── proto/               # Protobuf contracts (ai.proto)
 ├── livesync-gateway/    # Go API Gateway, PTY Terminal Engine & Direct Package Search
 ├── livesync-ai/         # Python AI Intelligence, Native gRPC Worker & AST Analyzer
 ├── livesync-api/        # Go 1.26 REST API, PostgreSQL & Redis Stream Consumer

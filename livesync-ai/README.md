@@ -18,10 +18,9 @@ A modern, high-performance AI code intelligence and static AST analysis microser
 
 ## 📡 gRPC Interface (Port 50051)
 
-Defined in [`proto/sandbox.proto`](../proto/sandbox.proto):
+Defined in [`proto/ai.proto`](../proto/ai.proto):
 - `AnalyzeCode` - AST and LLM AI code analysis (Explain, Refactor, Unit Tests, Suggest, Complexity).
 - `GetLanguages` - Returns supported runtime descriptors.
-- `ExecuteCode` - Isolated headless execution helper.
 
 ---
 

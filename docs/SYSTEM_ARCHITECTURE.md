@@ -99,7 +99,7 @@ graph TD
 - `GET /api/packages/?query=...&language=...` -> Direct high-performance PyPI / npm package search.
 
 ### 2. Go Gateway to Python AI Service (`livesync-ai`)
-- Communicates exclusively over **HTTP/2 gRPC on port 50051** via `proto/sandbox.proto`.
+- Communicates exclusively over **HTTP/2 gRPC on port 50051** via `proto/ai.proto`.
 - Python AI service runs completely isolated behind the Go Gateway with zero public HTTP route exposure.
 
 ### 3. Realtime to Database Persistence (Write-Behind & Monotonic Read Cache)

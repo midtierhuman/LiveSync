@@ -23,13 +23,12 @@ Statically parses code abstract syntax trees (AST) across Python and JavaScript 
 
 ## 📡 gRPC Interface (`app/grpc_server.py`)
 
-Implements the contract defined in [`proto/sandbox.proto`](../proto/sandbox.proto):
+Implements the contract defined in [`proto/ai.proto`](../proto/ai.proto):
 
 | RPC Method | Request | Response | Description |
 | :--- | :--- | :--- | :--- |
 | `AnalyzeCode` | `AiAnalysisRequest` | `AiAnalysisResponse` | Triggers AST + LLM analysis (Explain, Refactor, Unit Tests, Suggest, Complexity). |
 | `GetLanguages` | `Empty` | `LanguagesResponse` | Returns descriptors for supported execution runtimes. |
-| `ExecuteCode` | `ExecutionRequest` | `ExecutionResponse` | Isolated headless execution helper. |
 
 ---
 
