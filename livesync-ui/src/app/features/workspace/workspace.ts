@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren, effect } from '@angular/core';
+import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren, viewChild, ElementRef, effect } from '@angular/core';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
@@ -68,7 +68,7 @@ export class Workspace implements OnInit {
   protected readonly authService = inject(AuthService);
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
-  private readonly liveTerminalService = inject(LiveTerminalService);
+  public readonly liveTerminalService = inject(LiveTerminalService);
   private readonly realtimeService = inject(RealtimeService);
   public readonly vfsService = inject(VFSService);
   private readonly router = inject(Router);
@@ -255,6 +255,61 @@ export class Workspace implements OnInit {
       }
     }
     return 'python';
+  }
+
+  // Quick Open / Command Palette (Ctrl+P)
+  showQuickOpen = signal(false);
+  quickOpenQuery = signal('');
+  quickOpenSelectedIndex = signal(0);
+
+  quickOpenResults = computed(() => {
+    const q = this.quickOpenQuery().toLowerCase().trim();
+    const docs = [
+      ...this.myDocuments(),
+      ...this.sharedDocuments().map((s) => ({
+        id: s.documentId,
+        title: s.documentTitle,
+        folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
+      })),
+    ];
+
+    if (!q) {
+      return docs.slice(0, 15);
+    }
+    return docs.filter((d) => d.title && d.title.toLowerCase().includes(q)).slice(0, 15);
+  });
+
+  toggleQuickOpen() {
+    this.showQuickOpen.update((v) => !v);
+    if (this.showQuickOpen()) {
+      this.quickOpenQuery.set('');
+      this.quickOpenSelectedIndex.set(0);
+    }
+  }
+
+  handleQuickOpenKeyDown(event: KeyboardEvent) {
+    const results = this.quickOpenResults();
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.quickOpenSelectedIndex.update((i) => (i + 1) % Math.max(1, results.length));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.quickOpenSelectedIndex.update((i) => (i - 1 + results.length) % Math.max(1, results.length));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const idx = this.quickOpenSelectedIndex();
+      if (results[idx]) {
+        this.selectQuickOpenDoc(results[idx].id);
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.showQuickOpen.set(false);
+    }
+  }
+
+  selectQuickOpenDoc(docId: string) {
+    this.showQuickOpen.set(false);
+    this.openDocument(docId);
   }
 
   // Search & Drag-Drop
@@ -1001,6 +1056,13 @@ export class Workspace implements OnInit {
     if (isCmdOrCtrl && event.key === '`') {
       event.preventDefault();
       this.toggleTerminalInActiveEditor();
+      return;
+    }
+
+    // 5. Ctrl+P / Cmd+P -> Toggle Quick Open Command Palette
+    if (isCmdOrCtrl && (event.key === 'p' || event.key === 'P') && !event.shiftKey) {
+      event.preventDefault();
+      this.toggleQuickOpen();
       return;
     }
   }
@@ -1796,11 +1858,139 @@ export class Workspace implements OnInit {
     }
   }
 
+  // Workspace Terminal State & Handlers
+  readonly isTerminalOpen = signal<boolean>(false);
+  readonly terminalHeight = signal<number>(280);
+  readonly isTerminalMaximized = signal<boolean>(false);
+  readonly workspaceTerminalContainer = viewChild<ElementRef<HTMLElement>>('workspaceTerminalContainer');
+
+  private isResizingTerminal = false;
+  private startY = 0;
+  private startHeight = 280;
+
   toggleTerminalInActiveEditor(): void {
-    const active = this.activeEditorInstance();
-    if (active) {
-      active.toggleTerminalPanel();
+    this.toggleTerminal();
+  }
+
+  toggleTerminal(): void {
+    const next = !this.isTerminalOpen();
+    this.isTerminalOpen.set(next);
+    if (next) {
+      setTimeout(() => {
+        this.attachWorkspaceTerminal();
+      }, 50);
     }
+  }
+
+  closeTerminal(): void {
+    this.isTerminalOpen.set(false);
+  }
+
+  attachWorkspaceTerminal(): void {
+    const container = this.workspaceTerminalContainer()?.nativeElement;
+    if (!container) return;
+    const proj = this.scopedProject();
+    const projId = proj?.id || (this.openTabs()[0]?.id ? this.myFolders()[0]?.id || 'workspace_default' : 'workspace_default');
+    const projName = proj?.name || 'workspace';
+    this.liveTerminalService.attachToElement(container, projId, this.isDarkMode(), projName);
+    this.syncAllWorkspaceFilesToDisk();
+  }
+
+  syncAllWorkspaceFilesToDisk(): void {
+    const proj = this.scopedProject();
+    const projId = proj?.id;
+    const vfs = this.vfsService.vfsIndex();
+    const docs = [
+      ...this.myDocuments(),
+      ...this.sharedDocuments().map((s) => ({
+        id: s.documentId,
+        title: s.documentTitle,
+        content: '',
+        folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
+      })),
+    ];
+
+    const filesMap: Record<string, string> = {};
+    for (const doc of docs) {
+      if (!projId || this.isDocumentInProject(doc.id, projId)) {
+        const relPath = vfs.docIdToPath.get(doc.id) || doc.title;
+        if (relPath) {
+          const activeInst = this.activeEditorInstance();
+          if (activeInst && activeInst.docId() === doc.id) {
+            filesMap[relPath] = activeInst.codeSignal() || doc.content || '';
+          } else {
+            filesMap[relPath] = doc.content || '';
+          }
+        }
+      }
+    }
+
+    if (Object.keys(filesMap).length > 0) {
+      this.liveTerminalService.syncFiles(filesMap);
+    }
+  }
+
+  restartTerminal(): void {
+    this.liveTerminalService.restart();
+  }
+
+  clearTerminal(): void {
+    this.liveTerminalService.clear();
+  }
+
+  toggleMaximizeTerminal(): void {
+    if (this.isTerminalMaximized()) {
+      this.isTerminalMaximized.set(false);
+      this.terminalHeight.set(280);
+    } else {
+      this.isTerminalMaximized.set(true);
+      this.terminalHeight.set(window.innerHeight - 180);
+    }
+    setTimeout(() => {
+      this.liveTerminalService.fit();
+    }, 50);
+  }
+
+  focusTerminal(): void {
+    this.liveTerminalService.focus();
+  }
+
+  startResizingTerminal(event: MouseEvent | TouchEvent): void {
+    event.preventDefault();
+    this.isResizingTerminal = true;
+    this.startY = 'touches' in event ? event.touches[0].clientY : event.clientY;
+    this.startHeight = this.terminalHeight();
+
+    const onMove = (moveEv: MouseEvent | TouchEvent) => {
+      if (!this.isResizingTerminal) return;
+      const currentY = 'touches' in moveEv ? moveEv.touches[0].clientY : moveEv.clientY;
+      const deltaY = this.startY - currentY;
+      const nextHeight = Math.max(120, Math.min(window.innerHeight - 120, this.startHeight + deltaY));
+      this.terminalHeight.set(nextHeight);
+      this.liveTerminalService.fit();
+    };
+
+    const onEnd = () => {
+      this.isResizingTerminal = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      this.liveTerminalService.fit();
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchend', onEnd);
+  }
+
+  resetTerminalHeight(): void {
+    this.terminalHeight.set(280);
+    this.isTerminalMaximized.set(false);
+    setTimeout(() => {
+      this.liveTerminalService.fit();
+    }, 50);
   }
 
   toggleTheme(): void {

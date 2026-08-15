@@ -96,12 +96,15 @@ export class LiveTerminalService {
         };
   }
 
+  private attachedContainer: HTMLElement | null = null;
+
   attachToElement(container: HTMLElement, projectId?: string, isDark: boolean = true, projectName?: string) {
     if (projectName) {
       this.currentProjectName = projectName;
     }
-    if (projectId && projectId !== this.currentProjectId) {
-      this.currentProjectId = projectId;
+    const hasProjectChanged = Boolean(projectId && projectId !== this.currentProjectId);
+    if (hasProjectChanged) {
+      this.currentProjectId = projectId!;
       if (this.socket) {
         this.socket.close();
         this.socket = null;
@@ -109,6 +112,25 @@ export class LiveTerminalService {
     } else if (projectId) {
       this.currentProjectId = projectId;
     }
+
+    // Fast-path: If the terminal is already attached to this container for this project, simply refocus and fit!
+    if (
+      this.attachedContainer === container &&
+      this.term &&
+      !hasProjectChanged &&
+      this.term.element &&
+      container.contains(this.term.element)
+    ) {
+      this.setTheme(isDark);
+      this.bindSocketListeners();
+      setTimeout(() => {
+        this.fit();
+        this.focus();
+      }, 20);
+      return;
+    }
+
+    this.attachedContainer = container;
 
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
@@ -169,12 +191,29 @@ export class LiveTerminalService {
       this.resizeObserver.observe(container);
     }
 
-    setTimeout(() => {
-      this.fit();
-      this.focus();
-    }, 50);
-
-    this.connect();
+    // If socket is already connected to this project, rebind listeners and repaint prompt
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.bindSocketListeners();
+      setTimeout(() => {
+        this.fit();
+        this.socket?.send(
+          JSON.stringify({
+            action: 'resize',
+            cols: this.term?.cols || 80,
+            rows: this.term?.rows || 24,
+          }),
+        );
+        // Request prompt redraw
+        this.socket?.send('\r\n');
+        this.focus();
+      }, 50);
+    } else {
+      setTimeout(() => {
+        this.fit();
+        this.focus();
+      }, 50);
+      this.connect();
+    }
   }
 
   setTheme(isDark: boolean) {
@@ -188,14 +227,13 @@ export class LiveTerminalService {
         this.fitAddon &&
         this.term &&
         this.term.element &&
-        this.term.element.offsetParent !== null &&
-        this.term.element.clientWidth > 0 &&
-        this.term.element.clientHeight > 0
+        this.term.element.clientHeight > 0 &&
+        this.term.element.clientWidth > 0
       ) {
         this.fitAddon.fit();
       }
     } catch {
-      // Ignore fit errors if container is hidden or not attached
+      // Safe fallback
     }
   }
 
@@ -203,6 +241,46 @@ export class LiveTerminalService {
     setTimeout(() => {
       this.term?.focus();
     }, 20);
+  }
+
+  private bindSocketListeners() {
+    if (!this.socket) return;
+
+    this.socket.onmessage = (event) => {
+      if (typeof event.data === 'string') {
+        // Detect structured JSON change notifications from fsnotify
+        const trimmed = event.data.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            const msg = JSON.parse(trimmed);
+            if (msg.type === 'fs_change' || msg.action === 'fs_change') {
+              this.onFileSystemChange.set({ ...msg, timestamp: Date.now() });
+              return;
+            }
+          } catch {
+            // Not JSON, fallthrough to terminal rendering
+          }
+        }
+        this.term?.write(event.data);
+      } else if (event.data instanceof ArrayBuffer) {
+        this.term?.write(new Uint8Array(event.data));
+      } else if (event.data instanceof Blob) {
+        event.data.arrayBuffer().then((buffer) => {
+          this.term?.write(new Uint8Array(buffer));
+        });
+      }
+    };
+
+    this.socket.onerror = () => {
+      this.isConnected.set(false);
+      this.terminalStatus.set('Error');
+    };
+
+    this.socket.onclose = () => {
+      this.isConnected.set(false);
+      this.terminalStatus.set('Disconnected');
+      this.socket = null;
+    };
   }
 
   connect(projectId?: string, projectName?: string) {
@@ -221,6 +299,7 @@ export class LiveTerminalService {
 
     if (this.socket) {
       if (this.socket.readyState === WebSocket.OPEN) {
+        this.bindSocketListeners();
         if (this.term && (this.term.cols || 0) > 0 && (this.term.rows || 0) > 0) {
           this.fit();
           this.socket.send(
@@ -287,41 +366,7 @@ export class LiveTerminalService {
         }
       };
 
-      this.socket.onmessage = (event) => {
-        if (typeof event.data === 'string') {
-          // Detect structured JSON change notifications from fsnotify
-          const trimmed = event.data.trim();
-          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-            try {
-              const msg = JSON.parse(trimmed);
-              if (msg.type === 'fs_change' || msg.action === 'fs_change') {
-                this.onFileSystemChange.set({ ...msg, timestamp: Date.now() });
-                return;
-              }
-            } catch {
-              // Not JSON, fallthrough to terminal rendering
-            }
-          }
-          this.term?.write(event.data);
-        } else if (event.data instanceof ArrayBuffer) {
-          this.term?.write(new Uint8Array(event.data));
-        } else if (event.data instanceof Blob) {
-          event.data.arrayBuffer().then((buffer) => {
-            this.term?.write(new Uint8Array(buffer));
-          });
-        }
-      };
-
-      this.socket.onerror = () => {
-        this.isConnected.set(false);
-        this.terminalStatus.set('Error');
-      };
-
-      this.socket.onclose = () => {
-        this.isConnected.set(false);
-        this.terminalStatus.set('Disconnected');
-        this.socket = null;
-      };
+      this.bindSocketListeners();
     } catch {
       this.isConnected.set(false);
       this.terminalStatus.set('Failed to connect');

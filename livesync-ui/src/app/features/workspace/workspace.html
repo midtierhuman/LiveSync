@@ -774,6 +774,66 @@
           </div>
         }
       </div>
+
+      <!-- Unified Workspace Terminal Panel (Persistent in-memory session) -->
+      <section
+        class="workspace-terminal-panel"
+        [class.terminal-hidden]="!isTerminalOpen()"
+        [style.height.px]="isTerminalOpen() ? terminalHeight() : 0"
+      >
+        <div
+          class="terminal-resize-handle"
+          (mousedown)="startResizingTerminal($event)"
+          (touchstart)="startResizingTerminal($event)"
+          (dblclick)="resetTerminalHeight()"
+          matTooltip="Drag up/down to resize terminal (Double-click to reset)"
+        >
+          <div class="resize-grip"></div>
+        </div>
+
+        <div class="terminal-header">
+          <div class="terminal-tabs-container">
+            <div class="terminal-title-chip">
+              <mat-icon class="tab-icon">terminal</mat-icon>
+              <span>Workspace Terminal (Interactive)</span>
+              <span
+                class="terminal-status-badge"
+                [class]="(liveTerminalService.terminalStatus() || 'idle').toLowerCase().replace(' ', '-')"
+              >
+                <span class="status-pulse-dot"></span>
+                {{ liveTerminalService.terminalStatus() }}
+              </span>
+            </div>
+          </div>
+
+          <div class="terminal-header-actions">
+            <button mat-icon-button (click)="restartTerminal()" matTooltip="Restart Terminal Session">
+              <mat-icon>restart_alt</mat-icon>
+            </button>
+
+            <button mat-icon-button (click)="clearTerminal()" matTooltip="Clear Terminal Output">
+              <mat-icon>delete_sweep</mat-icon>
+            </button>
+
+            <button
+              mat-icon-button
+              (click)="toggleMaximizeTerminal()"
+              [matTooltip]="isTerminalMaximized() ? 'Restore Height' : 'Maximize Terminal'"
+            >
+              <mat-icon>{{ isTerminalMaximized() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+            </button>
+
+            <button mat-icon-button (click)="closeTerminal()" class="close-terminal-btn" matTooltip="Close Terminal Panel">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Interactive xterm.js Terminal Canvas -->
+        <div class="tab-content-container terminal-xterm-wrapper" (click)="focusTerminal()">
+          <div #workspaceTerminalContainer class="xterm-mount-point"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -919,4 +979,41 @@
       </button>
     </div>
   }
+
+  <!-- Quick Open / Command Palette (Ctrl+P) -->
+  @if (showQuickOpen()) {
+    <div class="quick-open-backdrop" (click)="showQuickOpen.set(false)">
+      <div class="quick-open-modal" (click)="$event.stopPropagation()">
+        <div class="quick-open-input-row">
+          <mat-icon>search</mat-icon>
+          <input
+            #quickOpenInput
+            type="text"
+            placeholder="Type a file name to open..."
+            [value]="quickOpenQuery()"
+            (input)="quickOpenQuery.set($any($event.target).value)"
+            (keydown)="handleQuickOpenKeyDown($event)"
+            autofocus
+          />
+        </div>
+
+        <div class="quick-open-results-list">
+          @for (doc of quickOpenResults(); track doc.id; let i = $index) {
+            <div
+              class="quick-open-item"
+              [class.selected]="i === quickOpenSelectedIndex()"
+              (click)="selectQuickOpenDoc(doc.id)"
+              (mouseenter)="quickOpenSelectedIndex.set(i)"
+            >
+              <mat-icon class="file-icon">description</mat-icon>
+              <span class="file-name">{{ doc.title }}</span>
+            </div>
+          } @empty {
+            <div class="quick-open-empty">No matching files found.</div>
+          }
+        </div>
+      </div>
+    </div>
+  }
 </div>
+

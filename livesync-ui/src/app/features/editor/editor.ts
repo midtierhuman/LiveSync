@@ -62,6 +62,7 @@ import {
 import { FolderService } from '../../services/folder.service';
 import { AuthService } from '../../services/auth.service';
 import { LiveTerminalService } from '../../services/live-terminal.service';
+import { VFSService } from '../../services/vfs.service';
 import { PackageManagerService, PackageItem } from '../../services/package-manager.service';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
@@ -99,6 +100,7 @@ export class Editor implements OnInit {
 
   readonly realtimeService = inject(RealtimeService);
   public readonly liveTerminalService = inject(LiveTerminalService);
+  public readonly vfsService = inject(VFSService);
   public readonly packageManagerService = inject(PackageManagerService);
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
@@ -421,7 +423,9 @@ export class Editor implements OnInit {
       this.updateReadOnlyState(isEditable);
 
       if (doc.title) {
-        this.liveTerminalService.syncFiles({ [doc.title]: content });
+        const vfs = this.vfsService.vfsIndex();
+        const relPath = vfs.docIdToPath.get(id) || doc.title;
+        this.liveTerminalService.syncFiles({ [relPath]: content });
       }
 
       await this.loadExecutionLanguages();
@@ -809,8 +813,10 @@ export class Editor implements OnInit {
 
       // Silently sync saved file to live workspace terminal on disk
       const docTitle = this.document()?.title || this.docTitle();
-      if (docTitle) {
-        this.liveTerminalService.syncFiles({ [docTitle]: content });
+      if (docTitle && currentDocId) {
+        const vfs = this.vfsService.vfsIndex();
+        const relPath = vfs.docIdToPath.get(currentDocId) || docTitle;
+        this.liveTerminalService.syncFiles({ [relPath]: content });
       }
     } catch (saveError: any) {
       console.error('Error saving document to backend:', saveError);

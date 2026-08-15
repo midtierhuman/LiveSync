@@ -23,58 +23,6 @@
     <div #editorHost class="monaco-host"></div>
   </div>
 
-  @if (isTerminalOpen()) {
-    <section class="unified-terminal-panel" [style.height.px]="terminalHeight()">
-      <!-- Single Resize Handle -->
-      <div
-        class="terminal-resize-handle"
-        (mousedown)="startResizingTerminal($event)"
-        (touchstart)="startResizingTerminal($event)"
-        (dblclick)="resetTerminalHeight()"
-        matTooltip="Drag up/down to resize terminal (Double-click to reset)"
-      >
-        <div class="resize-grip"></div>
-      </div>
-
-      <!-- Unified Header -->
-      <div class="terminal-header">
-        <div class="terminal-tabs-container">
-          <div class="terminal-title-chip">
-            <mat-icon class="tab-icon">terminal</mat-icon>
-            <span>Workspace Terminal (Interactive)</span>
-            <span class="terminal-status-badge" [class]="(liveTerminalService.terminalStatus() || 'idle').toLowerCase().replace(' ', '-')">
-              <span class="status-pulse-dot"></span>
-              {{ liveTerminalService.terminalStatus() }}
-            </span>
-          </div>
-        </div>
-
-        <div class="terminal-header-actions">
-          <button mat-icon-button (click)="restartTerminal()" matTooltip="Restart Terminal Session">
-            <mat-icon>restart_alt</mat-icon>
-          </button>
-
-          <button mat-icon-button (click)="clearTerminal()" matTooltip="Clear Terminal Output">
-            <mat-icon>delete_sweep</mat-icon>
-          </button>
-
-          <button mat-icon-button (click)="toggleMaximizeTerminal()" [matTooltip]="isTerminalMaximized() ? 'Restore Height' : 'Maximize Terminal'">
-            <mat-icon>{{ isTerminalMaximized() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
-          </button>
-
-          <button mat-icon-button (click)="closeAllTerminals()" class="close-terminal-btn" matTooltip="Close Terminal Panel">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-      </div>
-
-      <!-- Live Interactive xterm.js Terminal Canvas -->
-      <div class="tab-content-container terminal-xterm-wrapper" (click)="focusTerminal()">
-        <div #xtermContainer class="xterm-mount-point"></div>
-      </div>
-    </section>
-  }
-
   <footer class="editor-statusbar" [class.light]="!isDarkMode()">
     <div class="statusbar-left">
       <div class="status-chip connection-chip" [class]="realtimeService.connectionState()" [matTooltip]="'Realtime status: ' + realtimeService.connectionState()">
