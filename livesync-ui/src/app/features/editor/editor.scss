@@ -1,8 +1,20 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 .editor-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
   background: #1e1e1e;
   overflow: hidden;
 }
@@ -1705,6 +1717,9 @@ button.active-mode {
   border-top: 2px solid #238636;
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
   font-size: 13px;
+  overflow: hidden;
+  min-height: 120px;
+  max-height: calc(100% - 100px);
 
   .terminal-header {
     display: flex;
@@ -1956,6 +1971,7 @@ button.active-mode {
 
   .terminal-xterm-wrapper {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1964,10 +1980,10 @@ button.active-mode {
     border-radius: 6px;
     border: 1px solid #30363d;
     padding: 4px;
-    min-height: 120px;
 
     .xterm-mount-point {
       flex: 1;
+      min-height: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -1975,6 +1991,7 @@ button.active-mode {
       .xterm {
         padding: 4px 6px;
         height: 100%;
+        box-sizing: border-box;
       }
       .xterm-viewport {
         overflow-y: auto !important;
