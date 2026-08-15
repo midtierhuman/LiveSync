@@ -11,6 +11,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **BUG-01** | 🐛 Bug | Terminal-to-Workspace File System Watcher Disconnect (Scoped Service Isolation) | `livesync-ui` | Critical | 📋 Backlog |
 | **BUG-02** | 🐛 Bug | Duplicate "Split-Brain" Panels in Workspace & Editor (AI, Packages, Comments) | `livesync-ui` | High | 📋 Backlog |
+| **BUG-03** | 🐛 Bug | Realtime Workspace Metadata Sync (File/Folder Renames, Creations, Moves & Deletions) | `livesync-realtime`, `livesync-api`, `livesync-ui` | Critical | 📋 Backlog |
 | **PERF-01** | ⚡ Optimization | O(N²) Line Diff in Time-Travel Timeline Scrubber | `livesync-ui` | Medium | 🚫 Deprecated & Removed |
 | **PERF-02** | ⚡ Optimization | Data Loss Prevention on Tab Close / Debounced Save Unmount | `livesync-ui` | High | ✅ Done |
 | **PERF-03** | ⚡ Optimization | Decomposition of 1700+ Line Monolithic God Components (`workspace.ts`, `editor.ts`) | `livesync-ui` | High | 📋 Backlog |
@@ -35,6 +36,7 @@
 ### **Milestone 11: Production-Grade Cloud IDE Hardening & Architecture Cleanliness** (IN PLANNING 📋)
 - [ ] **BUG-01: Global Terminal Service Synchronization**: Refactor `LiveTerminalService` into a workspace-level singleton or message bus so terminal `fs_change` events reliably refresh the active file tree.
 - [ ] **BUG-02: Single Source of Truth for IDE Tooling**: Remove duplicated floating panels in `editor.html` and consolidate AI Assistant, Package Hub, and Code Comments entirely into the primary sidebar dock and bottom drawer.
+- [ ] **BUG-03: Real-Time Project/Workspace Tree Event Propagation**: Introduce project/folder-scoped Socket.IO rooms (`JoinWorkspace(folderId)`) so file/folder renames, creations, deletions, and moves instantly broadcast to all active collaborators' tree views and open tab titles.
 - [ ] **FEAT-07: Command Palette & Quick Open (`Ctrl+P`)**: Modal overlay with fuzzy search for rapid file navigation and IDE action dispatching without mouse navigation.
 - [ ] **FEAT-10 & FEAT-11: IDE Status Bar & Unsaved Changes Guard**: Rich bottom telemetry bar (Line/Col, Spaces, Encoding, Language, Sync status) and dirty tracking with confirmation modal before closing modified files.
 - [ ] **PERF-03: Component Decomposition**: Split `workspace.ts` and `editor.ts` into isolated components (`FileTreeComponent`, `StatusBarComponent`, `CommandPaletteComponent`, `TerminalPanelComponent`).
