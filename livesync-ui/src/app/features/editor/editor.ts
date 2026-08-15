@@ -11,7 +11,7 @@ import {
   DestroyRef,
   input,
 } from '@angular/core';
-import { DomSanitizer } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -1087,6 +1087,65 @@ export class Editor implements OnInit {
 
   hasJsonInOutput(): boolean {
     return this.hasJsonInOutputSignal();
+  }
+
+  parseAnsiToHtml(text: string): string {
+    if (!text) return '';
+    const ansiMap: Record<string, string> = {
+      '30': 'color:#484f58',
+      '31': 'color:#f85149',
+      '32': 'color:#3fb950',
+      '33': 'color:#d29922',
+      '34': 'color:#58a6ff',
+      '35': 'color:#bc8cff',
+      '36': 'color:#39c5cf',
+      '37': 'color:#b1bac4',
+      '90': 'color:#6e7681',
+      '91': 'color:#ffa198',
+      '92': 'color:#56d364',
+      '93': 'color:#e3b341',
+      '94': 'color:#79c0ff',
+      '95': 'color:#d2a8ff',
+      '96': 'color:#56d4dd',
+      '97': 'color:#f0f6fc',
+      '1': 'font-weight:bold',
+      '2': 'opacity:0.8',
+      '3': 'font-style:italic',
+      '4': 'text-decoration:underline',
+    };
+    let escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    escaped = escaped.replace(/\x1b\[([0-9;]+)m/g, (_, codes) => {
+      if (codes === '0' || codes === '') {
+        return '</span>';
+      }
+      const styles = codes
+        .split(';')
+        .map((c: string) => ansiMap[c])
+        .filter(Boolean);
+      if (styles.length > 0) {
+        return `<span style="${styles.join(';')}">`;
+      }
+      return '';
+    });
+    return escaped;
+  }
+
+  getFormattedReplConsoleHtml(): SafeHtml {
+    const stdout = this.parseAnsiToHtml(this.streamService.streamOutput() || '');
+    const stderr = this.parseAnsiToHtml(this.streamService.streamErrorOutput() || '');
+    const combined = stderr ? `${stdout}<span class="terminal-stderr">${stderr}</span>` : stdout;
+    return this.sanitizer.bypassSecurityTrustHtml(combined || '<span class="terminal-placeholder">Ready for execution...</span>');
+  }
+
+  getFormattedResultConsoleHtml(): SafeHtml {
+    const stdout = this.parseAnsiToHtml(this.executionResult()?.standardOutput || '');
+    const stderr = this.parseAnsiToHtml(this.executionResult()?.standardError || this.executionError() || '');
+    const combined = stderr ? `${stdout}<span class="terminal-stderr">${stderr}</span>` : stdout;
+    return this.sanitizer.bypassSecurityTrustHtml(combined || '<span class="terminal-placeholder">No output generated.</span>');
   }
 
   getSafeIframeSrcDoc(): string {

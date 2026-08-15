@@ -69,6 +69,7 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
 
         temp_dir = tempfile.mkdtemp(prefix="livesync_pty_")
         entry_file_path = os.path.join(temp_dir, "script.py" if lang in ("python", "py") else "script.js")
+        process = None
 
         try:
             if files_map:
@@ -117,21 +118,37 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
                 bufsize=0
             )
 
+            # Register gRPC context cancellation callback to prevent zombie processes
+            def on_client_cancel():
+                if process and process.poll() is None:
+                    try:
+                        process.kill()
+                    except Exception:
+                        pass
+            if context and hasattr(context, "add_callback"):
+                context.add_callback(on_client_cancel)
+
             out_queue = queue.Queue()
 
             def read_stdout():
-                while True:
-                    data = process.stdout.read(1024)
-                    if not data:
-                        break
-                    out_queue.put(("stdout", data.decode("utf-8", errors="replace")))
+                try:
+                    while True:
+                        data = process.stdout.read(1024)
+                        if not data:
+                            break
+                        out_queue.put(("stdout", data.decode("utf-8", errors="replace")))
+                except Exception:
+                    pass
 
             def read_stderr():
-                while True:
-                    data = process.stderr.read(1024)
-                    if not data:
-                        break
-                    out_queue.put(("stderr", data.decode("utf-8", errors="replace")))
+                try:
+                    while True:
+                        data = process.stderr.read(1024)
+                        if not data:
+                            break
+                        out_queue.put(("stderr", data.decode("utf-8", errors="replace")))
+                except Exception:
+                    pass
 
             t1 = threading.Thread(target=read_stdout, daemon=True)
             t2 = threading.Thread(target=read_stderr, daemon=True)
@@ -149,7 +166,6 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
                             break
                         elif req.standard_input:
                             stdin_bytes = req.standard_input.encode("utf-8")
-                            # Echo input to client stdout so terminal displays typed input
                             out_queue.put(("stdout", req.standard_input))
                             if process.poll() is None and process.stdin:
                                 try:
@@ -158,7 +174,7 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
                                 except Exception:
                                     pass
                 except Exception as e:
-                    logger.warning(f"Error in request_iterator: {e}")
+                    logger.debug(f"StreamExecution request_iterator ended: {e}")
 
             req_thread = threading.Thread(target=read_requests, daemon=True)
             req_thread.start()
@@ -176,18 +192,23 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
 
             while process.poll() is None or not out_queue.empty():
                 try:
-                    stream_type, content = out_queue.get(timeout=0.1)
+                    stream_type, content = out_queue.get(timeout=0.05)
                     yield sandbox_pb2.ExecutionChunk(stream_type=stream_type, content=content)
                 except queue.Empty:
+                    if context and hasattr(context, "is_active") and not context.is_active():
+                        break
                     continue
 
-            process.wait()
-            t1.join(timeout=1.0)
-            t2.join(timeout=1.0)
+            process.wait(timeout=1.0)
+            t1.join(timeout=0.5)
+            t2.join(timeout=0.5)
 
             while not out_queue.empty():
-                stream_type, content = out_queue.get_nowait()
-                yield sandbox_pb2.ExecutionChunk(stream_type=stream_type, content=content)
+                try:
+                    stream_type, content = out_queue.get_nowait()
+                    yield sandbox_pb2.ExecutionChunk(stream_type=stream_type, content=content)
+                except queue.Empty:
+                    break
 
             exit_code = process.returncode if process.returncode is not None else 0
             yield sandbox_pb2.ExecutionChunk(
@@ -197,6 +218,11 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
             )
 
         finally:
+            if process and process.poll() is None:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
             shutil.rmtree(temp_dir, ignore_errors=True)
 
     def GetLanguages(self, request, context):

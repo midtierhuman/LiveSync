@@ -206,16 +206,83 @@ export class Workspace implements OnInit {
     }
 
     if (match) {
+      const prevId = this.scopedProject()?.id;
       this.scopedProject.set(match);
       const exp = new Set(this.expandedFolderIds());
       exp.add(match.id);
       this.expandedFolderIds.set(exp);
 
-      if (this.openTabs().length === 0) {
+      if (prevId !== match.id) {
+        this.alignTabsWithProject(match);
+      } else if (this.openTabs().length === 0) {
         this.autoOpenProjectEntry(match);
       }
     } else if (projectName === 'All-Projects') {
       this.scopedProject.set(null);
+    }
+  }
+
+  private getAllFolderIdsInProject(rootFolderId: string): Set<string> {
+    const ids = new Set<string>([rootFolderId]);
+    const collect = (parentId: string) => {
+      const subs = this.getSubfoldersOf(parentId);
+      for (const s of subs) {
+        if (!ids.has(s.id)) {
+          ids.add(s.id);
+          collect(s.id);
+        }
+      }
+    };
+    collect(rootFolderId);
+    return ids;
+  }
+
+  private isDocumentInProject(docId: string, projectFolderId: string): boolean {
+    const validFolderIds = this.getAllFolderIdsInProject(projectFolderId);
+
+    // Check myDocuments
+    const doc = this.myDocuments().find((d) => d.id === docId);
+    if (doc && doc.folderId && validFolderIds.has(doc.folderId)) {
+      return true;
+    }
+
+    // Check folderChildDocs
+    for (const fId of validFolderIds) {
+      const children = this.folderChildDocs()[fId];
+      if (children && children.some((d) => d.id === docId)) {
+        return true;
+      }
+    }
+
+    // Check sharedFolderTree
+    const checkSharedTree = (nodes: FolderDto[]): boolean => {
+      for (const n of nodes) {
+        if (validFolderIds.has(n.id)) {
+          if (n.documents?.some((d) => d.id === docId)) return true;
+        }
+        if (n.subfolders && checkSharedTree(n.subfolders)) return true;
+      }
+      return false;
+    };
+    if (checkSharedTree(this.sharedFolderTree())) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private async alignTabsWithProject(project: FolderDto) {
+    const projectTabs = this.openTabs().filter((tab) => this.isDocumentInProject(tab.id, project.id));
+
+    if (projectTabs.length > 0) {
+      this.openTabs.set(projectTabs);
+      if (!projectTabs.some((t) => t.id === this.activeTabId())) {
+        this.activeTabId.set(projectTabs[0].id);
+      }
+    } else {
+      this.openTabs.set([]);
+      this.activeTabId.set('');
+      await this.autoOpenProjectEntry(project);
     }
   }
 
@@ -228,6 +295,9 @@ export class Workspace implements OnInit {
           docs = details.documents;
           this.folderChildDocs.update((prev) => ({ ...prev, [folder.id]: details.documents }));
         }
+        if (details.subfolders) {
+          this.folderChildSubfolders.update((prev) => ({ ...prev, [folder.id]: details.subfolders }));
+        }
       }
 
       if (docs && docs.length > 0) {
@@ -238,6 +308,34 @@ export class Workspace implements OnInit {
             )
           ) || docs[0];
         this.openDocument(entry.id);
+        return;
+      }
+
+      // If root has no direct files, look into immediate subfolders
+      const subs = this.getSubfoldersOf(folder.id);
+      if (subs && subs.length > 0) {
+        for (const sub of subs) {
+          let subDocs = this.folderChildDocs()[sub.id];
+          if (!subDocs || subDocs.length === 0) {
+            try {
+              const subDetails = await this.folderService.getFolder(sub.id);
+              if (subDetails.documents && subDetails.documents.length > 0) {
+                subDocs = subDetails.documents;
+                this.folderChildDocs.update((prev) => ({ ...prev, [sub.id]: subDetails.documents }));
+              }
+            } catch {}
+          }
+          if (subDocs && subDocs.length > 0) {
+            const entry =
+              subDocs.find((d) =>
+                ['main.py', 'index.js', 'app.py', 'server.js', 'main.ts', 'index.ts', 'app.ts'].includes(
+                  d.title.toLowerCase()
+                )
+              ) || subDocs[0];
+            this.openDocument(entry.id);
+            break;
+          }
+        }
       }
     } catch (err) {
       console.error('Error auto-opening project entry:', err);
@@ -257,12 +355,10 @@ export class Workspace implements OnInit {
         const exp = new Set(this.expandedFolderIds());
         exp.add(match.id);
         this.expandedFolderIds.set(exp);
+        this.alignTabsWithProject(match);
         this.router.navigate(['/workspace', encodeURIComponent(match.name)], {
           queryParams: { id: match.id },
         });
-        if (this.openTabs().length === 0) {
-          this.autoOpenProjectEntry(match);
-        }
       }
     }
   }

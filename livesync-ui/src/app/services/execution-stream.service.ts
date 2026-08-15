@@ -65,10 +65,12 @@ export class ExecutionStreamService {
     this.pendingConnectedCallbacks.push(onConnected);
 
     const httpBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || window.location.origin;
+    const token = this.authService.token();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
     const wsUrl = httpBase
       .replace(/^http:\/\//, 'ws://')
       .replace(/^https:\/\//, 'wss://')
-      .replace(/\/$/, '') + '/api/execution/stream';
+      .replace(/\/$/, '') + '/api/execution/stream' + tokenParam;
 
     try {
       this.socket = new WebSocket(wsUrl);

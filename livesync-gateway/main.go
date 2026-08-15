@@ -42,11 +42,11 @@ func main() {
 
 	mux.HandleFunc("/api/execution/run", middleware.JWTAuth(cfg, execHandler.RunCode))
 	mux.HandleFunc("/api/execution/languages", middleware.JWTAuth(cfg, execHandler.GetLanguages))
-	mux.HandleFunc("/api/execution/stream", termHandler.ServeExecutionStream)
+	mux.HandleFunc("/api/execution/stream", middleware.JWTAuth(cfg, termHandler.ServeExecutionStream))
 	mux.HandleFunc("/api/ai/analyze", middleware.JWTAuth(cfg, aiHandler.AnalyzeCode))
 	mux.HandleFunc("/api/ai/models", middleware.JWTAuth(cfg, aiHandler.ListModels))
 	mux.HandleFunc("/api/packages/", middleware.JWTAuth(cfg, pkgHandler.SearchPackages))
-	mux.HandleFunc("/api/terminal/ws", termHandler.ServeWS)
+	mux.HandleFunc("/api/terminal/ws", middleware.JWTAuth(cfg, termHandler.ServeWS))
 
 	handler := middleware.CORS(cfg, mux)
 

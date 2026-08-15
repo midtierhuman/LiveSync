@@ -54,14 +54,40 @@ type StreamEventJSON struct {
 	ExecutionDurationMS float64 `json:"executionDurationMs,omitempty"`
 }
 
+type SafeWSConn struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func NewSafeWSConn(conn *websocket.Conn) *SafeWSConn {
+	return &SafeWSConn{conn: conn}
+}
+
+func (s *SafeWSConn) Write(ctx context.Context, typ websocket.MessageType, p []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.Write(ctx, typ, p)
+}
+
+func (s *SafeWSConn) Close(code websocket.StatusCode, reason string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.Close(code, reason)
+}
+
+func (s *SafeWSConn) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
+	return s.conn.Read(ctx)
+}
+
 func (h *TerminalHandler) ServeExecutionStream(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+	rawConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
 		log.Printf("Failed to accept execution stream websocket: %v", err)
 		return
 	}
+	c := NewSafeWSConn(rawConn)
 	defer c.Close(websocket.StatusNormalClosure, "Session ended")
 
 	ctx, cancel := context.WithCancel(r.Context())
@@ -156,7 +182,7 @@ func (h *TerminalHandler) ServeExecutionStream(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func (h *TerminalHandler) sendEvent(ctx context.Context, c *websocket.Conn, event StreamEventJSON) {
+func (h *TerminalHandler) sendEvent(ctx context.Context, c *SafeWSConn, event StreamEventJSON) {
 	bytes, err := json.Marshal(event)
 	if err == nil {
 		_ = c.Write(ctx, websocket.MessageText, bytes)
@@ -164,13 +190,14 @@ func (h *TerminalHandler) sendEvent(ctx context.Context, c *websocket.Conn, even
 }
 
 func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+	rawConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
 		log.Printf("Failed to accept websocket connection: %v", err)
 		return
 	}
+	c := NewSafeWSConn(rawConn)
 	defer c.Close(websocket.StatusNormalClosure, "Session ended")
 
 	ctx := r.Context()
@@ -243,7 +270,7 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	wg.Wait()
 }
 
-func (h *TerminalHandler) handleStandardPipes(ctx context.Context, c *websocket.Conn, cmd *exec.Cmd) {
+func (h *TerminalHandler) handleStandardPipes(ctx context.Context, c *SafeWSConn, cmd *exec.Cmd) {
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
 		return

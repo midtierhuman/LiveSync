@@ -1890,6 +1890,11 @@ button.active-mode {
     .terminal-stderr {
       color: #ff7b72;
     }
+
+    .terminal-placeholder {
+      color: #6e7681;
+      font-style: italic;
+    }
   }
 
   .terminal-input-bar {

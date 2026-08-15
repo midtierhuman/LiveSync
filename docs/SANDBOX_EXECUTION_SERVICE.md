@@ -16,6 +16,7 @@ Both `ExecuteCode` and `StreamExecution` support multi-file full project mountin
 - Subprocesses execute with `cwd=temp_dir`, enabling intra-project imports (`import utils`, `const helper = require('./helper')`), shared configs, and modular packages.
 - Automatic entrypoint detection selects `entrypoint`, `main.py`, `index.js`, `app.py`, or explicit buffer codes.
 - Complete sandboxed cleanup recursively clears execution directories on process termination.
+- Context cancellation callbacks (`context.add_callback`) ensure zero zombie subprocesses if clients disconnect unexpectedly or cancel execution.
 
 ---
 

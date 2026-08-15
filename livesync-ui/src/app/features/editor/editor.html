@@ -524,7 +524,7 @@
           }
 
           @if (terminalViewMode() === 'console') {
-            <pre class="terminal-body" #terminalBody>{{ streamService.streamOutput() }}<span class="terminal-stderr">{{ streamService.streamErrorOutput() }}</span></pre>
+            <pre class="terminal-body" #terminalBody [innerHTML]="getFormattedReplConsoleHtml()"></pre>
           } @else if (terminalViewMode() === 'html') {
             <div class="terminal-html-preview-frame">
               <iframe
@@ -598,12 +598,7 @@
           }
 
           @if (terminalViewMode() === 'console') {
-            @if (executionResult()?.standardOutput) {
-              <pre class="execution-output">{{ executionResult()?.standardOutput }}</pre>
-            }
-            @if (executionResult()?.standardError) {
-              <pre class="execution-output execution-error">{{ executionResult()?.standardError }}</pre>
-            }
+            <pre class="execution-output" [innerHTML]="getFormattedResultConsoleHtml()"></pre>
           } @else if (terminalViewMode() === 'html') {
             <div class="terminal-html-preview-frame">
               <iframe

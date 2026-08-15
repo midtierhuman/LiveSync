@@ -10,14 +10,15 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
    - Maintains a thread-safe connection to `livesync-sandbox` over HTTP/2 gRPC (`port 50051`).
    - Dispatches `ExecuteCode`, `StreamExecution`, `AnalyzeCode`, `SearchPackages`, and `GetLanguages` RPCs.
    - Forwards multi-file project snapshot maps (`files: map[string]string`) and entrypoint identifiers for full workspace execution over both synchronous REST and live WebSocket streaming.
+   - Features thread-safe WebSocket write multiplexing via `SafeWSConn` with mutex locking, preventing concurrent write frame corruption during high-throughput stdout/stderr bursts.
 
 2. **Live PTY Terminal Engine (`handlers/terminal.go`)**:
    - Allocates full OS pseudo-terminals (`cmd.exe` on Windows, `/bin/bash` on Linux/Docker) using `creack/pty`.
-   - Handles full-duplex bi-directional WebSocket streaming (`/api/terminal/ws`) with `coder/websocket`.
+   - Handles full-duplex bi-directional WebSocket streaming (`/api/terminal/ws`) with `coder/websocket` protected by mutex synchronizers.
    - Supports terminal resizing frames (`cols`, `rows`) and interactive input (`stdin`).
 
 3. **JWT Authentication & CORS (`middleware/auth.go` & `middleware/cors.go`)**:
-   - Enforces HMAC SHA-256 JWT validation on incoming requests (`LIVESYNC_JWT_SECRET`).
+   - Enforces HMAC SHA-256 JWT validation on incoming HTTP REST calls and WebSocket connection upgrade handshakes (`/api/execution/stream` and `/api/terminal/ws` via Authorization header or `?token=` query param).
    - Configures origin policies matching Angular frontend clients.
 
 ---
