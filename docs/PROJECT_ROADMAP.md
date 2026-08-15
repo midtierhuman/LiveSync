@@ -73,12 +73,17 @@ Status: All Milestones Completed ✅ 🎉
 - [x] **Phase 1: Dedicated Project Browser Hub (`/dashboard`)**
   - [x] Clean, dedicated landing page showing Project Workspaces only without side solution explorer.
   - [x] Interactive Project Cards displaying project name, file/subfolder counts, collaborator pills, click-to-copy share badges, and "Open in IDE" action.
+  - [x] One-click Project Renaming with `RenameModalComponent` (`folderService.updateFolder`).
   - [x] Project Hub quick actions: "+ New Project Workspace", "+ New File" (with folder selector), and "🔗 Join via Share Code".
-- [x] **Phase 2: IDE Workspace Routing & Realtime Scope Switcher (`/workspace/:projectName`)**
+- [x] **Phase 2: IDE Workspace Routing & Complete File/Folder Edit Suite (`/workspace/:projectName`)**
   - [x] Dedicated IDE route (`/workspace/:projectName?id=...`) with VS Code sidebar solution explorer and multi-tab editor canvas.
-  - [x] Real-time Project Scope Switcher in sidebar top dropdown: seamlessly switch active project inside the IDE without going back to dashboard.
-  - [x] Dynamic Route & URL synchronization on scope change (`router.navigate(['/workspace', newProjectName])`).
-  - [x] Back to Projects Hub button (`← Projects`) in the IDE top bar.
+  - [x] Real-time Project Scope Switcher in sidebar top dropdown with dynamic route URL synchronization.
+  - [x] Comprehensive IDE Renaming & Editing Suite:
+    - [x] Project & Subfolder Renaming (sidebar action button + context menu + dynamic URL update if active scoped project).
+    - [x] File Renaming (sidebar action button + context menu + open tab title synchronization).
+    - [x] Duplicate File (`Duplicate File` action creating deep-copy in the same folder and auto-opening it).
+    - [x] Move File / Move Folder across hierarchy.
+    - [x] Back to Projects Hub button (`← Projects`) in IDE header.
 - [ ] **Phase 3: Multi-Terminal Concurrent Process Sessions**
   - [ ] Multi-tab terminal manager in `EditorComponent` allowing concurrent independent processes (e.g. Terminal 1: Backend, Terminal 2: Frontend).
 

@@ -188,6 +188,9 @@
                   <button (click)="openCreateInFolder(folder.id, 'folder', $event)" matTooltip="New Subfolder">
                     <mat-icon>create_new_folder</mat-icon>
                   </button>
+                  <button (click)="openRenameModal({ id: folder.id, name: folder.name, type: 'folder' }, $event)" matTooltip="Rename Folder">
+                    <mat-icon>edit</mat-icon>
+                  </button>
                   <button (click)="openShareFolderModal(folder, $event)" matTooltip="Share">
                     <mat-icon>share</mat-icon>
                   </button>
@@ -225,6 +228,12 @@
                       }
                     </span>
                     <div class="row-actions" (click)="$event.stopPropagation()">
+                      <button (click)="openRenameModal({ id: doc.id, name: doc.title, type: 'file' }, $event)" matTooltip="Rename File">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button (click)="duplicateFile(doc, $event)" matTooltip="Duplicate File">
+                        <mat-icon>content_copy</mat-icon>
+                      </button>
                       <button (click)="openMoveModal(doc, $event)" matTooltip="Move">
                         <mat-icon>drive_file_move</mat-icon>
                       </button>
@@ -268,6 +277,12 @@
                     }
                   </span>
                   <div class="row-actions" (click)="$event.stopPropagation()">
+                    <button (click)="openRenameModal({ id: doc.id, name: doc.title, type: 'file' }, $event)" matTooltip="Rename File">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button (click)="duplicateFile(doc, $event)" matTooltip="Duplicate File">
+                      <mat-icon>content_copy</mat-icon>
+                    </button>
                     <button (click)="openMoveModal(doc, $event)" matTooltip="Move">
                       <mat-icon>drive_file_move</mat-icon>
                     </button>
@@ -449,6 +464,15 @@
     (cancel)="showCreateFilePrompt.set(false)"
   />
 
+  <!-- Reusable Rename Modal -->
+  <app-rename-modal
+    [isOpen]="showRenameModal()"
+    [itemType]="renameTarget()?.type || 'file'"
+    [currentName]="renameTarget()?.name || ''"
+    (submitName)="handleRenameSubmit($event)"
+    (cancel)="showRenameModal.set(false)"
+  />
+
   <!-- Custom Right-Click Context Menu -->
   @if (contextMenu(); as ctx) {
     <div
@@ -470,18 +494,26 @@
           <mat-icon>create_new_folder</mat-icon> New Subfolder...
         </button>
         <div class="ctx-divider"></div>
-      }
-      <button class="ctx-item" (click)="onContextMenuAction('share')">
-        <mat-icon>share</mat-icon> Share {{ ctx.type === 'folder' ? 'Folder' : 'Document' }}
-      </button>
-      @if (ctx.type === 'file') {
+        <button class="ctx-item" (click)="onContextMenuAction('rename')">
+          <mat-icon>edit</mat-icon> Rename Folder...
+        </button>
+      } @else {
+        <button class="ctx-item" (click)="onContextMenuAction('rename')">
+          <mat-icon>edit</mat-icon> Rename File...
+        </button>
+        <button class="ctx-item" (click)="onContextMenuAction('duplicate')">
+          <mat-icon>content_copy</mat-icon> Duplicate File
+        </button>
         <button class="ctx-item" (click)="onContextMenuAction('move')">
-          <mat-icon>drive_file_move</mat-icon> Move Document...
+          <mat-icon>drive_file_move</mat-icon> Move File...
         </button>
       }
+      <button class="ctx-item" (click)="onContextMenuAction('share')">
+        <mat-icon>share</mat-icon> Share {{ ctx.type === 'folder' ? 'Folder' : 'File' }}
+      </button>
       <div class="ctx-divider"></div>
       <button class="ctx-item danger" (click)="onContextMenuAction('delete')">
-        <mat-icon>delete_forever</mat-icon> Delete {{ ctx.type === 'folder' ? 'Folder' : 'Document' }}
+        <mat-icon>delete_forever</mat-icon> Delete {{ ctx.type === 'folder' ? 'Folder' : 'File' }}
       </button>
     </div>
   }

@@ -21,6 +21,8 @@ import {
   ConfirmDeleteModalComponent,
   MoveModalComponent,
   CreateFileModalComponent,
+  RenameModalComponent,
+  RenameItemType,
   TargetFolderOption,
   CreateFileSubmitPayload,
 } from '../../shared/components/modals';
@@ -52,6 +54,7 @@ const EXPLORER_DEFAULT_WIDTH = 260;
     ConfirmDeleteModalComponent,
     MoveModalComponent,
     CreateFileModalComponent,
+    RenameModalComponent,
   ],
   templateUrl: './workspace.html',
   styleUrl: './workspace.scss',
@@ -114,6 +117,10 @@ export class Workspace implements OnInit {
   showDeleteConfirm = signal(false);
   deleteDocId = signal('');
   defaultAccessLevel = signal<string>('View');
+
+  // Rename Modal State
+  showRenameModal = signal(false);
+  renameTarget = signal<{ id: string; name: string; type: RenameItemType } | null>(null);
 
   // Search & Drag-Drop
   searchQuery = signal<string>('');
@@ -574,6 +581,14 @@ export class Workspace implements OnInit {
       this.openCreateInFolder(ctx.item.id, 'file');
     } else if (action === 'newFolder') {
       this.openCreateInFolder(ctx.item.id, 'folder');
+    } else if (action === 'rename') {
+      this.openRenameModal({
+        id: ctx.item.id,
+        name: ctx.type === 'folder' ? ctx.item.name : ctx.item.title,
+        type: ctx.type,
+      });
+    } else if (action === 'duplicate') {
+      this.duplicateFile(ctx.item);
     } else if (action === 'share') {
       if (ctx.type === 'folder') {
         this.openShareFolderModal(ctx.item);
@@ -588,6 +603,79 @@ export class Workspace implements OnInit {
       } else {
         this.confirmDelete(ctx.item.id);
       }
+    }
+  }
+
+  openRenameModal(item: { id: string; name: string; type: RenameItemType }, event?: Event) {
+    if (event) event.stopPropagation();
+    this.renameTarget.set(item);
+    this.showRenameModal.set(true);
+  }
+
+  async handleRenameSubmit(newName: string) {
+    const target = this.renameTarget();
+    if (!target || !newName.trim()) return;
+    this.showRenameModal.set(false);
+
+    try {
+      if (target.type === 'folder' || target.type === 'project') {
+        await this.folderService.updateFolder(target.id, newName.trim());
+        if (this.scopedProject()?.id === target.id) {
+          const updated = { ...this.scopedProject()!, name: newName.trim() };
+          this.scopedProject.set(updated);
+          this.router.navigate(['/workspace', encodeURIComponent(newName.trim())], {
+            queryParams: { id: target.id },
+          });
+        }
+        await this.loadWorkspace();
+      } else if (target.type === 'file') {
+        await this.documentService.updateDocument(target.id, { title: newName.trim() });
+        this.openTabs.update((tabs) =>
+          tabs.map((t) => (t.id === target.id ? { ...t, title: newName.trim() } : t))
+        );
+        await this.loadWorkspace();
+      }
+    } catch (err) {
+      console.error('Error renaming item:', err);
+      alert('Failed to rename ' + target.type);
+    }
+  }
+
+  async duplicateFile(doc: DocumentDto, event?: Event) {
+    if (event) event.stopPropagation();
+    try {
+      let content = doc.content;
+      if (!content) {
+        try {
+          const fullDoc = await this.documentService.getDocument(doc.id);
+          content = fullDoc.content || '';
+        } catch (ignored) {}
+      }
+
+      const dotIdx = doc.title.lastIndexOf('.');
+      let copyTitle = '';
+      if (dotIdx > 0) {
+        copyTitle = `${doc.title.substring(0, dotIdx)}_copy${doc.title.substring(dotIdx)}`;
+      } else {
+        copyTitle = `${doc.title}_copy`;
+      }
+
+      const created = await this.documentService.createDocument({
+        title: copyTitle,
+        content: content || '',
+        folderId: doc.folderId,
+      });
+
+      await this.loadWorkspace();
+      if (doc.folderId) {
+        const exp = new Set(this.expandedFolderIds());
+        exp.add(doc.folderId);
+        this.expandedFolderIds.set(exp);
+      }
+      this.openDocument(created.id);
+    } catch (err) {
+      console.error('Error duplicating file:', err);
+      alert('Failed to duplicate file');
     }
   }
 

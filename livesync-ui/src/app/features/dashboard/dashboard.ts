@@ -19,6 +19,8 @@ import {
   ConfirmDeleteModalComponent,
   MoveModalComponent,
   CreateFileModalComponent,
+  RenameModalComponent,
+  RenameItemType,
   TargetFolderOption,
   CreateFileSubmitPayload,
 } from '../../shared/components/modals';
@@ -42,6 +44,7 @@ import {
     ShareModalComponent,
     ConfirmDeleteModalComponent,
     CreateFileModalComponent,
+    RenameModalComponent,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
@@ -76,6 +79,10 @@ export class Dashboard implements OnInit {
   showDeleteConfirm = signal(false);
   deleteFolderId = signal('');
   deleteFolderName = signal('');
+
+  // Rename Modal State
+  showRenameModal = signal(false);
+  renameTarget = signal<{ id: string; name: string; type: RenameItemType } | null>(null);
 
   availableFolderOptions = computed<TargetFolderOption[]>(() => {
     const list: TargetFolderOption[] = [];
@@ -276,6 +283,28 @@ export class Dashboard implements OnInit {
     } catch (error) {
       console.error('Error removing collaborator access:', error);
       alert('Failed to remove collaborator access');
+    }
+  }
+
+  openRenameProjectModal(folder: FolderDto, event?: Event) {
+    if (event) event.stopPropagation();
+    this.renameTarget.set({ id: folder.id, name: folder.name, type: 'project' });
+    this.showRenameModal.set(true);
+  }
+
+  async handleRenameSubmit(newName: string) {
+    const target = this.renameTarget();
+    if (!target || !newName.trim()) return;
+    this.showRenameModal.set(false);
+
+    try {
+      if (target.type === 'project' || target.type === 'folder') {
+        await this.folderService.updateFolder(target.id, newName.trim());
+        await this.loadWorkspace();
+      }
+    } catch (err) {
+      console.error('Error renaming project:', err);
+      alert('Failed to rename project');
     }
   }
 

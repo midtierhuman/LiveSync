@@ -146,6 +146,9 @@
                     <button class="btn-open-ide" (click)="$event.stopPropagation(); openProjectInIDE(folder)">
                       <mat-icon>launch</mat-icon> Open in IDE
                     </button>
+                    <button class="btn-card-icon" (click)="$event.stopPropagation(); openRenameProjectModal(folder, $event)" matTooltip="Rename Project">
+                      <mat-icon>edit</mat-icon>
+                    </button>
                     <button class="btn-card-icon" (click)="$event.stopPropagation(); openShareFolderModal(folder, $event)" matTooltip="Share Project">
                       <mat-icon>share</mat-icon>
                     </button>
@@ -260,5 +263,14 @@
     [initialFolderId]="targetFolderForNewFile()"
     (submit)="handleCreateFileSubmit($event)"
     (cancel)="showCreateFilePrompt.set(false)"
+  />
+
+  <!-- Reusable Rename Modal -->
+  <app-rename-modal
+    [isOpen]="showRenameModal()"
+    [itemType]="renameTarget()?.type || 'project'"
+    [currentName]="renameTarget()?.name || ''"
+    (submitName)="handleRenameSubmit($event)"
+    (cancel)="showRenameModal.set(false)"
   />
 </div>
