@@ -28,12 +28,14 @@
 | **FEAT-10** | 🚀 Feature | Unified IDE Status Bar & Document Metrics (Line/Col, Spaces, Encoding, Sync) | `livesync-ui` | Medium | 📋 Backlog |
 | **FEAT-11** | 🚀 Feature | Unsaved Changes Guard & Dirty State Machine for File Tabs | `livesync-ui` | High | 📋 Backlog |
 | **FEAT-12** | 🚀 Feature | Multi-Terminal Tabs & Resilient `FitAddon` Layout Resize Handling | `livesync-ui`, `livesync-gateway` | Medium | 📋 Backlog |
+| **FEAT-13** | 🎨 UI/UX | Workspace Presentation Polish: Clean Shell Prompt & Streamlined Slug Routing | `livesync-ui`, `livesync-gateway` | High | ✅ Done |
 
 ---
 
 ## 🎯 Active & Upcoming Milestones
 
 ### **Milestone 11: Production-Grade Cloud IDE Hardening & Architecture Cleanliness** (IN PLANNING 📋)
+- [x] **FEAT-13: Clean Terminal Prompt & Streamlined Routing**: Replaced raw storage UUIDs with friendly project paths in PTY PS1 prompts and welcome banners (`Workspace: ~/projectName`); eliminated redundant `?id=` query parameters in favor of clean project slug routes.
 - [ ] **BUG-01: Global Terminal Service Synchronization**: Refactor `LiveTerminalService` into a workspace-level singleton or message bus so terminal `fs_change` events reliably refresh the active file tree.
 - [ ] **BUG-02: Single Source of Truth for IDE Tooling**: Remove duplicated floating panels in `editor.html` and consolidate AI Assistant, Package Hub, and Code Comments entirely into the primary sidebar dock and bottom drawer.
 - [ ] **BUG-03: Real-Time Project/Workspace Tree Event Propagation**: Introduce project/folder-scoped Socket.IO rooms (`JoinWorkspace(folderId)`) so file/folder renames, creations, deletions, and moves instantly broadcast to all active collaborators' tree views and open tab titles.

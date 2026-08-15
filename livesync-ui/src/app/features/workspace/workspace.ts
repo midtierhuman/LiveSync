@@ -422,9 +422,7 @@ export class Workspace implements OnInit {
         exp.add(match.id);
         this.expandedFolderIds.set(exp);
         this.alignTabsWithProject(match);
-        this.router.navigate(['/workspace', encodeURIComponent(match.name)], {
-          queryParams: { id: match.id },
-        });
+        this.router.navigate(['/workspace', encodeURIComponent(match.name)]);
       }
     }
   }
@@ -1029,9 +1027,7 @@ export class Workspace implements OnInit {
         if (this.scopedProject()?.id === target.id) {
           const updated = { ...this.scopedProject()!, name: newName.trim() };
           this.scopedProject.set(updated);
-          this.router.navigate(['/workspace', encodeURIComponent(newName.trim())], {
-            queryParams: { id: target.id },
-          });
+          this.router.navigate(['/workspace', encodeURIComponent(newName.trim())]);
         }
         await this.loadWorkspace();
       } else if (target.type === 'file') {

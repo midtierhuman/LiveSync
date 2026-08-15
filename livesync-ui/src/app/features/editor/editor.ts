@@ -1076,8 +1076,18 @@ export class Editor implements OnInit {
     setTimeout(async () => {
       const el = this.xtermContainer()?.nativeElement;
       if (el) {
-        const projectId = this.document()?.folderId || this.docId() || 'default';
-        this.liveTerminalService.attachToElement(el, projectId, this.isDarkMode());
+        const doc = this.document();
+        const projectId = doc?.folderId || this.docId() || 'default';
+        let projectName = '';
+        if (doc?.folderId) {
+          try {
+            const folder = await this.folderService.getFolder(doc.folderId);
+            projectName = folder?.name || '';
+          } catch {
+            // Safe fallback
+          }
+        }
+        this.liveTerminalService.attachToElement(el, projectId, this.isDarkMode(), projectName);
 
         try {
           const snapshot = await this.getWorkspaceFilesSnapshot();

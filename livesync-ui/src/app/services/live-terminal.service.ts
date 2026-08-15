@@ -20,6 +20,7 @@ export class LiveTerminalService {
   private term: Terminal | null = null;
   private fitAddon: FitAddon | null = null;
   private currentProjectId: string = 'default';
+  private currentProjectName: string = '';
   private resizeObserver: ResizeObserver | null = null;
   private pendingCommands: PendingCommand[] = [];
   private pendingSyncFiles: { files: Record<string, string>; lockedFiles?: string[] } | null = null;
@@ -95,7 +96,10 @@ export class LiveTerminalService {
         };
   }
 
-  attachToElement(container: HTMLElement, projectId?: string, isDark: boolean = true) {
+  attachToElement(container: HTMLElement, projectId?: string, isDark: boolean = true, projectName?: string) {
+    if (projectName) {
+      this.currentProjectName = projectName;
+    }
     if (projectId && projectId !== this.currentProjectId) {
       this.currentProjectId = projectId;
       if (this.socket) {
@@ -201,7 +205,10 @@ export class LiveTerminalService {
     }, 20);
   }
 
-  connect(projectId?: string) {
+  connect(projectId?: string, projectName?: string) {
+    if (projectName) {
+      this.currentProjectName = projectName;
+    }
     if (projectId && projectId !== this.currentProjectId) {
       this.currentProjectId = projectId;
       if (this.socket) {
@@ -236,12 +243,13 @@ export class LiveTerminalService {
     const httpBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || window.location.origin;
     const token = this.authService.token();
     const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+    const projectNameParam = this.currentProjectName ? `&projectName=${encodeURIComponent(this.currentProjectName)}` : '';
     const wsUrl =
       httpBase
         .replace(/^http:\/\//, 'ws://')
         .replace(/^https:\/\//, 'wss://')
         .replace(/\/$/, '') +
-      `/api/terminal/ws?projectId=${encodeURIComponent(this.currentProjectId)}${tokenParam}`;
+      `/api/terminal/ws?projectId=${encodeURIComponent(this.currentProjectId)}${projectNameParam}${tokenParam}`;
 
     this.terminalStatus.set('Connecting...');
 

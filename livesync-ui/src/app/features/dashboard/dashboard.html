@@ -39,16 +39,114 @@
     </div>
   </header>
 
-  <!-- Main Projects Hub Body -->
-  <main class="hub-main">
-    <div class="hub-content-wrapper">
+  <!-- Workbench Body: 2-Pane High-Density Architecture -->
+  <div class="workbench-body">
+    <!-- Left Navigation Rail & Service Topology -->
+    <aside class="workbench-sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">WORKSPACES</div>
+        <nav class="sidebar-nav">
+          <button
+            class="nav-item"
+            [class.active]="activeNavFilter() === 'all'"
+            (click)="activeNavFilter.set('all')"
+          >
+            <mat-icon class="nav-icon">dashboard</mat-icon>
+            <span class="nav-label">All Workspaces</span>
+            <span class="nav-count">{{ myFolders().length + sharedFolderTree().length }}</span>
+          </button>
+          <button
+            class="nav-item"
+            [class.active]="activeNavFilter() === 'personal'"
+            (click)="activeNavFilter.set('personal')"
+          >
+            <mat-icon class="nav-icon">folder</mat-icon>
+            <span class="nav-label">Personal</span>
+            <span class="nav-count">{{ myFolders().length }}</span>
+          </button>
+          <button
+            class="nav-item"
+            [class.active]="activeNavFilter() === 'shared'"
+            (click)="activeNavFilter.set('shared')"
+          >
+            <mat-icon class="nav-icon shared">groups</mat-icon>
+            <span class="nav-label">Shared with Me</span>
+            <span class="nav-count">{{ sharedFolderTree().length }}</span>
+          </button>
+        </nav>
+      </div>
 
-      <!-- Compact Utility Toolbar (Replaces bloated Hero) -->
+      <div class="sidebar-section">
+        <div class="sidebar-heading">QUICK STARTERS</div>
+        <div class="quick-starters-list">
+          <button class="starter-item" (click)="createQuickStarter('python-sandbox')">
+            <span class="starter-tag py">PY</span>
+            <div class="starter-meta">
+              <span class="starter-name">Python Sandbox</span>
+              <span class="starter-desc">AI + AST analyzer ready</span>
+            </div>
+          </button>
+          <button class="starter-item" (click)="createQuickStarter('node-service')">
+            <span class="starter-tag js">JS</span>
+            <div class="starter-meta">
+              <span class="starter-name">Node.js Service</span>
+              <span class="starter-desc">VFS + xterm sandbox</span>
+            </div>
+          </button>
+          <button class="starter-item" (click)="createQuickStarter('go-starter')">
+            <span class="starter-tag go">GO</span>
+            <div class="starter-meta">
+              <span class="starter-name">Go Workspace</span>
+              <span class="starter-desc">Compiled CLI workspace</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Engine Topology & Service Matrix -->
+      <div class="sidebar-section engine-topology">
+        <div class="sidebar-heading">LIVE ENGINE STACK</div>
+        <div class="engine-services-grid">
+          <div class="service-chip" title="Go Gateway on Port 8081">
+            <span class="dot-online"></span>
+            <span class="srv-name">Gateway</span>
+            <span class="srv-port">:8081</span>
+          </div>
+          <div class="service-chip" title="Python gRPC AI on Port 50051">
+            <span class="dot-online"></span>
+            <span class="srv-name">AI gRPC</span>
+            <span class="srv-port">:50051</span>
+          </div>
+          <div class="service-chip" title="Node Realtime CRDT on Port 5000">
+            <span class="dot-online"></span>
+            <span class="srv-name">Realtime</span>
+            <span class="srv-port">:5000</span>
+          </div>
+          <div class="service-chip" title="Go REST API on Port 8080">
+            <span class="dot-online"></span>
+            <span class="srv-name">REST API</span>
+            <span class="srv-port">:8080</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workbench Workspace Pane -->
+    <main class="workbench-main">
+      <!-- High-Density Utility Toolbar -->
       <div class="hub-toolbar">
         <div class="toolbar-left">
           <div class="toolbar-title-group">
-            <span class="toolbar-heading">Projects & Repositories</span>
-            <span class="count-badge">{{ myFolders().length + sharedFolderTree().length }}</span>
+            <span class="toolbar-heading">
+              @if (activeNavFilter() === 'personal') { Personal Workspaces }
+              @else if (activeNavFilter() === 'shared') { Shared Workspaces }
+              @else { Workspaces & Repositories }
+            </span>
+            <span class="count-badge">
+              @if (activeNavFilter() === 'personal') { {{ filteredMyProjects().length }} }
+              @else if (activeNavFilter() === 'shared') { {{ filteredSharedProjects().length }} }
+              @else { {{ filteredMyProjects().length + filteredSharedProjects().length }} }
+            </span>
           </div>
 
           <!-- Inline Quick Filter -->
@@ -56,7 +154,7 @@
             <mat-icon class="search-icon">search</mat-icon>
             <input
               type="text"
-              placeholder="Filter projects..."
+              placeholder="Filter workspaces (e.g. auth, api)..."
               [ngModel]="searchQuery()"
               (ngModelChange)="searchQuery.set($event)"
               class="search-input"
@@ -85,163 +183,240 @@
         </div>
       </div>
 
-      <!-- Loading State -->
-      @if (isLoading()) {
-        <div class="hub-loading">
-          <span class="spinner">⚡</span> Loading workspaces...
-        </div>
-      } @else {
+      <!-- Main Content Area -->
+      <div class="hub-content-scroll">
+        @if (isLoading()) {
+          <div class="hub-loading">
+            <span class="spinner">⚡</span> Loading workspaces...
+          </div>
+        } @else if (filteredMyProjects().length === 0 && filteredSharedProjects().length === 0) {
+          <!-- High-Density Developer Launchpad (When Empty) -->
+          <div class="launchpad-container">
+            <div class="launchpad-header">
+              <div class="launchpad-badge">
+                <mat-icon>rocket_launch</mat-icon>
+              </div>
+              <div class="launchpad-text">
+                <h3>LiveSync Developer Workbench</h3>
+                <p>Collaborative multi-file IDE with real-time CRDT sync, PTY sandbox terminal, and AI pair assistant.</p>
+              </div>
+            </div>
 
-        <!-- My Projects Section -->
-        <section class="hub-section">
-          <div class="section-header-row">
-            <div class="section-label">
-              <mat-icon class="sec-icon">folder</mat-icon>
-              <span>Personal Workspaces</span>
-              <span class="badge">{{ filteredMyProjects().length }}</span>
+            <!-- Quick Action Cards (3-Column Dense Grid) -->
+            <div class="launchpad-actions-grid">
+              <div class="action-card" (click)="openCreateFolderModal()">
+                <div class="card-icon-wrap primary">
+                  <mat-icon>create_new_folder</mat-icon>
+                </div>
+                <div class="card-info">
+                  <h4>New Project Workspace</h4>
+                  <p>Initialize a multi-file project with integrated terminal execution and real-time collaboration.</p>
+                </div>
+                <button class="btn-card-action">Create Project</button>
+              </div>
+
+              <div class="action-card" (click)="openCreateFileModal()">
+                <div class="card-icon-wrap secondary">
+                  <mat-icon>note_add</mat-icon>
+                </div>
+                <div class="card-info">
+                  <h4>Quick Code File</h4>
+                  <p>Create a standalone scratchpad or source file in an existing project workspace.</p>
+                </div>
+                <button class="btn-card-action">New File</button>
+              </div>
+
+              <div class="action-card" (click)="goToAddShared()">
+                <div class="card-icon-wrap accent">
+                  <mat-icon>group_add</mat-icon>
+                </div>
+                <div class="card-info">
+                  <h4>Join via Share Code</h4>
+                  <p>Enter a 10-character alphanumeric share code to collaborate on a shared project in real-time.</p>
+                </div>
+                <button class="btn-card-action">Join Share</button>
+              </div>
+            </div>
+
+            <!-- Capabilities & Cheatsheet Info Matrix -->
+            <div class="capabilities-matrix">
+              <div class="cap-card">
+                <div class="cap-head">
+                  <mat-icon class="cap-icon">terminal</mat-icon>
+                  <span>Polyglot PTY Terminal</span>
+                </div>
+                <p>Run Node.js, Python, Go, and Bash directly in the live xterm.js shell with sub-millisecond I/O streaming.</p>
+              </div>
+
+              <div class="cap-card">
+                <div class="cap-head">
+                  <mat-icon class="cap-icon">psychology</mat-icon>
+                  <span>AST AI Intelligence</span>
+                </div>
+                <p>In-editor Big-O complexity analysis, function diagnostics, and LLM code explanation powered by Python gRPC.</p>
+              </div>
+
+              <div class="cap-card">
+                <div class="cap-head">
+                  <mat-icon class="cap-icon">sync</mat-icon>
+                  <span>Conflict-Free CRDT</span>
+                </div>
+                <p>Simultaneous multi-cursor editing, presence indicators, and Redis write-behind persistence to PostgreSQL.</p>
+              </div>
+
+              <div class="cap-card">
+                <div class="cap-head">
+                  <mat-icon class="cap-icon">keyboard</mat-icon>
+                  <span>Keyboard Shortcuts</span>
+                </div>
+                <div class="shortcuts-mini">
+                  <div class="sc-row"><kbd>Ctrl + S</kbd> <span>Save Snapshot</span></div>
+                  <div class="sc-row"><kbd>Ctrl + `</kbd> <span>Toggle Terminal</span></div>
+                  <div class="sc-row"><kbd>Ctrl + Shift + P</kbd> <span>AI Assistant</span></div>
+                </div>
+              </div>
             </div>
           </div>
-
-          @if (filteredMyProjects().length === 0) {
-            <div class="empty-projects-row">
-              <mat-icon class="empty-icon">folder_open</mat-icon>
-              <div class="empty-text">
-                <span class="empty-title">No projects match your filter</span>
-                <span class="empty-desc">Create a new project workspace to start writing and running code.</span>
-              </div>
-              <button class="btn-pro-action primary" (click)="openCreateFolderModal()">
-                <mat-icon>add</mat-icon>
-                <span>Create Project</span>
-              </button>
-            </div>
-          } @else {
-            <div class="projects-table">
-              <div class="table-head">
-                <div class="col-name">Name</div>
-                <div class="col-stats">Files & Structure</div>
-                <div class="col-share">Share Code</div>
-                <div class="col-actions">Actions</div>
+        } @else {
+          <!-- Personal Projects Section -->
+          @if (filteredMyProjects().length > 0) {
+            <section class="hub-section">
+              <div class="section-header-row">
+                <div class="section-label">
+                  <mat-icon class="sec-icon">folder</mat-icon>
+                  <span>Personal Workspaces</span>
+                  <span class="badge">{{ filteredMyProjects().length }}</span>
+                </div>
               </div>
 
-              <div class="table-body">
-                @for (folder of filteredMyProjects(); track folder.id) {
-                  <div class="project-row" (click)="openProjectInIDE(folder)">
-                    <div class="col-name">
-                      <div class="folder-badge">
-                        <mat-icon>folder</mat-icon>
+              <div class="projects-table">
+                <div class="table-head">
+                  <div class="col-name">Workspace Name</div>
+                  <div class="col-stats">Files & Structure</div>
+                  <div class="col-share">Share Code</div>
+                  <div class="col-actions">Actions</div>
+                </div>
+
+                <div class="table-body">
+                  @for (folder of filteredMyProjects(); track folder.id) {
+                    <div class="project-row" (click)="openProjectInIDE(folder)">
+                      <div class="col-name">
+                        <div class="folder-badge">
+                          <mat-icon>folder</mat-icon>
+                        </div>
+                        <div class="project-info">
+                          <span class="project-name">{{ folder.name }}</span>
+                          @if (folder.sharedWith && folder.sharedWith.length > 0) {
+                            <span class="collab-tag">
+                              <mat-icon>people</mat-icon> {{ folder.sharedWith.length }} collaborator{{ folder.sharedWith.length > 1 ? 's' : '' }}
+                            </span>
+                          }
+                        </div>
                       </div>
-                      <div class="project-info">
-                        <span class="project-name">{{ folder.name }}</span>
-                        @if (folder.sharedWith && folder.sharedWith.length > 0) {
-                          <span class="collab-tag">
-                            <mat-icon>people</mat-icon> {{ folder.sharedWith.length }} collaborator{{ folder.sharedWith.length > 1 ? 's' : '' }}
-                          </span>
+
+                      <div class="col-stats">
+                        <span class="stat-pill">
+                          <mat-icon>description</mat-icon> {{ getFolderDocsCount(folder.id) }} files
+                        </span>
+                        <span class="stat-pill">
+                          <mat-icon>folder_open</mat-icon> {{ getFolderSubfoldersCount(folder.id) }} dirs
+                        </span>
+                      </div>
+
+                      <div class="col-share">
+                        @if (folder.shareCode) {
+                          <button
+                            class="share-code-btn"
+                            (click)="$event.stopPropagation(); copyFolderShareCodeDirect(folder.shareCode)"
+                            matTooltip="Click to copy share code"
+                          >
+                            <mat-icon>link</mat-icon>
+                            <span>{{ folder.shareCode }}</span>
+                          </button>
+                        } @else {
+                          <span class="text-muted">—</span>
                         }
                       </div>
-                    </div>
 
-                    <div class="col-stats">
-                      <span class="stat-pill">
-                        <mat-icon>description</mat-icon> {{ getFolderDocsCount(folder.id) }} files
-                      </span>
-                      <span class="stat-pill">
-                        <mat-icon>folder_open</mat-icon> {{ getFolderSubfoldersCount(folder.id) }} dirs
-                      </span>
-                    </div>
-
-                    <div class="col-share">
-                      @if (folder.shareCode) {
-                        <button
-                          class="share-code-btn"
-                          (click)="$event.stopPropagation(); copyFolderShareCodeDirect(folder.shareCode)"
-                          matTooltip="Click to copy share code"
-                        >
-                          <mat-icon>link</mat-icon>
-                          <span>{{ folder.shareCode }}</span>
+                      <div class="col-actions" (click)="$event.stopPropagation()">
+                        <button class="btn-action-launch" (click)="openProjectInIDE(folder)">
+                          <mat-icon>terminal</mat-icon>
+                          <span>Open</span>
                         </button>
-                      } @else {
-                        <span class="text-muted">—</span>
-                      }
+                        <button class="btn-action-icon" (click)="openRenameProjectModal(folder, $event)" matTooltip="Rename Project">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button class="btn-action-icon" (click)="openShareFolderModal(folder, $event)" matTooltip="Share Project">
+                          <mat-icon>share</mat-icon>
+                        </button>
+                        <button class="btn-action-icon danger" (click)="confirmDeleteProject(folder, $event)" matTooltip="Delete Project">
+                          <mat-icon>delete_outline</mat-icon>
+                        </button>
+                      </div>
                     </div>
-
-                    <div class="col-actions" (click)="$event.stopPropagation()">
-                      <button class="btn-action-launch" (click)="openProjectInIDE(folder)">
-                        <mat-icon>terminal</mat-icon>
-                        <span>Open</span>
-                      </button>
-                      <button class="btn-action-icon" (click)="openRenameProjectModal(folder, $event)" matTooltip="Rename Project">
-                        <mat-icon>edit</mat-icon>
-                      </button>
-                      <button class="btn-action-icon" (click)="openShareFolderModal(folder, $event)" matTooltip="Share Project">
-                        <mat-icon>share</mat-icon>
-                      </button>
-                      <button class="btn-action-icon danger" (click)="confirmDeleteProject(folder, $event)" matTooltip="Delete Project">
-                        <mat-icon>delete_outline</mat-icon>
-                      </button>
-                    </div>
-                  </div>
-                }
+                  }
+                </div>
               </div>
-            </div>
+            </section>
           }
-        </section>
 
-        <!-- Shared Projects Section -->
-        @if (filteredSharedProjects().length > 0) {
-          <section class="hub-section shared-section">
-            <div class="section-header-row">
-              <div class="section-label">
-                <mat-icon class="sec-icon shared">groups</mat-icon>
-                <span>Shared with Me</span>
-                <span class="badge">{{ filteredSharedProjects().length }}</span>
-              </div>
-            </div>
-
-            <div class="projects-table">
-              <div class="table-head">
-                <div class="col-name">Name</div>
-                <div class="col-stats">Files & Structure</div>
-                <div class="col-share">Access</div>
-                <div class="col-actions">Actions</div>
+          <!-- Shared Projects Section -->
+          @if (filteredSharedProjects().length > 0) {
+            <section class="hub-section shared-section">
+              <div class="section-header-row">
+                <div class="section-label">
+                  <mat-icon class="sec-icon shared">groups</mat-icon>
+                  <span>Shared with Me</span>
+                  <span class="badge">{{ filteredSharedProjects().length }}</span>
+                </div>
               </div>
 
-              <div class="table-body">
-                @for (folder of filteredSharedProjects(); track folder.id) {
-                  <div class="project-row shared" (click)="openProjectInIDE(folder)">
-                    <div class="col-name">
-                      <div class="folder-badge shared">
-                        <mat-icon>folder_shared</mat-icon>
+              <div class="projects-table">
+                <div class="table-head">
+                  <div class="col-name">Workspace Name</div>
+                  <div class="col-stats">Files & Structure</div>
+                  <div class="col-share">Access</div>
+                  <div class="col-actions">Actions</div>
+                </div>
+
+                <div class="table-body">
+                  @for (folder of filteredSharedProjects(); track folder.id) {
+                    <div class="project-row shared" (click)="openProjectInIDE(folder)">
+                      <div class="col-name">
+                        <div class="folder-badge shared">
+                          <mat-icon>folder_shared</mat-icon>
+                        </div>
+                        <div class="project-info">
+                          <span class="project-name">{{ folder.name }}</span>
+                        </div>
                       </div>
-                      <div class="project-info">
-                        <span class="project-name">{{ folder.name }}</span>
+
+                      <div class="col-stats">
+                        <span class="stat-pill">
+                          <mat-icon>description</mat-icon> {{ getFolderDocsCount(folder.id) }} files
+                        </span>
+                      </div>
+
+                      <div class="col-share">
+                        <span class="shared-tag">Shared Workspace</span>
+                      </div>
+
+                      <div class="col-actions" (click)="$event.stopPropagation()">
+                        <button class="btn-action-launch" (click)="openProjectInIDE(folder)">
+                          <mat-icon>terminal</mat-icon>
+                          <span>Open</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div class="col-stats">
-                      <span class="stat-pill">
-                        <mat-icon>description</mat-icon> {{ getFolderDocsCount(folder.id) }} files
-                      </span>
-                    </div>
-
-                    <div class="col-share">
-                      <span class="shared-tag">Shared Workspace</span>
-                    </div>
-
-                    <div class="col-actions" (click)="$event.stopPropagation()">
-                      <button class="btn-action-launch" (click)="openProjectInIDE(folder)">
-                        <mat-icon>terminal</mat-icon>
-                        <span>Open</span>
-                      </button>
-                    </div>
-                  </div>
-                }
+                  }
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          }
         }
-      }
-    </div>
-  </main>
+      </div>
+    </main>
+  </div>
 
   <!-- Create Folder Modal -->
   @if (showCreateFolderModal()) {

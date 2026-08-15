@@ -13,8 +13,24 @@ RUN npm run build -- --configuration production
 
 FROM nginx:1.27-alpine AS runner
 
-# Configure Nginx for Angular client-side routing.
-RUN printf 'server {\n  listen 80;\n  server_name _;\n  root /usr/share/nginx/html;\n  index index.html;\n\n  location / {\n    try_files $uri $uri/ /index.html;\n  }\n}\n' > /etc/nginx/conf.d/default.conf
+# Configure Nginx for Angular client-side routing, gzip compression, and caching
+RUN printf 'server {\n\
+  listen 80;\n\
+  server_name _;\n\
+  root /usr/share/nginx/html;\n\
+  index index.html;\n\
+  gzip on;\n\
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml font/woff2;\n\
+  gzip_min_length 1000;\n\
+  location ~* \\.(?:css|js|woff2?|svg|png|jpg|ico)$ {\n\
+    expires 1y;\n\
+    add_header Cache-Control "public, max-age=31536000, immutable";\n\
+  }\n\
+  location / {\n\
+    try_files $uri $uri/ /index.html;\n\
+    add_header Cache-Control "no-cache, no-store, must-revalidate";\n\
+  }\n\
+}\n' > /etc/nginx/conf.d/default.conf
 
 # Copy from the actual location where index.html lives
 COPY --from=builder /app/dist/LiveSync/browser/ /usr/share/nginx/html/

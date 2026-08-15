@@ -95,17 +95,48 @@ export class Dashboard implements OnInit {
     return list;
   });
 
+  activeNavFilter = signal<'all' | 'personal' | 'shared'>('all');
+
   filteredMyProjects = computed<FolderDto[]>(() => {
+    if (this.activeNavFilter() === 'shared') return [];
     const q = this.searchQuery().toLowerCase().trim();
     if (!q) return this.myFolders();
     return this.myFolders().filter((f) => f.name.toLowerCase().includes(q));
   });
 
   filteredSharedProjects = computed<FolderDto[]>(() => {
+    if (this.activeNavFilter() === 'personal') return [];
     const q = this.searchQuery().toLowerCase().trim();
     if (!q) return this.sharedFolderTree();
     return this.sharedFolderTree().filter((f) => f.name.toLowerCase().includes(q));
   });
+
+  totalDocumentsCount = computed<number>(() => {
+    return this.myDocuments().length + this.sharedDocuments().length;
+  });
+
+  async createQuickStarter(starterName: string) {
+    try {
+      this.isLoading.set(true);
+      const created = await this.folderService.createFolder(starterName);
+      await this.documentService.createDocument({
+        title: starterName === 'python-sandbox' ? 'main.py' : starterName === 'node-service' ? 'index.js' : 'main.go',
+        content: starterName === 'python-sandbox' 
+          ? '# Python AI Sandbox\ndef main():\n    print("Hello from LiveSync AI Sandbox!")\n\nif __name__ == "__main__":\n    main()\n'
+          : starterName === 'node-service'
+          ? '// Node.js Microservice\nconsole.log("Hello from LiveSync Node.js Workspace!");\n'
+          : '// Go Application\npackage main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello from LiveSync Go Workspace!")\n}\n',
+        folderId: created.id,
+      });
+      await this.loadWorkspace();
+      this.openProjectInIDE(created);
+    } catch (err) {
+      console.error('Error creating starter:', err);
+      alert('Failed to create starter project');
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
 
   ngOnInit() {
     this.loadWorkspace();
@@ -136,9 +167,7 @@ export class Dashboard implements OnInit {
   }
 
   openProjectInIDE(folder: FolderDto) {
-    this.router.navigate(['/workspace', encodeURIComponent(folder.name)], {
-      queryParams: { id: folder.id },
-    });
+    this.router.navigate(['/workspace', encodeURIComponent(folder.name)]);
   }
 
   openCreateFolderModal() {

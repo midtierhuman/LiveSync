@@ -1,4 +1,4 @@
-# LiveSync Agent Instructions & Engineering Rules
+# LiveSync Agent & Gemini Engineering Instructions
 
 ## 📌 Project Overview
 LiveSync is a high-performance, real-time collaborative code editor built on a decoupled polyglot microservices architecture:

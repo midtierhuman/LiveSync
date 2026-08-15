@@ -3,7 +3,7 @@ services:
   # 0. DATABASE & CACHE SERVICES (SELF-CONTAINED STACK)
   # =========================================================================
   postgres:
-    image: postgres:18
+    image: postgres:17-alpine
     restart: unless-stopped
     ports:
       - "5432:5432"

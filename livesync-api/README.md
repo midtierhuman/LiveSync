@@ -7,7 +7,7 @@ High-performance, lightweight REST API and persistence microservice for LiveSync
 ## ⚡ Overview
 - **Language & Runtime**: Go 1.26
 - **Routing**: `chi` v5 + CORS middleware
-- **Database**: PostgreSQL 18 via `pgxpool` connection pool
+- **Database**: PostgreSQL 17-alpine via `pgxpool` connection pool
 - **Persistence Consumer**: Redis Stream write-behind event listener (`livesync:stream:document-saves`)
 - **Authentication**: JWT HS256 (`unique_name`, `email`, `sub`, `iss`, `aud`) + ASP.NET Identity v3 PBKDF2 HMAC-SHA512 password hashing
 

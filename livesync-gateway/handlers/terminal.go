@@ -121,6 +121,14 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	nodePath := filepath.Join(absWsDir, "node_modules")
 
+	projectName := r.URL.Query().Get("projectName")
+	if projectName == "" {
+		projectName = r.URL.Query().Get("name")
+	}
+	if projectName == "" {
+		projectName = "workspace"
+	}
+
 	termEnv := append(os.Environ(),
 		"PATH="+envPath,
 		"PYTHONPATH="+pythonPath,
@@ -130,16 +138,22 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		"PYTHONUNBUFFERED=1",
 		"NODE_NO_WARNINGS=1",
 		"WORKSPACE_DIR="+absWsDir,
+		"PROJECT_NAME="+projectName,
+		"PS1=\\[\\033[01;32m\\]developer@livesync\\[\\033[00m\\]:\\[\\033[01;34m\\]~/"+projectName+"\\[\\033[00m\\]$ ",
 	)
 
 	var shellCmd string
 	var shellArgs []string
 	if runtime.GOOS == "windows" {
 		shellCmd = "powershell.exe"
-		shellArgs = []string{"-NoLogo"}
+		shellArgs = []string{"-NoLogo", "-NoExit", "-Command", "function prompt { 'developer@livesync:~/" + projectName + "$ ' }"}
 	} else {
 		shellCmd = "/bin/bash"
-		shellArgs = nil
+		rcPath := filepath.Join(workspaceDir, ".livesync_bashrc")
+		rcContent := "if [ -f ~/.bashrc ]; then . ~/.bashrc; elif [ -f /etc/bash.bashrc ]; then . /etc/bash.bashrc; fi\n" +
+			"export PS1='\\[\\033[01;32m\\]developer@livesync\\[\\033[00m\\]:\\[\\033[01;34m\\]~/" + projectName + "\\[\\033[00m\\]$ '\n"
+		_ = os.WriteFile(rcPath, []byte(rcContent), 0644)
+		shellArgs = []string{"--rcfile", rcPath}
 	}
 
 	term, err := startPlatformTerminal(shellCmd, shellArgs, absWsDir, termEnv, 80, 24)
@@ -153,7 +167,7 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	// Initial welcome notification
 	welcomeMsg := "\r\n\x1b[36m⚡ LiveSync Interactive Workspace Terminal\x1b[0m\r\n" +
-		"\x1b[90mDirectory: " + absWsDir + "\x1b[0m\r\n\r\n"
+		"\x1b[90mWorkspace: ~/" + projectName + "\x1b[0m\r\n\r\n"
 	_ = c.Write(ctx, websocket.MessageText, []byte(welcomeMsg))
 
 	var wg sync.WaitGroup

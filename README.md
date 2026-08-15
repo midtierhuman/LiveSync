@@ -58,7 +58,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 | **`livesync-api`** | Go 1.26, Chi, pgxpool | Auth, user sessions, document/folder CRUD, Redis Stream consumer | `8080` (Internal) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | CRDT room broadcasting, cursor sync & Redis Stream publisher | `5000` |
 | **`api-loadbalancer`** | Nginx Alpine | Reverse proxy & API Gateway Router | `5038` |
-| **`postgres`** | PostgreSQL 18 | Primary relational metadata database | `5432` |
+| **`postgres`** | PostgreSQL 17-alpine | Primary relational metadata database | `5432` |
 | **`redis`** | Redis 7-alpine | Event streams log & Socket.IO pub/sub bus | `6379` |
 
 ---

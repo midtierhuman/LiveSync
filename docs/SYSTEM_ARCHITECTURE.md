@@ -38,11 +38,11 @@ LiveSync utilizes a decoupled, high-performance polyglot microservices architect
 | :--- | :--- | :--- | :--- | :--- |
 | **`livesync-gateway`** | Go 1.26, `creack/pty`, `coder/websocket`, `fsnotify` | API Gateway, Live PTY shell, JWT middleware, `fsnotify` terminal disk watcher, direct package search & gRPC client proxy | HTTP/1.1, WS, gRPC client | `8081` |
 | **`livesync-ai`** | Python 3.14, Native gRPC, Pytest | AI Pair Assistant, AST Big-O complexity analyzer, LLM integration | gRPC (HTTP/2) | `50051` (gRPC) |
-| **`livesync-api`** | Go 1.26, `chi`, `pgxpool`, PostgreSQL 18 | Metadata, user authentication, document storage & Redis Stream consumer | REST / SQL | `8080` (Direct) / `5038` (Nginx) |
+| **`livesync-api`** | Go 1.26, `chi`, `pgxpool`, PostgreSQL 17-alpine | Metadata, user authentication, document storage & Redis Stream consumer | REST / SQL | `8080` (Direct) / `5038` (Nginx) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | Low-latency room broadcasting, CRDT collaboration & Redis Stream publisher | WebSockets / Redis | `5000` |
 | **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Single-page application code editor, VFS indexer, and terminal canvas | HTTP | `4200` (Dev) / `4000` (Prod) |
 | **`api-loadbalancer`**| Nginx Alpine | Reverse proxy, path-based routing & SSL termination | HTTP / WS | `5038` |
-| **`postgres`** | PostgreSQL 18 | Relational document store, user accounts, and folder trees | TCP / SQL | `5432` |
+| **`postgres`** | PostgreSQL 17-alpine | Relational document store, user accounts, and folder trees | TCP / SQL | `5432` |
 | **`redis`** | Redis 7-alpine | Event streams (`livesync:stream:document-saves`) & Socket.IO pub/sub adapter | TCP / Redis | `6379` |
 
 ---
