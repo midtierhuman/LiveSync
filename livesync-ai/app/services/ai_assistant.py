@@ -104,22 +104,23 @@ class AiAssistantService:
 
     def _build_user_instruction(self, action: str, custom_prompt: str | None) -> str:
         action_descriptions = {
-            "complexity": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code. You MUST state the exact Big-O notation for both Time and Space complexity, followed by step-by-step mathematical reasoning.",
-            "bigo": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code. You MUST state the exact Big-O notation for both Time and Space complexity, followed by step-by-step mathematical reasoning.",
-            "explain": "Explain the core logic, data structures, algorithms, and step-by-step execution flow of this code.",
+            "complexity": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code. State the exact Big-O notation for both Time and Space complexity followed by concise mathematical reasoning.",
+            "bigo": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code. State the exact Big-O notation for both Time and Space complexity followed by concise mathematical reasoning.",
+            "explain": "Explain the core logic, architecture, and step-by-step execution flow of this code directly and concisely.",
             "refactor": "Refactor, optimize, and modernize this code according to language best practices and clean code standards.",
             "generate-tests": "Generate a full unit test suite covering normal inputs, edge cases, and error scenarios for this code.",
             "tests": "Generate a full unit test suite covering normal inputs, edge cases, and error scenarios for this code.",
             "suggest": "Provide the next logical code snippet, completion, or function docstring for this code.",
             "autocomplete": "Provide the next logical code snippet, completion, or function docstring for this code.",
+            "chat": "Answer the user's specific coding question or implement requested functionality directly and concisely.",
         }
 
         act_key = (action or "explain").lower().strip()
         desc = action_descriptions.get(act_key, f"Action requested: {action}")
         if custom_prompt:
-            return f"User Question / Custom Instruction: {custom_prompt}\nAction Context: {desc}"
+            return f"User Prompt / Task: {custom_prompt}\nContext / Goal: {desc}"
         else:
-            return f"Primary Task: {desc}"
+            return f"Task: {desc}"
 
     def _call_local_llm_api(self, action: str, language: str, code: str, custom_prompt: str | None = None, model: str | None = None) -> AiAnalysisResult | None:
         primary_url = (settings.local_llm_url or "http://127.0.0.1:8080").rstrip("/")
@@ -133,13 +134,10 @@ class AiAssistantService:
         default_urls = [
             "http://127.0.0.1:8080",
             "http://localhost:8080",
-            "http://host.docker.internal:8080",
             "http://127.0.0.1:11434",
             "http://localhost:11434",
-            "http://host.docker.internal:11434",
             "http://127.0.0.1:1234",
             "http://localhost:1234",
-            "http://host.docker.internal:1234",
         ]
         for d_url in default_urls:
             if d_url not in urls_to_try:
@@ -154,7 +152,7 @@ class AiAssistantService:
         for base_url in urls_to_try:
             try:
                 models_req = urllib.request.Request(f"{base_url}/v1/models")
-                with urllib.request.urlopen(models_req, timeout=2) as m_resp:
+                with urllib.request.urlopen(models_req, timeout=1.5) as m_resp:
                     m_data = json.loads(m_resp.read().decode("utf-8"))
                     if m_data.get("data") and len(m_data["data"]) > 0:
                         discovered_model = m_data["data"][0].get("id")
@@ -166,19 +164,26 @@ class AiAssistantService:
 
         target_model = model or discovered_model or os.environ.get("LOCAL_LLM_MODEL") or settings.local_llm_model
 
-        prompt_text = f"""You are an expert AI software engineer pair programming assistant.
+        prompt_text = f"""You are a high-precision, senior AI pair programmer.
 {user_instruction}
-Programming Language: {language}
-Source Code:
+Language: {language}
+Current Code Context:
 ```{language}
 {code}
 ```
 
-Respond strictly with a JSON object containing:
-- "explanation": string (markdown formatting detailing logic, answer, and recommendations)
-- "suggestions": list of strings
-- "generated_code": string or null (refactored code or generated code if requested)
-"""
+CRITICAL INSTRUCTIONS:
+1. Be direct, focused, and pinpoint. Do NOT include generic pleasantries, filler phrases, or rambling summaries.
+2. In "explanation", provide a crisp, structured markdown breakdown with bullet points focusing strictly on what was asked.
+3. If code is requested or modified, place the full, complete, production-ready implementation in "generated_code".
+4. In "suggestions", provide 1-3 practical, actionable tips.
+
+Respond strictly with a JSON object:
+{{
+  "explanation": "concise pinpoint explanation in markdown",
+  "suggestions": ["suggestion 1", "suggestion 2"],
+  "generated_code": "full code or null"
+}}"""
 
         endpoint_path = settings.local_llm_chat_endpoint
         candidate_urls = [working_base_url] if working_base_url else urls_to_try
@@ -193,12 +198,12 @@ Respond strictly with a JSON object containing:
 
             base_payload: dict[str, Any] = {
                 "messages": [
-                    {"role": "system", "content": "You are a helpful AI coding assistant. Output strictly valid JSON."},
+                    {"role": "system", "content": "You are a concise, pinpoint AI coding assistant. Output strictly valid JSON without conversational filler."},
                     {"role": "user", "content": prompt_text}
                 ],
                 "temperature": 0.2,
                 "top_p": 0.95,
-                "max_tokens": 600,
+                "max_tokens": 4096,
                 "stream": False,
             }
 
@@ -213,7 +218,7 @@ Respond strictly with a JSON object containing:
                 payload = json.dumps(p_dict).encode("utf-8")
                 req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type": "application/json"})
                 try:
-                    with urllib.request.urlopen(req, timeout=15) as resp:
+                    with urllib.request.urlopen(req, timeout=20) as resp:
                         data = json.loads(resp.read().decode("utf-8"))
                         choices = data.get("choices")
                         if not choices:
@@ -244,7 +249,20 @@ Respond strictly with a JSON object containing:
                                 elif generated_code_raw:
                                     generated_code_str = str(generated_code_raw)
                         except Exception:
-                            pass
+                            match = re.search(r'\{[\s\S]*\}', content)
+                            if match:
+                                try:
+                                    res_json = json.loads(match.group(0))
+                                    if isinstance(res_json, dict):
+                                        explanation_str = self._parse_explanation_content(res_json.get("explanation", content))
+                                        suggestions_list = self._parse_suggestions_content(res_json.get("suggestions"))
+                                        generated_code_raw = res_json.get("generated_code") or res_json.get("generatedCode") or res_json.get("code")
+                                        if isinstance(generated_code_raw, dict):
+                                            generated_code_str = json.dumps(generated_code_raw, indent=2)
+                                        elif generated_code_raw:
+                                            generated_code_str = str(generated_code_raw)
+                                except Exception:
+                                    pass
 
                         used_model = p_dict.get("model") or target_model or "local"
                         provider_name = f"Local LLM ({used_model})"
@@ -323,22 +341,33 @@ Respond strictly with a JSON object containing:
 
         user_instruction = self._build_user_instruction(action, custom_prompt)
 
-        prompt_text = f"""You are an expert AI software engineer pair programming assistant.
+        prompt_text = f"""You are a high-precision, senior AI pair programmer.
 {user_instruction}
-Programming Language: {language}
-Source Code:
+Language: {language}
+Current Code Context:
 ```{language}
 {code}
 ```
 
-Respond strictly with a JSON object containing:
-- "explanation": string (markdown formatting detailing logic, answer, and recommendations)
-- "suggestions": list of strings
-- "generated_code": string or null (refactored code or generated code if requested)
-"""
+CRITICAL INSTRUCTIONS:
+1. Be direct, focused, and pinpoint. Do NOT include generic pleasantries, filler phrases, or rambling summaries.
+2. In "explanation", provide a crisp, structured markdown breakdown with bullet points focusing strictly on what was asked.
+3. If code is requested or modified, place the full, complete, production-ready implementation in "generated_code".
+4. In "suggestions", provide 1-3 practical, actionable tips.
+
+Respond strictly with a JSON object:
+{{
+  "explanation": "concise pinpoint explanation in markdown",
+  "suggestions": ["suggestion 1", "suggestion 2"],
+  "generated_code": "full code or null"
+}}"""
         payload = json.dumps({
             "contents": [{"parts": [{"text": prompt_text}]}],
-            "generationConfig": {"responseMimeType": "application/json"}
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "maxOutputTokens": 4096,
+                "temperature": 0.2
+            }
         }).encode("utf-8")
 
         base_url = settings.gemini_base_url.rstrip("/")
@@ -346,12 +375,40 @@ Respond strictly with a JSON object containing:
             url = f"{base_url}/{m}:generateContent?key={api_key}"
             req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
             try:
-                with urllib.request.urlopen(req, timeout=12) as resp:
+                with urllib.request.urlopen(req, timeout=30) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
-                    text = data["candidates"][0]["content"]["parts"][0]["text"]
-                    res_json = json.loads(text)
+                    candidates = data.get("candidates", [])
+                    if not candidates:
+                        continue
+                    text = candidates[0]["content"]["parts"][0]["text"].strip()
+                    
+                    if text.startswith("```"):
+                        lines = text.splitlines()
+                        if lines[0].startswith("```"):
+                            lines = lines[1:]
+                        if lines and lines[-1].startswith("```"):
+                            lines = lines[:-1]
+                        text = "\n".join(lines).strip()
 
-                    explanation_str = self._parse_explanation_content(res_json.get("explanation"))
+                    res_json = None
+                    try:
+                        res_json = json.loads(text)
+                    except Exception:
+                        match = re.search(r'\{[\s\S]*\}', text)
+                        if match:
+                            try:
+                                res_json = json.loads(match.group(0))
+                            except Exception:
+                                pass
+
+                    if not isinstance(res_json, dict):
+                        res_json = {
+                            "explanation": text,
+                            "suggestions": [],
+                            "generated_code": None
+                        }
+
+                    explanation_str = self._parse_explanation_content(res_json.get("explanation", text))
                     suggestions_list = self._parse_suggestions_content(res_json.get("suggestions"))
 
                     generated_code_raw = res_json.get("generated_code") or res_json.get("generatedCode") or res_json.get("code")
@@ -371,7 +428,8 @@ Respond strictly with a JSON object containing:
                         provider=f"Google Gemini API ({m})"
                     )
             except urllib.error.HTTPError as http_err:
-                if http_err.code == 429:
+                if http_err.code in (429, 404, 400, 503):
+                    logger.warning(f"Gemini API HTTP {http_err.code} ({m}): {http_err.reason}, falling back to next model...")
                     continue
                 logger.warning(f"Gemini API HTTP Error {http_err.code} ({m}): {http_err.reason}")
             except Exception as ex:

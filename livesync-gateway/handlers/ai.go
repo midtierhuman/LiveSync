@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/livesync/livesync-gateway/config"
 	"github.com/livesync/livesync-gateway/pb"
@@ -53,7 +55,10 @@ func (h *AIHandler) AnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	grpcResp, err := h.grpcClient.AnalyzeCode(r.Context(), &pb.AiAnalysisRequest{
+	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+	defer cancel()
+
+	grpcResp, err := h.grpcClient.AnalyzeCode(ctx, &pb.AiAnalysisRequest{
 		Action:   reqPayload.Action,
 		Language: reqPayload.Language,
 		Code:     reqPayload.Code,

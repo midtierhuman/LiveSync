@@ -43,14 +43,12 @@ The `livesync-realtime` microservice handles low-latency room-based document edi
 | `ResolveComment` (`data`) | `ReceiveCommentResolved` (`data`) | Broadcasts thread resolution / reopening toggle. |
 | `DeleteComment` (`data`) | `ReceiveCommentDeleted` (`data`) | Broadcasts deletion of a comment thread. |
 
-### 5. Workspace & Project File Tree Metadata Sync (Planned - `BUG-03`)
+### 5. Workspace & Project File Tree Metadata Sync (Implemented - `BUG-03`)
 | Client Emit / API Trigger | Server Emit | Description |
 | :--- | :--- | :--- |
-| `JoinWorkspace` (`folderId`) | `WorkspaceJoined` | Subscribes collaborator socket to the project/workspace room. |
-| `LeaveWorkspace` (`folderId`) | `WorkspaceLeft` | Unsubscribes collaborator socket from the workspace room. |
-| `FileRenamed` / `FolderRenamed` | `ReceiveTreeUpdate` (`{ action: 'rename', id, newName, type }`) | Broadcasts instant rename events to all active workspace collaborators. |
-| `FileCreated` / `FolderCreated` | `ReceiveTreeUpdate` (`{ action: 'create', item }`) | Broadcasts new file/folder additions to collaborators' trees. |
-| `FileDeleted` / `FolderDeleted` | `ReceiveTreeUpdate` (`{ action: 'delete', id, type }`) | Broadcasts deletions to automatically clean up tree nodes & open tabs. |
+| `JoinWorkspace` (`workspaceId`) | `WorkspaceJoined` | Subscribes collaborator socket to the project/workspace room (`workspace:<id>`). |
+| `LeaveWorkspace` (`workspaceId`) | `WorkspaceLeft` | Unsubscribes collaborator socket from the workspace room. |
+| `WorkspaceChange` (`data`) | `ReceiveWorkspaceChange` (`data`) | Broadcasts instant create, rename, move, and delete metadata mutations across all active collaborators' tree views and open tabs. |
 
 ---
 

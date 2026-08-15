@@ -9,9 +9,10 @@
 
 | ID | Category | Summary | Service Scope | Priority | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **BUG-01** | 🐛 Bug | Terminal-to-Workspace File System Watcher Disconnect (Scoped Service Isolation) | `livesync-ui` | Critical | 📋 Backlog |
-| **BUG-02** | 🐛 Bug | Duplicate "Split-Brain" Panels in Workspace & Editor (AI, Packages, Comments) | `livesync-ui` | High | 📋 Backlog |
-| **BUG-03** | 🐛 Bug | Realtime Workspace Metadata Sync (File/Folder Renames, Creations, Moves & Deletions) | `livesync-realtime`, `livesync-api`, `livesync-ui` | Critical | 📋 Backlog |
+| **BUG-01** | 🐛 Bug | Terminal-to-Workspace File System Watcher Disconnect (Scoped Service Isolation) | `livesync-ui` | Critical | ✅ Done |
+| **BUG-02** | 🐛 Bug | Duplicate "Split-Brain" Panels in Workspace & Editor (AI, Packages, Comments) | `livesync-ui` | High | ✅ Done |
+| **BUG-03** | 🐛 Bug | Realtime Workspace Metadata Sync (File/Folder Renames, Creations, Moves & Deletions) | `livesync-realtime`, `livesync-api`, `livesync-ui` | Critical | ✅ Done |
+| **BUG-04** | 🐛 Bug | AI Assistant 502 Bad Gateway Timeout, Token Truncation & Focused Pinpoint Prompting | `livesync-ai`, `livesync-gateway` | High | ✅ Done |
 | **PERF-01** | ⚡ Optimization | O(N²) Line Diff in Time-Travel Timeline Scrubber | `livesync-ui` | Medium | 🚫 Deprecated & Removed |
 | **PERF-02** | ⚡ Optimization | Data Loss Prevention on Tab Close / Debounced Save Unmount | `livesync-ui` | High | ✅ Done |
 | **PERF-03** | ⚡ Optimization | Decomposition of 1700+ Line Monolithic God Components (`workspace.ts`, `editor.ts`) | `livesync-ui` | High | 📋 Backlog |
@@ -29,6 +30,7 @@
 | **FEAT-11** | 🚀 Feature | Unsaved Changes Guard & Dirty State Machine for File Tabs | `livesync-ui` | High | 📋 Backlog |
 | **FEAT-12** | 🚀 Feature | Multi-Terminal Tabs & Resilient `FitAddon` Layout Resize Handling | `livesync-ui`, `livesync-gateway` | Medium | 📋 Backlog |
 | **FEAT-13** | 🎨 UI/UX | Workspace Presentation Polish: Clean Shell Prompt & Streamlined Slug Routing | `livesync-ui`, `livesync-gateway` | High | ✅ Done |
+| **FEAT-14** | 🎨 UI/UX | AI Chat UI Polish: Shimmer Loading Bar, Decluttered Starter Prompts & Action Menu | `livesync-ui` | Medium | ✅ Done |
 
 ---
 
@@ -36,9 +38,11 @@
 
 ### **Milestone 11: Production-Grade Cloud IDE Hardening & Architecture Cleanliness** (IN PLANNING 📋)
 - [x] **FEAT-13: Clean Terminal Prompt & Streamlined Routing**: Replaced raw storage UUIDs with friendly project paths in PTY PS1 prompts and welcome banners (`Workspace: ~/projectName`); eliminated redundant `?id=` query parameters in favor of clean project slug routes.
-- [ ] **BUG-01: Global Terminal Service Synchronization**: Refactor `LiveTerminalService` into a workspace-level singleton or message bus so terminal `fs_change` events reliably refresh the active file tree.
-- [ ] **BUG-02: Single Source of Truth for IDE Tooling**: Remove duplicated floating panels in `editor.html` and consolidate AI Assistant, Package Hub, and Code Comments entirely into the primary sidebar dock and bottom drawer.
-- [ ] **BUG-03: Real-Time Project/Workspace Tree Event Propagation**: Introduce project/folder-scoped Socket.IO rooms (`JoinWorkspace(folderId)`) so file/folder renames, creations, deletions, and moves instantly broadcast to all active collaborators' tree views and open tab titles.
+- [x] **BUG-01: Global Terminal Service Synchronization**: Refactored `LiveTerminalService` and `PackageManagerService` to shared root singletons so terminal `fs_change` events reliably propagate to the workspace file tree across all open tabs.
+- [x] **BUG-02: Single Source of Truth for IDE Tooling**: Removed duplicated floating sidebars and package modal overlay in `editor.html`, consolidating AI Assistant, Package Hub, and Code Comments entirely into the unified workspace activity bar dock.
+- [x] **BUG-03: Real-Time Project/Workspace Tree Event Propagation**: Introduced project/folder-scoped Socket.IO rooms (`JoinWorkspace`, `LeaveWorkspace`, `WorkspaceChange`) so file/folder renames, creations, deletions, and moves instantly broadcast to all active collaborators' tree views and open tab titles.
+- [x] **BUG-04: AI Assistant 502 Bad Gateway Timeout & Token Truncation Fix**: Extended gateway and python AI timeouts (45s/30s), increased generation token limits (4096), refined system prompts for pinpoint, concise code solutions without fluff, and hardened Gemini/Local fallback chain.
+- [x] **FEAT-14: AI Chat UI Polish**: Added sleek shimmer/pulse loading bar during AI synthesis, moved quick prompt starter cards to empty state, and added a clean popover action menu to eliminate top clutter.
 - [ ] **FEAT-07: Command Palette & Quick Open (`Ctrl+P`)**: Modal overlay with fuzzy search for rapid file navigation and IDE action dispatching without mouse navigation.
 - [ ] **FEAT-10 & FEAT-11: IDE Status Bar & Unsaved Changes Guard**: Rich bottom telemetry bar (Line/Col, Spaces, Encoding, Language, Sync status) and dirty tracking with confirmation modal before closing modified files.
 - [ ] **PERF-03: Component Decomposition**: Split `workspace.ts` and `editor.ts` into isolated components (`FileTreeComponent`, `StatusBarComponent`, `CommandPaletteComponent`, `TerminalPanelComponent`).

@@ -88,9 +88,6 @@ export interface ChatMessage {
   imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule, MatDividerModule, FormsModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
-  // Scope these services to each Editor instance so every open tab gets isolated
-  // realtime, terminal, and package manager state.
-  providers: [LiveTerminalService, PackageManagerService],
 })
 export class Editor implements OnInit {
   readonly documentId = input<string>('');
@@ -112,22 +109,8 @@ export class Editor implements OnInit {
   private activeCleanupResizer?: (() => void) | null;
 
   readonly isTerminalOpen = signal<boolean>(false);
-
-  readonly isPackageManagerOpen = signal(false);
   readonly packageSearchInput = signal('');
   readonly installedFilterInput = signal('');
-
-  readonly categories = ['All', 'AI / ML', 'Data Science', 'Web / API', 'Utilities', 'DevTools', 'Graphics'];
-
-  openPackageManagerModal(): void {
-    this.isPackageManagerOpen.set(true);
-    this.packageSearchInput.set('');
-    this.installedFilterInput.set('');
-  }
-
-  closePackageManagerModal(): void {
-    this.isPackageManagerOpen.set(false);
-  }
 
   onSearchPackageInput(query: string): void {
     this.packageSearchInput.set(query);
@@ -181,21 +164,6 @@ export class Editor implements OnInit {
       this.packageManagerService.fetchInstalledPackages(support.package_language),
     ]);
     this.packageManagerService.searchPackagesReactive('', support.package_language);
-  }
-
-  getFilteredCatalogPackages() {
-    const query = this.packageSearchInput().trim();
-    const rawList = query ? this.packageManagerService.searchResults() : this.packageManagerService.popularPackages();
-    const selectedCat = this.packageManagerService.selectedCategory();
-    if (selectedCat === 'All') return rawList;
-    return rawList.filter(item => (item.category || '').toLowerCase().includes(selectedCat.toLowerCase()));
-  }
-
-  getFilteredInstalledPackages(): PackageItem[] {
-    const filter = this.installedFilterInput().toLowerCase().trim();
-    const pkgs = this.packageManagerService.installedPackages();
-    if (!filter) return pkgs;
-    return pkgs.filter(p => p.name.toLowerCase().includes(filter));
   }
 
   readonly docId = signal<string>('');
@@ -355,14 +323,10 @@ export class Editor implements OnInit {
     });
 
     effect(() => {
-      const isOpen = this.isPackageManagerOpen();
-      this.selectedExecutionLanguage();
-
-      if (!isOpen) {
-        return;
+      const selectedLanguage = this.selectedExecutionLanguage();
+      if (selectedLanguage) {
+        void this.refreshPackageManagerForCurrentLanguage();
       }
-
-      void this.refreshPackageManagerForCurrentLanguage();
     });
 
     effect(() => {
@@ -622,7 +586,6 @@ export class Editor implements OnInit {
     });
   }
 
-  readonly showCommentsSidebar = signal<boolean>(false);
   readonly selectedLineForComment = signal<number>(1);
   readonly newCommentText = signal<string>('');
   readonly replyDrafts = signal<{ [commentId: string]: string }>({});
@@ -660,10 +623,6 @@ export class Editor implements OnInit {
         }, 100);
       }
     }
-  }
-
-  toggleCommentsSidebar(): void {
-    this.showCommentsSidebar.update((v) => !v);
   }
 
   toggleFollowUser(userId: string): void {
@@ -1470,7 +1429,6 @@ export class Editor implements OnInit {
     return fallback;
   }
 
-  readonly showAiDrawer = signal<boolean>(false);
   readonly aiAction = signal<string>('explain');
   readonly isAiLoading = signal<boolean>(false);
   readonly aiResult = signal<import('../../services/document.service').AiAnalysisResponse | null>(null);
@@ -1478,20 +1436,6 @@ export class Editor implements OnInit {
   readonly aiError = signal<string>('');
   readonly userCustomPrompt = signal<string>('');
   readonly aiCopiedMessageId = signal<string>('');
-  readonly chatDrawerBody = viewChild<ElementRef<HTMLElement>>('chatDrawerBody');
-
-  private scrollToBottom(): void {
-    setTimeout(() => {
-      const el = this.chatDrawerBody()?.nativeElement;
-      if (el) {
-        el.scrollTop = el.scrollHeight;
-      }
-    }, 80);
-  }
-
-  toggleAiDrawer(): void {
-    this.showAiDrawer.update((v) => !v);
-  }
 
   clearChatHistory(): void {
     this.chatMessages.set([]);
@@ -1546,7 +1490,6 @@ export class Editor implements OnInit {
         timestamp: timeStr,
       },
     ]);
-    this.scrollToBottom();
 
     try {
       const language = this.selectedExecutionLanguage() || this.currentLanguage() || 'python';
@@ -1571,7 +1514,6 @@ export class Editor implements OnInit {
       this.aiError.set('AI assistant request failed. Please verify endpoint connectivity.');
     } finally {
       this.isAiLoading.set(false);
-      this.scrollToBottom();
     }
   }
 

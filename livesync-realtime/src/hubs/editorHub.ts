@@ -64,6 +64,24 @@ export class EditorHub {
     socket.on('DeleteComment', (data: any) => this.handleCommentEvent(socket, 'ReceiveCommentDeleted', data));
     socket.on('deleteComment', (data: any) => this.handleCommentEvent(socket, 'ReceiveCommentDeleted', data));
 
+    // Workspace Room & Tree Metadata Sync events (BUG-03)
+    const joinWorkspaceHandler = (arg: any) => {
+      const workspaceId = typeof arg === 'string' ? arg : (arg?.workspaceId || arg?.folderId || arg?.projectId || '');
+      return this.handleJoinWorkspace(socket, workspaceId);
+    };
+    const leaveWorkspaceHandler = (arg: any) => {
+      const workspaceId = typeof arg === 'string' ? arg : (arg?.workspaceId || arg?.folderId || arg?.projectId || '');
+      return this.handleLeaveWorkspace(socket, workspaceId);
+    };
+
+    socket.on('JoinWorkspace', joinWorkspaceHandler);
+    socket.on('joinWorkspace', joinWorkspaceHandler);
+    socket.on('LeaveWorkspace', leaveWorkspaceHandler);
+    socket.on('leaveWorkspace', leaveWorkspaceHandler);
+
+    socket.on('WorkspaceChange', (data: any) => this.handleWorkspaceChange(socket, data));
+    socket.on('workspaceChange', (data: any) => this.handleWorkspaceChange(socket, data));
+
     socket.on('disconnect', () => this.handleDisconnect(socket));
   }
 
@@ -570,5 +588,36 @@ export class EditorHub {
     }
 
     return tokenBySocket.values().next().value;
+  }
+
+  private handleJoinWorkspace(socket: Socket, workspaceId: string): void {
+    if (!workspaceId) return;
+    const roomName = `workspace:${workspaceId}`;
+    socket.join(roomName);
+    socket.emit('WorkspaceJoined', { workspaceId });
+    console.log(`Socket ${socket.id} joined workspace room: ${roomName}`);
+  }
+
+  private handleLeaveWorkspace(socket: Socket, workspaceId: string): void {
+    if (!workspaceId) return;
+    const roomName = `workspace:${workspaceId}`;
+    socket.leave(roomName);
+    socket.emit('WorkspaceLeft', { workspaceId });
+    console.log(`Socket ${socket.id} left workspace room: ${roomName}`);
+  }
+
+  private handleWorkspaceChange(socket: Socket, data: any): void {
+    const workspaceId = data?.workspaceId || data?.folderId || data?.projectId || '';
+    if (!workspaceId) return;
+
+    const payload = {
+      ...data,
+      workspaceId,
+      senderSocketId: socket.id,
+      timestamp: data.timestamp || Date.now(),
+    };
+
+    // Broadcast to other collaborators connected to the same workspace room
+    socket.to(`workspace:${workspaceId}`).emit('ReceiveWorkspaceChange', payload);
   }
 }

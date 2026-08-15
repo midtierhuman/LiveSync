@@ -32,6 +32,19 @@ export interface CodeComment {
   replies: CodeCommentReply[];
 }
 
+export interface WorkspaceChangeEvent {
+  workspaceId: string;
+  action: 'create' | 'rename' | 'move' | 'delete' | 'refresh';
+  itemType?: 'file' | 'folder';
+  itemId?: string;
+  name?: string;
+  oldName?: string;
+  parentFolderId?: string | null;
+  newParentFolderId?: string | null;
+  senderSocketId?: string;
+  timestamp?: number;
+}
+
 export interface DocumentRealtimeState {
   documentId: string;
   subscribers: number;
@@ -56,8 +69,10 @@ export class RealtimeService {
   readonly connectionState = signal<string>('disconnected');
   readonly currentDocumentId = signal<string | null>(null);
   readonly followedUserId = signal<string | null>(null);
+  readonly onWorkspaceChange = signal<WorkspaceChangeEvent | null>(null);
 
   private readonly documentStates = new Map<string, DocumentRealtimeState>();
+  private readonly activeWorkspaceIds = new Set<string>();
 
   // Computed signals backing active document for backward compatibility with component templates
   readonly contentUpdate = computed(() => {
@@ -124,6 +139,9 @@ export class RealtimeService {
       for (const [docId] of this.documentStates) {
         this.socket.emit('JoinDocument', docId);
       }
+      for (const wsId of this.activeWorkspaceIds) {
+        this.socket.emit('JoinWorkspace', wsId);
+      }
     });
 
     this.socket.on('disconnect', () => {
@@ -137,6 +155,9 @@ export class RealtimeService {
     });
 
     // Wire multiplexed incoming event listeners
+    this.socket.on('ReceiveWorkspaceChange', (data: WorkspaceChangeEvent) => {
+      this.onWorkspaceChange.set({ ...data, timestamp: data.timestamp || Date.now() });
+    });
     this.socket.on('ReceiveContentUpdate', (arg1: any, arg2?: any) => {
       let docId = this.currentDocumentId();
       let content = '';
@@ -305,8 +326,33 @@ export class RealtimeService {
       }
       this.connectionState.set('disconnected');
       this.documentStates.clear();
+      this.activeWorkspaceIds.clear();
       this.currentDocumentId.set(null);
+      this.onWorkspaceChange.set(null);
     }
+  }
+
+  async joinWorkspace(workspaceId: string): Promise<void> {
+    if (!workspaceId) return;
+    this.activeWorkspaceIds.add(workspaceId);
+    await this.startConnection();
+    this.socket.emit('JoinWorkspace', workspaceId);
+  }
+
+  leaveWorkspace(workspaceId: string): void {
+    if (!workspaceId) return;
+    this.activeWorkspaceIds.delete(workspaceId);
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('LeaveWorkspace', workspaceId);
+    }
+  }
+
+  notifyWorkspaceChange(data: WorkspaceChangeEvent): void {
+    if (!data.workspaceId) return;
+    this.socket.emit('WorkspaceChange', {
+      ...data,
+      timestamp: Date.now(),
+    });
   }
 
   async startConnection(): Promise<void> {

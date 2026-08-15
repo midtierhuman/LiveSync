@@ -433,9 +433,6 @@
         <section class="vs-sidebar-panel vs-packages-panel">
           <div class="panel-header">
             <span class="panel-title"><mat-icon>inventory_2</mat-icon> PACKAGE HUB</span>
-            <button class="btn-panel-action" (click)="activeEditorInstance()?.openPackageManagerModal()" matTooltip="Open Full Package Modal">
-              <mat-icon>open_in_new</mat-icon>
-            </button>
           </div>
 
           <div class="panel-body packages-sidebar-body">
@@ -518,6 +515,14 @@
           <div class="panel-header">
             <span class="panel-title"><mat-icon>psychology</mat-icon> AI PAIR ASSISTANT</span>
             <div class="panel-actions">
+              <button
+                class="btn-panel-action"
+                [class.active]="showAiQuickMenu()"
+                (click)="toggleAiQuickMenu()"
+                matTooltip="Quick Coding Actions"
+              >
+                <mat-icon>auto_awesome</mat-icon>
+              </button>
               <button class="btn-panel-action" (click)="activeEditorInstance()?.clearChatHistory()" matTooltip="Clear Chat">
                 <mat-icon>delete_outline</mat-icon>
               </button>
@@ -527,19 +532,28 @@
             </div>
           </div>
 
-          <div class="panel-body ai-sidebar-body">
-            <div class="quick-prompt-buttons">
-              <button (click)="activeEditorInstance()?.runAiAnalysis('explain')">💡 Explain</button>
-              <button (click)="activeEditorInstance()?.runAiAnalysis('refactor')">⚡ Refactor</button>
-              <button (click)="activeEditorInstance()?.runAiAnalysis('generate-tests')">🛠️ Tests</button>
-              <button (click)="activeEditorInstance()?.runAiAnalysis('complexity')">⏱️ Big-O</button>
+          <!-- Quick Action Popover Menu -->
+          @if (showAiQuickMenu()) {
+            <div class="ai-quick-menu-popover">
+              <button (click)="runAiQuickAction('explain')">💡 Explain Code</button>
+              <button (click)="runAiQuickAction('refactor')">⚡ Refactor & Optimize</button>
+              <button (click)="runAiQuickAction('generate-tests')">🛠️ Generate Unit Tests</button>
+              <button (click)="runAiQuickAction('complexity')">⏱️ Big-O Complexity</button>
             </div>
+          }
 
+          <div class="panel-body ai-sidebar-body">
             <div class="ai-chat-stream">
               @for (msg of activeEditorInstance()?.chatMessages(); track msg.id) {
                 <div class="chat-bubble" [class.user-bubble]="msg.sender === 'user'" [class.ai-bubble]="msg.sender === 'ai'">
                   <div class="bubble-header">
-                    <strong>{{ msg.sender === 'user' ? 'You' : 'AI Assistant' }}</strong>
+                    <div class="sender-info">
+                      <mat-icon class="sender-icon">{{ msg.sender === 'user' ? 'person' : 'smart_toy' }}</mat-icon>
+                      <strong>{{ msg.sender === 'user' ? 'You' : 'LiveSync AI' }}</strong>
+                      @if (msg.provider) {
+                        <span class="provider-pill">{{ msg.provider }}</span>
+                      }
+                    </div>
                     <span class="bubble-time">{{ msg.timestamp }}</span>
                   </div>
                   <div class="bubble-text">{{ msg.text }}</div>
@@ -558,9 +572,56 @@
                   }
                 </div>
               } @empty {
-                <div class="ai-empty-hint">
-                  <mat-icon>smart_toy</mat-icon>
-                  <p>Ask anything about this document or select a starter action above.</p>
+                <div class="ai-empty-container">
+                  <div class="ai-empty-hero">
+                    <mat-icon class="hero-icon">auto_awesome</mat-icon>
+                    <h4>Pair Programming Assistant</h4>
+                    <p>Ask a coding question or select a quick starter:</p>
+                  </div>
+
+                  <div class="ai-starters-grid">
+                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('explain')">
+                      <span class="starter-symbol">💡</span>
+                      <div class="starter-copy">
+                        <span class="starter-title">Explain Code</span>
+                        <span class="starter-desc">Step-by-step logic breakdown</span>
+                      </div>
+                    </button>
+                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('refactor')">
+                      <span class="starter-symbol">⚡</span>
+                      <div class="starter-copy">
+                        <span class="starter-title">Refactor & Optimize</span>
+                        <span class="starter-desc">Clean, idiomatic patterns</span>
+                      </div>
+                    </button>
+                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('generate-tests')">
+                      <span class="starter-symbol">🛠️</span>
+                      <div class="starter-copy">
+                        <span class="starter-title">Generate Unit Tests</span>
+                        <span class="starter-desc">Edge-case test suites</span>
+                      </div>
+                    </button>
+                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('complexity')">
+                      <span class="starter-symbol">⏱️</span>
+                      <div class="starter-copy">
+                        <span class="starter-title">Big-O Bounds</span>
+                        <span class="starter-desc">Time & space complexity</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              }
+
+              <!-- Shimmer Loading Indicator -->
+              @if (activeEditorInstance()?.isAiLoading()) {
+                <div class="ai-loading-card">
+                  <div class="loading-label-row">
+                    <span class="ai-pulse-dot"></span>
+                    <span class="loading-text">AI is synthesizing code response...</span>
+                  </div>
+                  <div class="loading-progress-track">
+                    <div class="loading-progress-bar"></div>
+                  </div>
                 </div>
               }
             </div>

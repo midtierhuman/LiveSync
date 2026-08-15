@@ -17,6 +17,7 @@ import { DocumentService, DocumentDto, SharedDocumentDto, FolderPathNode } from 
 import { FolderService, FolderDto, SharedFolderDto } from '../../services/folder.service';
 import { LiveTerminalService } from '../../services/live-terminal.service';
 import { VFSService } from '../../services/vfs.service';
+import { RealtimeService } from '../../services/realtime.service';
 import JSZip from 'jszip';
 import { Editor } from '../editor/editor';
 import {
@@ -67,6 +68,7 @@ export class Workspace implements OnInit {
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
   private readonly liveTerminalService = inject(LiveTerminalService);
+  private readonly realtimeService = inject(RealtimeService);
   public readonly vfsService = inject(VFSService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -79,6 +81,43 @@ export class Workspace implements OnInit {
       if (fsChange) {
         void this.loadWorkspace();
       }
+    });
+
+    effect(() => {
+      const wsChange = this.realtimeService.onWorkspaceChange();
+      if (wsChange) {
+        void this.loadWorkspace();
+        if (wsChange.action === 'rename' && wsChange.itemId && wsChange.name) {
+          this.openTabs.update((tabs) =>
+            tabs.map((t) => (t.id === wsChange.itemId ? { ...t, title: wsChange.name! } : t))
+          );
+        }
+      }
+    });
+
+    effect(() => {
+      const proj = this.scopedProject();
+      if (proj?.id) {
+        void this.realtimeService.joinWorkspace(proj.id);
+      }
+    });
+  }
+
+  private notifyWorkspaceChange(
+    action: 'create' | 'rename' | 'move' | 'delete' | 'refresh',
+    itemType?: 'file' | 'folder',
+    itemId?: string,
+    name?: string,
+    parentFolderId?: string | null,
+  ) {
+    const workspaceId = this.scopedProject()?.id || parentFolderId || 'global';
+    this.realtimeService.notifyWorkspaceChange({
+      workspaceId,
+      action,
+      itemType,
+      itemId,
+      name,
+      parentFolderId,
     });
   }
 
@@ -160,6 +199,18 @@ export class Workspace implements OnInit {
   // Rename Modal State
   showRenameModal = signal(false);
   renameTarget = signal<{ id: string; name: string; type: RenameItemType } | null>(null);
+
+  // AI Quick Actions Menu
+  showAiQuickMenu = signal(false);
+
+  toggleAiQuickMenu() {
+    this.showAiQuickMenu.update((v) => !v);
+  }
+
+  runAiQuickAction(action: string) {
+    this.showAiQuickMenu.set(false);
+    this.activeEditorInstance()?.runAiAnalysis(action);
+  }
 
   // Search & Drag-Drop
   searchQuery = signal<string>('');
@@ -827,12 +878,14 @@ export class Workspace implements OnInit {
 
         this.expandedFolderIds.set(exp);
         await this.loadWorkspace();
+        this.notifyWorkspaceChange('create', 'file', createdDoc.id, fileName, currentParentId);
         this.openDocument(createdDoc.id);
         return;
       }
 
       this.expandedFolderIds.set(exp);
       await this.loadWorkspace();
+      this.notifyWorkspaceChange('create', 'folder', currentParentId || undefined, rawInput, target.parentFolderId);
     } catch (err) {
       console.error('Error in commitInlineCreation:', err);
     }
@@ -928,6 +981,7 @@ export class Workspace implements OnInit {
       const exp = new Set(this.expandedFolderIds());
       exp.add(folderId);
       this.expandedFolderIds.set(exp);
+      this.notifyWorkspaceChange('create', 'file', doc.id, title, folderId);
       this.openDocument(doc.id);
     } catch (err) {
       console.error('Error creating file in folder:', err);
@@ -1030,12 +1084,14 @@ export class Workspace implements OnInit {
           this.router.navigate(['/workspace', encodeURIComponent(newName.trim())]);
         }
         await this.loadWorkspace();
+        this.notifyWorkspaceChange('rename', 'folder', target.id, newName.trim());
       } else if (target.type === 'file') {
         await this.documentService.updateDocument(target.id, { title: newName.trim() });
         this.openTabs.update((tabs) =>
           tabs.map((t) => (t.id === target.id ? { ...t, title: newName.trim() } : t))
         );
         await this.loadWorkspace();
+        this.notifyWorkspaceChange('rename', 'file', target.id, newName.trim());
       }
     } catch (err) {
       console.error('Error renaming item:', err);
@@ -1074,6 +1130,7 @@ export class Workspace implements OnInit {
         exp.add(doc.folderId);
         this.expandedFolderIds.set(exp);
       }
+      this.notifyWorkspaceChange('create', 'file', created.id, copyTitle, doc.folderId);
       this.openDocument(created.id);
     } catch (err) {
       console.error('Error duplicating file:', err);
@@ -1128,6 +1185,7 @@ export class Workspace implements OnInit {
       try {
         await this.folderService.moveDocument(item.id, targetFolderId);
         await this.loadWorkspace();
+        this.notifyWorkspaceChange('move', 'file', item.id, undefined, targetFolderId);
       } catch (err) {
         console.error('Error moving document:', err);
       }
@@ -1136,6 +1194,7 @@ export class Workspace implements OnInit {
       try {
         await this.folderService.moveFolder(item.id, targetFolderId);
         await this.loadWorkspace();
+        this.notifyWorkspaceChange('move', 'folder', item.id, undefined, targetFolderId);
       } catch (err) {
         console.error('Error moving folder:', err);
       }
@@ -1297,7 +1356,7 @@ export class Workspace implements OnInit {
 
     try {
       const parentId = this.targetParentFolderId() || this.scopedProject()?.id || undefined;
-      await this.folderService.createFolder(name, parentId);
+      const created = await this.folderService.createFolder(name, parentId);
       this.showCreateFolderModal.set(false);
       this.newFolderName.set('');
       await this.loadWorkspace();
@@ -1306,6 +1365,7 @@ export class Workspace implements OnInit {
         exp.add(parentId);
         this.expandedFolderIds.set(exp);
       }
+      this.notifyWorkspaceChange('create', 'folder', created?.id, name, parentId);
     } catch (error) {
       console.error('Error creating folder:', error);
       alert('Failed to create folder');
@@ -1323,6 +1383,7 @@ export class Workspace implements OnInit {
         this.router.navigate(['/workspace', 'All-Projects']);
       }
       await this.loadWorkspace();
+      this.notifyWorkspaceChange('delete', 'folder', folderId);
     } catch (error) {
       console.error('Error deleting folder:', error);
       alert('Failed to delete folder');
@@ -1344,6 +1405,7 @@ export class Workspace implements OnInit {
       this.showMoveModal.set(false);
       this.selectedDocForMove.set(null);
       await this.loadWorkspace();
+      this.notifyWorkspaceChange('move', 'file', doc.id, undefined, targetFolderId);
     } catch (error) {
       console.error('Error moving document:', error);
       alert('Failed to move document');
@@ -1557,6 +1619,7 @@ export class Workspace implements OnInit {
 
     try {
       await this.documentService.deleteDocument(docId);
+      this.notifyWorkspaceChange('delete', 'file', docId);
     } catch (error) {
       console.error('Error deleting document:', error);
       alert('Failed to delete document from server');
