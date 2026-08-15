@@ -14,8 +14,8 @@ The `livesync-ui` service is the web frontend client for LiveSync. Built with An
 - **📺 Integrated Workspace Terminal**: Slide-up bi-directional `xterm.js` canvas connected to the Go Gateway PTY shell over WebSockets with keyboard shortcut support (`Ctrl+\``).
 - **📦 Embedded Package Manager**: Direct search, installation, and status tracking for Python (`pip`) and JavaScript (`npm`) dependencies right within the sidebar or modal.
 - **🤝 Multiplayer Presence & Follow Mode**: Real-time collaborator avatars, spectator follow mode with auto-scroll, and inline threaded code comments.
-- **🤖 AI Pair Assistant**: AST Big-O complexity analysis, refactoring suggestions, unit test generation, and 1-click code application.
-- **📁 Multi-Project Workspace Explorer**: Project hierarchy tree, tabbed editor interface, drag-and-drop moves, and responsive sidebar resizing.
+- **⚡ Native IDE Keyboard Shortcuts**: `Escape` (dismiss inline creation, menus, and modals), `Ctrl+S` / `Cmd+S` (instant manual document save), `Ctrl+B` / `Cmd+B` (toggle sidebar dock), `Ctrl+\`` / `Cmd+\`` (toggle live terminal).
+- **📁 Virtual Filesystem & Inline Path Creation**: VS Code-style inline file/folder input with path support (`src/utils/math.ts`), `Escape` cancellation, directory drag-and-drop upload, and 1-click project ZIP export.
 
 ---
 

@@ -812,6 +812,14 @@ export class Editor implements OnInit {
     }, 2000);
   }
 
+  public async triggerManualSave(): Promise<void> {
+    if (this.saveDebounceTimer) {
+      clearTimeout(this.saveDebounceTimer);
+      this.saveDebounceTimer = null;
+    }
+    await this.saveToBackend(this.codeSignal());
+  }
+
   private async saveToBackend(content: string): Promise<void> {
     const currentDocId = this.docId();
     if (!currentDocId) {

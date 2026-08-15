@@ -20,6 +20,7 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
    - Automatically synchronizes project files on disk before executing run commands (`python <entrypoint>`, `node <entrypoint>`, `go run <entrypoint>`).
    - Enforces OS Read-Only permissions (`chmod 0444`) on locked files (`lockedFiles: []string`), preventing unauthorized terminal modifications while permitting imports and execution.
    - Handles full-duplex bi-directional WebSocket streaming (`/api/terminal/ws`) with `coder/websocket` protected by mutex synchronizers for xterm.js integration.
+   - **Bi-Directional `fsnotify` Disk Watcher (`startWorkspaceWatcher`)**: Watches project workspaces on disk and pushes real-time `fs_change` JSON events over WebSocket when files/folders are created, modified, or deleted by terminal commands (`mkdir`, `touch`, `npm create vite`, `git clone`), keeping the frontend Project Explorer synchronized without manual refreshes.
    - Robust structured message dispatcher preventing JSON protocol frames (`resize`, `sync_files`, etc.) from leaking into shell stdin as raw text.
    - Supports live dynamic terminal resizing frames (`cols`, `rows`), file sync payloads, command piping, and raw VT100/ANSI keycode streaming with real-time prompt, arrow key navigation, and history.
 

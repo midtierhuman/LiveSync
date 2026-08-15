@@ -2,6 +2,10 @@
 
 > **Enterprise Real-Time Collaborative Code Editor, Go API Gateway, Python AI Intelligence & Interactive Live Terminal**
 
+<p align="center">
+  <img src="./docs/assets/demo_1.png" alt="LiveSync Real-Time Collaborative Cloud IDE Demo" width="100%" />
+</p>
+
 LiveSync is a high-performance, real-time collaborative code editor built on a decoupled polyglot microservices architecture. It combines Google Docs-style real-time collaboration with a high-throughput Go API Gateway & native PTY terminal engine, Python AI code intelligence & Big-O complexity analysis, and hybrid AI assistance (Local LLM / Cloud Gemini).
 
 ---
@@ -139,14 +143,13 @@ LiveSync/
 
 Detailed service guides and specifications are located in the [`docs/`](./docs/DOCS_INDEX.md) folder:
 
-- **[Architecture Overview](./docs/SYSTEM_ARCHITECTURE.md)**
+- **[Architecture & VFS Overview](./docs/SYSTEM_ARCHITECTURE.md)**
 - **[Go API Gateway Guide](./docs/GO_GATEWAY_SERVICE.md)**
-- **[Sandbox Execution Guide](./docs/SANDBOX_EXECUTION_SERVICE.md)**
-- **[Realtime Collaboration Guide](./docs/REALTIME_COLLABORATION_SERVICE.md)**
+- **[Python AI Intelligence Guide](./docs/AI_INTELLIGENCE_SERVICE.md)**
+- **[Realtime Engine & Conflict Resolution](./docs/REALTIME_COLLABORATION_SERVICE.md)**
 - **[Go REST API Guide](./docs/GO_API_SERVICE.md)**
-- **[Conflict Resolution Design](./docs/CONFLICT_RESOLUTION_DESIGN.md)**
+- **[Project Roadmap & Tracker](./docs/PROJECT_ROADMAP.md)**
 - **[Testing & Verification Guide](./docs/TESTING_GUIDE.md)**
-- **[Project Roadmap](./docs/PROJECT_ROADMAP.md)**
 
 ---
 

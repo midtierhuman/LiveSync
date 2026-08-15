@@ -1,6 +1,6 @@
 # System Architecture & Service Topography
 
-LiveSync utilizes a decoupled, high-performance microservices architecture where client requests pass through an Nginx edge proxy or Go API Gateway, routed to specialized backend microservices communicating via HTTP/2 gRPC, Redis Streams, and WebSockets.
+LiveSync utilizes a decoupled, high-performance polyglot microservices architecture where client requests pass through an Nginx edge proxy or Go API Gateway, routed to specialized backend microservices communicating via HTTP/2 gRPC, Redis Streams, and WebSockets.
 
 ---
 
@@ -36,21 +36,63 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
 
 | Service Name | Primary Tech Stack | Purpose | Internal Transport | Exposed Port |
 | :--- | :--- | :--- | :--- | :--- |
-| **`livesync-gateway`** | Go 1.26, `creack/pty`, `coder/websocket` | API Gateway, Live PTY shell, JWT middleware, direct package search & gRPC client proxy | HTTP/1.1, WS, gRPC client | `8081` |
+| **`livesync-gateway`** | Go 1.26, `creack/pty`, `coder/websocket`, `fsnotify` | API Gateway, Live PTY shell, JWT middleware, `fsnotify` terminal disk watcher, direct package search & gRPC client proxy | HTTP/1.1, WS, gRPC client | `8081` |
 | **`livesync-ai`** | Python 3.14, Native gRPC, Pytest | AI Pair Assistant, AST Big-O complexity analyzer, LLM integration | gRPC (HTTP/2) | `50051` (gRPC) |
 | **`livesync-api`** | Go 1.26, `chi`, `pgxpool`, PostgreSQL 18 | Metadata, user authentication, document storage & Redis Stream consumer | REST / SQL | `8080` (Direct) / `5038` (Nginx) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | Low-latency room broadcasting, CRDT collaboration & Redis Stream publisher | WebSockets / Redis | `5000` |
-| **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Single-page application code editor & live terminal | HTTP | `4200` (Dev) / `4000` (Prod) |
+| **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Single-page application code editor, VFS indexer, and terminal canvas | HTTP | `4200` (Dev) / `4000` (Prod) |
 | **`api-loadbalancer`**| Nginx Alpine | Reverse proxy, path-based routing & SSL termination | HTTP / WS | `5038` |
 | **`postgres`** | PostgreSQL 18 | Relational document store, user accounts, and folder trees | TCP / SQL | `5432` |
 | **`redis`** | Redis 7-alpine | Event streams (`livesync:stream:document-saves`) & Socket.IO pub/sub adapter | TCP / Redis | `6379` |
 
 ---
 
+## 📁 Virtual Filesystem (VFS) & Terminal Bi-Directional Disk Sync
+
+LiveSync bridges browser-based PostgreSQL storage with native server-side disk execution using a dual-layer Virtual Filesystem (VFS) and real-time disk watching:
+
+```mermaid
+graph TD
+    subgraph Frontend ["LiveSync UI (Angular 22)"]
+        Tree["Project Explorer Tree"]
+        InlineInput["VS Code-Style Inline Path Parser"]
+        VFSIndex["Virtual Filesystem Path Index"]
+        EditorTabs["Tabbed CodeMirror 6 Editor"]
+    end
+
+    subgraph Gateway ["LiveSync Gateway (Go 1.26)"]
+        PTY["Interactive PTY Shell (xterm.js)"]
+        FSWatcher["fsnotify Filesystem Watcher"]
+        DiskStore["Workspace Storage (/workspaces/:projectId)"]
+    end
+
+    subgraph API ["LiveSync API (Go 1.26 + Postgres)"]
+        DB[(PostgreSQL Database)]
+        Redis[(Redis Streams / Cache)]
+    end
+
+    InlineInput -->|1. Recursive Path Creation| API
+    API -->|2. Persist Tree & Hierarchy| DB
+    PTY -->|3. Terminal Shell Commands| DiskStore
+    FSWatcher -->|4. Detect Disk File Changes| DiskStore
+    FSWatcher -->|5. Push Sync Event via WebSocket| Gateway
+    Gateway -->|6. Auto-Refresh Explorer| Tree
+    Tree -->|7. Bind Document Path| VFSIndex
+```
+
+1. **Virtual Filesystem (VFS) Mapping**:
+   - Maintains bidirectional index: `pathToDocId: Map<string, string>` (e.g. `src/utils/math.ts -> uuid-1`) and `docIdToPath: Map<string, string>`.
+   - Resolves relative imports (`import { add } from '../utils/math'`) to canonical document IDs for cross-file autocomplete and AI context.
+2. **Bi-Directional `fsnotify` Disk Watcher**:
+   - Go Gateway recursively monitors the workspace directory on disk (`./workspaces/{projectId}`) during active terminal sessions.
+   - Pushes `fs_change` JSON frames over the WebSocket on terminal commands (`mkdir`, `touch`, `npm create vite`, `git clone`), automatically triggering UI explorer tree reload.
+
+---
+
 ## ⚡ Inter-Service Communication Protocol
 
 ### 1. Client to Go Gateway (`livesync-gateway`)
-- `WS /api/terminal/ws?projectId=...` -> Interactive workspace PTY shell session streaming (`powershell.exe` on Windows / `/bin/bash` in Docker) anchored in `./workspaces/{projectId}`.
+- `WS /api/terminal/ws?projectId=...` -> Interactive workspace PTY shell session streaming (`powershell.exe` on Windows / `/bin/bash` in Docker) anchored in `./workspaces/{projectId}` with active `fsnotify` disk watching.
 - `GET /api/execution/languages` -> Fetches supported polyglot execution runtimes.
 - `POST /api/ai/analyze` -> Triggers AI code analysis (Explain, Refactor, Unit Tests, Suggest, Big-O Complexity).
 - `GET /api/ai/models` -> Returns active local and cloud LLM models.

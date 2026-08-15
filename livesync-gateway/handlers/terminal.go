@@ -10,8 +10,10 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
+	"github.com/fsnotify/fsnotify"
 	"github.com/livesync/livesync-gateway/config"
 )
 
@@ -155,7 +157,13 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	_ = c.Write(ctx, websocket.MessageText, []byte(welcomeMsg))
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
+
+	// Background fsnotify Disk Watcher -> WebSocket JSON stream
+	go func() {
+		defer wg.Done()
+		startWorkspaceWatcher(ctx, absWsDir, c)
+	}()
 
 	// Terminal stdout/stderr reader -> WebSocket
 	go func() {
@@ -219,6 +227,137 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	wg.Wait()
+}
+
+type FSChangeEvent struct {
+	Type      string `json:"type"`   // "fs_change"
+	Action    string `json:"action"` // "fs_change"
+	Event     string `json:"event"`  // "create", "write", "remove", "rename"
+	Path      string `json:"path"`
+	IsDir     bool   `json:"isDir"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+func startWorkspaceWatcher(ctx context.Context, wsDir string, c *SafeWSConn) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Printf("[FSWatcher] Failed to initialize watcher for %s: %v", wsDir, err)
+		return
+	}
+	defer watcher.Close()
+
+	// Initial recursive directory discovery
+	watchRecursive(watcher, wsDir)
+
+	var debounceMu sync.Mutex
+	var debounceTimer *time.Timer
+	pendingEvents := make(map[string]FSChangeEvent)
+
+	flushEvents := func() {
+		debounceMu.Lock()
+		defer debounceMu.Unlock()
+		if len(pendingEvents) == 0 {
+			return
+		}
+		for _, ev := range pendingEvents {
+			jsonBytes, err := json.Marshal(ev)
+			if err == nil {
+				_ = c.Write(ctx, websocket.MessageText, jsonBytes)
+			}
+		}
+		pendingEvents = make(map[string]FSChangeEvent)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Printf("[FSWatcher] Watcher error: %v", err)
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+
+			relPath, err := filepath.Rel(wsDir, event.Name)
+			if err != nil || isIgnoredPath(relPath) {
+				continue
+			}
+
+			isDir := false
+			if info, statErr := os.Stat(event.Name); statErr == nil {
+				isDir = info.IsDir()
+				if isDir && event.Has(fsnotify.Create) {
+					watchRecursive(watcher, event.Name)
+				}
+			}
+
+			eventKind := "write"
+			if event.Has(fsnotify.Create) {
+				eventKind = "create"
+			} else if event.Has(fsnotify.Remove) {
+				eventKind = "remove"
+			} else if event.Has(fsnotify.Rename) {
+				eventKind = "rename"
+			}
+
+			changeEv := FSChangeEvent{
+				Type:      "fs_change",
+				Action:    "fs_change",
+				Event:     eventKind,
+				Path:      filepath.ToSlash(relPath),
+				IsDir:     isDir,
+				Timestamp: time.Now().UnixMilli(),
+			}
+
+			debounceMu.Lock()
+			pendingEvents[changeEv.Path] = changeEv
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			debounceTimer = time.AfterFunc(150*time.Millisecond, flushEvents)
+			debounceMu.Unlock()
+		}
+	}
+}
+
+func watchRecursive(watcher *fsnotify.Watcher, rootDir string) {
+	_ = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			base := filepath.Base(path)
+			if isIgnoredDirName(base) {
+				return filepath.SkipDir
+			}
+			_ = watcher.Add(path)
+		}
+		return nil
+	})
+}
+
+func isIgnoredDirName(name string) bool {
+	switch strings.ToLower(name) {
+	case "node_modules", ".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".cache", ".tmp", "dist", "build":
+		return true
+	default:
+		return false
+	}
+}
+
+func isIgnoredPath(relPath string) bool {
+	cleaned := filepath.ToSlash(relPath)
+	parts := strings.Split(cleaned, "/")
+	for _, p := range parts {
+		if isIgnoredDirName(p) || (strings.HasPrefix(p, ".") && p != ".") {
+			return true
+		}
+	}
+	return false
 }
 
 func sanitizeWorkspaceID(raw string) string {

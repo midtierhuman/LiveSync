@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren } from '@angular/core';
+import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren, effect } from '@angular/core';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
@@ -15,6 +15,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../services/auth.service';
 import { DocumentService, DocumentDto, SharedDocumentDto, FolderPathNode } from '../../services/document.service';
 import { FolderService, FolderDto, SharedFolderDto } from '../../services/folder.service';
+import { LiveTerminalService } from '../../services/live-terminal.service';
+import { VFSService } from '../../services/vfs.service';
+import JSZip from 'jszip';
 import { Editor } from '../editor/editor';
 import {
   ShareModalComponent,
@@ -63,10 +66,21 @@ export class Workspace implements OnInit {
   protected readonly authService = inject(AuthService);
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
+  private readonly liveTerminalService = inject(LiveTerminalService);
+  public readonly vfsService = inject(VFSService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private activeCleanupResizer?: (() => void) | null;
+
+  constructor() {
+    effect(() => {
+      const fsChange = this.liveTerminalService.onFileSystemChange();
+      if (fsChange) {
+        void this.loadWorkspace();
+      }
+    });
+  }
 
   // Activity Bar & Sidebar View State
   activeSidebarView = signal<'explorer' | 'packages' | 'ai' | 'comments'>('explorer');
@@ -113,6 +127,14 @@ export class Workspace implements OnInit {
   targetParentFolderId = signal<string | null>(null);
 
   isLoading = signal(false);
+
+  // Inline Creation State (VS Code-style inline file/folder creation)
+  inlineCreation = signal<{
+    parentFolderId: string | null;
+    type: 'file' | 'folder';
+    depth: number;
+  } | null>(null);
+  inlineCreationName = signal<string>('');
 
   // Folder & File Creation Modals
   showCreateFolderModal = signal(false);
@@ -429,6 +451,30 @@ export class Workspace implements OnInit {
       const tree = this.buildSharedAccessTree(sharedFolds, sharedDocs);
       this.sharedFolderTree.set(tree);
       await this.refreshExpandedFolderContents();
+
+      const allDocs: DocumentDto[] = [
+        ...docs,
+        ...sharedDocs.map(
+          (s) =>
+            ({
+              id: s.documentId,
+              title: s.documentTitle,
+              folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
+              ownerId: s.userId,
+              isShared: true,
+              defaultAccessLevel: s.accessLevel,
+              createdAt: s.sharedAt,
+              updatedAt: s.sharedAt,
+            }) as DocumentDto,
+        ),
+      ];
+
+      // Update Virtual Filesystem (VFS) Path Index
+      this.vfsService.updateVFSState(
+        [...folders, ...sharedFolds, ...tree],
+        allDocs,
+        this.scopedProject()?.id || null,
+      );
     } catch (error) {
       console.error('Error loading workspace:', error);
     } finally {
@@ -704,13 +750,167 @@ export class Workspace implements OnInit {
 
   openCreateInFolder(folderId: string | null, type: 'file' | 'folder', event?: Event) {
     if (event) event.stopPropagation();
-    this.targetParentFolderId.set(folderId);
-    if (type === 'folder') {
-      this.openCreateFolderModal();
-    } else {
-      this.targetFolderForNewFile.set(folderId);
-      this.showCreateFilePrompt.set(true);
+    const targetFolderId = folderId || this.scopedProject()?.id || null;
+
+    // Auto-expand the target folder so the inline input is immediately visible
+    if (targetFolderId) {
+      const exp = new Set(this.expandedFolderIds());
+      exp.add(targetFolderId);
+      this.expandedFolderIds.set(exp);
     }
+
+    this.inlineCreationName.set('');
+    this.inlineCreation.set({
+      parentFolderId: targetFolderId,
+      type,
+      depth: targetFolderId ? 1 : 0,
+    });
+  }
+
+  cancelInlineCreation(): void {
+    this.inlineCreation.set(null);
+    this.inlineCreationName.set('');
+  }
+
+  async commitInlineCreation(): Promise<void> {
+    const rawInput = this.inlineCreationName().trim();
+    const target = this.inlineCreation();
+    if (!rawInput || !target) {
+      this.cancelInlineCreation();
+      return;
+    }
+
+    this.inlineCreation.set(null);
+    this.inlineCreationName.set('');
+
+    try {
+      // Normalize slashes (support both / and \)
+      const normalized = rawInput.replace(/\\/g, '/');
+      const parts = normalized.split('/').filter((p) => p.trim().length > 0);
+      if (parts.length === 0) return;
+
+      let currentParentId = target.parentFolderId;
+      const exp = new Set(this.expandedFolderIds());
+
+      if (target.type === 'folder') {
+        // All parts are folders to create/traverse
+        for (const segment of parts) {
+          const existing = this.findSubfolderByName(segment, currentParentId);
+          if (existing) {
+            currentParentId = existing.id;
+          } else {
+            const created = await this.folderService.createFolder(segment, currentParentId || undefined);
+            currentParentId = created.id;
+          }
+          if (currentParentId) exp.add(currentParentId);
+        }
+      } else {
+        // Last part is the file; preceding parts are folders
+        const folderParts = parts.slice(0, -1);
+        const fileName = parts[parts.length - 1];
+
+        for (const segment of folderParts) {
+          const existing = this.findSubfolderByName(segment, currentParentId);
+          if (existing) {
+            currentParentId = existing.id;
+          } else {
+            const created = await this.folderService.createFolder(segment, currentParentId || undefined);
+            currentParentId = created.id;
+          }
+          if (currentParentId) exp.add(currentParentId);
+        }
+
+        // Create the file in the leaf folder
+        const createdDoc = await this.documentService.createDocument({
+          title: fileName,
+          content: '',
+          folderId: currentParentId || (this.scopedProject()?.id || undefined),
+        });
+
+        this.expandedFolderIds.set(exp);
+        await this.loadWorkspace();
+        this.openDocument(createdDoc.id);
+        return;
+      }
+
+      this.expandedFolderIds.set(exp);
+      await this.loadWorkspace();
+    } catch (err) {
+      console.error('Error in commitInlineCreation:', err);
+    }
+  }
+
+  onInlineBlur(): void {
+    const rawInput = this.inlineCreationName().trim();
+    if (!rawInput) {
+      this.cancelInlineCreation();
+    } else {
+      void this.commitInlineCreation();
+    }
+  }
+
+  closeAllModals(): void {
+    this.showCreateFolderModal.set(false);
+    this.showCreateFilePrompt.set(false);
+    this.showMoveModal.set(false);
+    this.showShareFolderModal.set(false);
+    this.showRenameModal.set(false);
+    this.showDeleteConfirm.set(false);
+    this.contextMenu.set(null);
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  handleGlobalKeydown(event: KeyboardEvent): void {
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    const isCmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
+
+    // 1. ESCAPE -> Dismiss active inline creation, context menus, and modal dialogs
+    if (event.key === 'Escape') {
+      if (this.inlineCreation()) {
+        event.preventDefault();
+        this.cancelInlineCreation();
+        return;
+      }
+      if (this.contextMenu()) {
+        event.preventDefault();
+        this.contextMenu.set(null);
+        return;
+      }
+      this.closeAllModals();
+      return;
+    }
+
+    // 2. Ctrl+S / Cmd+S -> Trigger manual instant save on active document
+    if (isCmdOrCtrl && (event.key === 's' || event.key === 'S')) {
+      event.preventDefault();
+      const activeInst = this.activeEditorInstance();
+      if (activeInst) {
+        void activeInst.triggerManualSave();
+      }
+      return;
+    }
+
+    // 3. Ctrl+B / Cmd+B -> Toggle VS Code-style sidebar dock
+    if (isCmdOrCtrl && (event.key === 'b' || event.key === 'B')) {
+      event.preventDefault();
+      this.isSidebarOpen.update((open) => !open);
+      return;
+    }
+
+    // 4. Ctrl+` / Cmd+` -> Toggle integrated workspace terminal
+    if (isCmdOrCtrl && event.key === '`') {
+      event.preventDefault();
+      this.toggleTerminalInActiveEditor();
+      return;
+    }
+  }
+
+  private findSubfolderByName(name: string, parentFolderId: string | null): FolderDto | undefined {
+    if (!parentFolderId) {
+      return this.myFolders().find((f) => f.name.toLowerCase() === name.toLowerCase() && !f.parentFolderId);
+    }
+    const subfolders = this.folderChildSubfolders()[parentFolderId] || this.getSubfoldersOf(parentFolderId);
+    return subfolders.find((f) => f.name.toLowerCase() === name.toLowerCase());
   }
 
   async handleCreateFileSubmit(payload: CreateFileSubmitPayload) {
@@ -945,6 +1145,116 @@ export class Workspace implements OnInit {
       }
     }
     this.draggedItem.set(null);
+  }
+
+  isExportingZip = signal<boolean>(false);
+  isDraggingExternalFolder = signal<boolean>(false);
+
+  async exportProjectAsZip(): Promise<void> {
+    this.isExportingZip.set(true);
+    try {
+      const zip = new JSZip();
+      const docs = this.scopedProject()
+        ? this.myDocuments().filter((d) => this.vfsService.getPathByDocumentId(d.id))
+        : this.myDocuments();
+
+      for (const doc of docs) {
+        let content = doc.content;
+        if (content === undefined || content === null) {
+          try {
+            const fullDoc = await this.documentService.getDocument(doc.id);
+            content = fullDoc.content || '';
+          } catch {
+            content = '';
+          }
+        }
+        const relPath = this.vfsService.getPathByDocumentId(doc.id) || doc.title;
+        zip.file(relPath, content);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const projectName = this.scopedProject()?.name || 'LiveSync-Workspace';
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `${projectName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('Failed to export ZIP:', err);
+      alert('Failed to export workspace ZIP');
+    } finally {
+      this.isExportingZip.set(false);
+    }
+  }
+
+  onExternalDragOver(event: DragEvent): void {
+    if (event.dataTransfer?.types?.includes('Files')) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.isDraggingExternalFolder.set(true);
+    }
+  }
+
+  onExternalDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingExternalFolder.set(false);
+  }
+
+  async onExternalDrop(event: DragEvent, targetFolderId: string | null = null): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingExternalFolder.set(false);
+
+    const items = event.dataTransfer?.items;
+    if (!items || items.length === 0) return;
+
+    const baseFolderId = targetFolderId || this.scopedProject()?.id || null;
+
+    try {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const entry = (item as any).webkitGetAsEntry ? (item as any).webkitGetAsEntry() : null;
+        if (entry) {
+          await this.traverseAndImportEntry(entry, baseFolderId);
+        } else if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            const content = await file.text();
+            await this.documentService.createDocument({
+              title: file.name,
+              content,
+              folderId: baseFolderId || undefined,
+            });
+          }
+        }
+      }
+      await this.loadWorkspace();
+    } catch (err) {
+      console.error('Error importing dropped files/folders:', err);
+    }
+  }
+
+  private async traverseAndImportEntry(entry: any, parentFolderId: string | null): Promise<void> {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) => entry.file(resolve, reject));
+      const content = await file.text();
+      await this.documentService.createDocument({
+        title: entry.name,
+        content,
+        folderId: parentFolderId || undefined,
+      });
+    } else if (entry.isDirectory) {
+      const createdFolder = await this.folderService.createFolder(entry.name, parentFolderId || undefined);
+      const reader = entry.createReader();
+      const entries = await new Promise<any[]>((resolve, reject) => reader.readEntries(resolve, reject));
+      for (const child of entries) {
+        await this.traverseAndImportEntry(child, createdFolder.id);
+      }
+    }
   }
 
   // Tabs Management

@@ -1,11 +1,26 @@
-# LiveSync Project Roadmap & Execution Tracking
+# LiveSync Project Roadmap & Issue Tracker
 
-Last Updated: 2026-08-03
-Status: All Milestones Completed ✅ 🎉
+> **Last Updated**: 2026-08-15
+> **Status**: 🟢 All Active Features & Critical Optimizations Completed
 
 ---
 
-## 📌 Feature Milestones
+## 📌 Master Issue & Feature Backlog Tracker
+
+| ID | Category | Summary | Service Scope | Priority | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **PERF-01** | ⚡ Optimization | O(N²) Line Diff in Time-Travel Timeline Scrubber | `livesync-ui` | Medium | 🚫 Deprecated & Removed |
+| **PERF-02** | ⚡ Optimization | Data Loss Prevention on Tab Close / Debounced Save Unmount | `livesync-ui` | High | ✅ Done |
+| **FEAT-01** | 🚀 Feature | True Workspace Terminal & Background Process Mode | `livesync-ui`, `livesync-gateway` | Low | ✅ Done |
+| **FEAT-02** | 🚀 Feature | Smart Project Entrypoints & Auto-Dependency Resolver | `livesync-ui`, `livesync-gateway` | High | ✅ Done |
+| **FEAT-03** | 🚀 Feature | VS Code-Style Inline File/Folder Creation with Deep Path Parsing | `livesync-ui` | High | ✅ Done |
+| **FEAT-04** | 🚀 Feature | Bi-Directional `fsnotify` Terminal Disk Watcher & Real-time Tree Sync | `livesync-gateway`, `livesync-ui` | High | ✅ Done |
+| **FEAT-05** | 🚀 Feature | Path-Aware Virtual Filesystem (VFS) Indexer | `livesync-ui`, `livesync-ai` | Medium | ✅ Done |
+| **FEAT-06** | 🚀 Feature | Directory Drag-and-Drop Upload & Project ZIP Export | `livesync-ui`, `livesync-api` | Medium | ✅ Done |
+
+---
+
+## 🗺️ Completed Milestones
 
 ### **Milestone 1: Code Execution Profiling, Complexity Analysis & Observability** (COMPLETED ✅)
 - [x] Sandbox Resource Measurement (`executionDurationMs`, `peakMemoryBytes`, `cpuTimeMs`)
@@ -37,104 +52,45 @@ Status: All Milestones Completed ✅ 🎉
 
 ---
 
-### **Milestone 5: AI-Powered Code Assistant & Suggestions (Proxied via Go API & Gateway)** (COMPLETED ✅)
-- [x] **Phase 1: AST AI Analysis Engine in Sandbox (`livesync-sandbox`)**
-  - Created `app/services/ai_assistant.py` for AST-driven code explanation, refactoring, unit test generation, and completion suggestions.
-  - Exposed gRPC `AnalyzeCode` in `app/grpc_server.py`.
-- [x] **Phase 2: Go API Gateway & REST Controller Proxy (`livesync-gateway` / `livesync-api`)**
-  - Added `AnalyzeCode` gRPC client proxy in `livesync-gateway`.
-  - Added JWT authentication and access level validation.
-- [x] **Phase 3: Angular Frontend AI Assistant Sidebar & Code Generator**
-  - Added `aiAssistant()` API proxy method in `DocumentService`.
-  - Built AI Assistant Drawer in `EditorComponent` with 💡 **Explain**, ⚡ **Refactor**, 🛠️ **Unit Tests**, and ✨ **Suggest** tabs.
-  - Built one-click "Apply to Editor" snippet insertion.
+### **Milestone 5: AI-Powered Code Assistant & Suggestions** (COMPLETED ✅)
+- [x] AST-driven code explanation, refactoring, unit test generation, and completion suggestions (`livesync-ai`).
+- [x] gRPC `AnalyzeCode` client proxy in `livesync-gateway`.
+- [x] Angular AI Assistant Sidebar with one-click "Apply to Editor".
 
 ---
 
-### **Milestone 6: Multi-File Project IDE & Unified Share/Action Modal Architecture** (COMPLETED ✅ 🎉)
-- [x] **Phase 1: Unified Reusable Modal Design System (`livesync-ui`)**
-  - [x] Created `ShareModalComponent`: Universal sharing modal supporting both Documents and Folders/Projects with share code generation, default access levels (`View`/`Edit`), collaborator listing, permission toggles, and access revocation.
-  - [x] Created `ConfirmDeleteModalComponent`: Universal confirmation dialog with context-aware warning text for Documents, Folders, and Projects.
-  - [x] Created `PromptModalComponent` / `RenameModalComponent`: Universal rename/input dialog for files, folders, and projects.
-  - [x] Created `MoveItemModalComponent`: Universal folder destination selector for moving files and subfolders.
-- [x] **Phase 2: Backend Folder & Document Sharing Parity (`livesync-api`)**
-  - [x] Added `PUT /api/folders/{id}/share-code-access-level` endpoint in `FolderHandler` and `FolderService`.
-  - [x] Added `DELETE /api/folders/{id}/shared/{userId}` endpoint to revoke folder collaborator shares.
-  - [x] Added `PUT /api/folders/{id}/shared/{userId}/access-level` endpoint to update specific collaborator permissions.
-  - [x] Populated `SharedWith` collaborator arrays in `FolderDto` for complete feature parity with `DocumentDto`.
-- [x] **Phase 3: Project-First Workspace & Multi-File Tree Explorer**
-  - [x] Enforced "Every file belongs to a folder/project" workspace containment rule across database migrations, Go API creation handlers, and Angular UI modals.
-  - [x] Built Angular Project Explorer Tree with multi-tab file switching, integrated prompt modal creation, and tree management.
-  - [x] Implemented multi-file project snapshot mounting & execution across `proto/sandbox.proto`, `livesync-sandbox` Python/Node runners, `livesync-gateway` gRPC proxy, and `livesync-ui` live streaming runner.
+### **Milestone 6: Multi-File Project IDE & Unified Share/Action Modal Architecture** (COMPLETED ✅)
+- [x] Universal sharing modal supporting both Documents and Folders/Projects.
+- [x] Enforced "Every file belongs to a folder/project" workspace containment rule.
+- [x] Angular Project Explorer Tree with multi-tab file switching.
 
 ---
 
-### **Milestone 7: Project Hub & Multi-Root Workspace Navigation Architecture** (IN PROGRESS 🚀)
-- [x] **Phase 1: Dedicated Project Browser Hub (`/dashboard`)**
-  - [x] Clean, dedicated landing page showing Project Workspaces only without side solution explorer.
-  - [x] Interactive Project Cards displaying project name, file/subfolder counts, collaborator pills, click-to-copy share badges, and "Open in IDE" action.
-  - [x] One-click Project Renaming with `RenameModalComponent` (`folderService.updateFolder`).
-  - [x] Project Hub quick actions: "+ New Project Workspace", "+ New File" (with folder selector), and "🔗 Join via Share Code".
-- [x] **Phase 2: IDE Workspace Routing & Complete File/Folder Edit Suite (`/workspace/:projectName`)**
-  - [x] Dedicated IDE route (`/workspace/:projectName?id=...`) with VS Code sidebar solution explorer and multi-tab editor canvas.
-  - [x] Natural hierarchy sidebar layout:
-    - [x] **Row 1 (Top of Sidebar)**: Project Workspace Scope Switcher with real-time route URL synchronization.
-    - [x] **Row 2**: File & Folder Creation Action Toolbar (`+ New File`, `+ New Folder`, Expand All, Collapse All, Refresh).
-    - [x] **Row 3**: Real-time Workspace Search & Filter strip.
-    - [x] **Row 4+**: Recursive Collapsible Tree with drag-and-drop, context menus, and inline rename/duplicate/delete/move actions.
-  - [x] Comprehensive IDE Renaming & Editing Suite:
-    - [x] Strict Project-Scoped Creation: When an active project is scoped in the IDE, destination options for new files/folders/moves are strictly confined to the active project root and its subfolders (preventing leakage across unrelated projects).
-    - [x] Project & Subfolder Renaming (sidebar action button + context menu + dynamic URL update if active scoped project).
-    - [x] File Renaming (sidebar action button + context menu + open tab title synchronization).
-    - [x] Duplicate File (`Duplicate File` action creating deep-copy in the same folder and auto-opening it).
-    - [x] Move File / Move Folder across hierarchy.
-    - [x] Back to Projects Hub button (`← Projects`) in IDE header.
-- [x] **Phase 3: Multi-Terminal Concurrent Process Sessions**
-  - [x] Multi-tab terminal manager in `EditorComponent` allowing concurrent independent processes (e.g. Terminal 1: Live Interactive Terminal, Terminal 2: Run Output).
+### **Milestone 7: Project Hub & Multi-Root Workspace Navigation Architecture** (COMPLETED ✅)
+- [x] Dedicated Project Browser Hub (`/dashboard`).
+- [x] IDE Workspace Routing & Complete File/Folder Edit Suite (`/workspace/:projectName`).
+- [x] Strict Project-Scoped Creation & Renaming suite.
 
 ---
 
-### **Milestone 8: True Interactive Workspace Terminal (`xterm.js` + Native PTY Session + Workspace File Sync)** (COMPLETED ✅ 🎉)
-- [x] **Phase 1: Workspace Directory Sync & Native PTY Engine (`livesync-gateway`)**
-  - Anchored interactive terminal processes (`powershell.exe`/`cmd.exe` on Windows, `/bin/bash` on Linux/Docker) to dedicated workspace folders (`./workspaces/{projectId}`).
-  - Synchronized multi-file editor snapshots into the workspace directory so commands (`ls`, `dir`, `python main.py`, `node index.js`, `cat`) work seamlessly.
-  - Implemented bi-directional streaming over `/api/terminal/ws` with window resize signaling (`cols`/`rows`) and raw VT100/ANSI byte support.
-- [x] **Phase 2: Full `xterm.js` Terminal Canvas Integration (`livesync-ui`)**
-  - Integrated `@xterm/xterm` and `@xterm/addon-fit` inside `EditorComponent` replacing the static `<pre>` and synthetic stdin prompt.
-  - Supported true terminal capabilities: ANSI colors, VT100 control keys, tab completion, interactive REPLs (`python`, `node`), Ctrl+C process interruption, and dynamic viewport resizing.
-  - Added explicit "Terminal" toggle button to editor toolbar with keyboard shortcut (`Ctrl+\``).
-- [x] **Phase 3: Unified "Run Code" Execution Pipeline**
-  - Directed the toolbar "Run" action straight into the active interactive terminal session by syncing modified files and piping `python <entrypoint>` or `node <entrypoint>` into the PTY.
+### **Milestone 8: True Interactive Workspace Terminal (`xterm.js` + Native PTY Session)** (COMPLETED ✅)
+- [x] Cross-platform native PTY shells (Windows ConPTY + Unix PTY).
+- [x] Anchored interactive terminal processes to `./workspaces/{projectId}`.
+- [x] Full `xterm.js` Terminal Canvas Integration with `Ctrl+\`` shortcut.
 
 ---
 
-### **Milestone 10: Streamlined Native PTY Terminal & Granular RBAC Locked Files Protection** (COMPLETED ✅ 🎉)
-- [x] **Phase 1: Cross-Platform Native PTY Shells (`livesync-gateway`)**
-  - Implemented Windows ConPTY (`windows.CreatePseudoConsole`, `ResizePseudoConsole`, `ClosePseudoConsole`) with `powershell.exe -NoLogo`.
-  - Implemented Unix PTY (`github.com/creack/pty`) for Linux/macOS/Docker environments.
-  - Removed legacy unused headless execution endpoints (`/api/execution/stream`) in favor of direct interactive PTY terminal execution.
-- [x] **Phase 2: Frontend CodeMirror Live Read-Only Enforcement (`livesync-ui`)**
-  - Configured `readOnlyCompartment` with both `EditorState.readOnly.of(!isEditable)` and `EditorView.editable.of(isEditable)`.
-  - Dynamically reconfigured compartments upon `loadDocument` and permission revocation events to prevent unauthorized editing on the client.
-- [x] **Phase 3: Gateway OS-Level File Permissions on Locked Files (`livesync-gateway`)**
-  - Updated `syncWorkspaceFiles` to enforce OS Read-Only file modes (`chmod 0444`) on locked project files (`lockedFiles: []string`).
-  - Allows full execution and runtime imports while prohibiting write/tamper attempts from terminal processes.
+### **Milestone 9: Granular RBAC Locked Files Protection** (COMPLETED ✅)
+- [x] Frontend CodeMirror Live Read-Only Enforcement via dynamic Compartments.
+- [x] Gateway OS-Level File Permissions on Locked Files (`chmod 0444`).
 
 ---
 
-## 📑 Touched Files & Services Tracking
-
-| Service | Files Touched | Purpose |
-|---------|---------------|---------|
-| **Documentation** | [PROJECT_ROADMAP.md](file:///D:/Projects/LiveSync/docs/PROJECT_ROADMAP.md), [GO_API_SERVICE.md](file:///D:/Projects/LiveSync/docs/GO_API_SERVICE.md), [GO_GATEWAY_SERVICE.md](file:///D:/Projects/LiveSync/docs/GO_GATEWAY_SERVICE.md), [SANDBOX_EXECUTION_SERVICE.md](file:///D:/Projects/LiveSync/docs/SANDBOX_EXECUTION_SERVICE.md) | Roadmap & service docs synchronization |
-| **proto** | `proto/sandbox.proto` | Protobuf contracts for sandbox service |
-| **livesync-ui** | `src/app/features/editor/`, `src/app/services/live-terminal.service.ts` | CodeMirror read-only enforcement, terminal auto-focus, snapshot syncing with locked files |
-| **livesync-gateway** | `handlers/terminal.go`, `handlers/pty_windows.go`, `handlers/pty_unix.go`, `handlers/pty_common.go` | Native Windows ConPTY, Unix PTY, locked file permission enforcement |
-| **livesync-sandbox** | `app/grpc_server.py`, `app/services/` | Streamlined gRPC service, AI analysis, package discovery |
-
----
-
-## 🎉 Status Summary
-All Milestones 1–10 completed ✅ 🎉
-
-
+### **Milestone 10: VS Code-Style Activity Bar, VFS & Terminal Disk Sync** (COMPLETED ✅)
+- [x] **48px Activity Bar & Sidebar Dock**: Unified icon rail toggling Explorer, Package Hub, AI Pair Assistant, and Comments.
+- [x] **Zero Vertical Waste Editor**: Code lines connect directly to tab bar without duplicate headers.
+- [x] **VS Code Inline Path Creation**: Direct inline `<input>` supporting nested paths (`src/utils/math.ts`) and instant `Escape` dismissal.
+- [x] **Bi-Directional `fsnotify` Watcher**: Terminal commands (`mkdir`, `touch`, `git clone`, `npm create vite`) automatically push `fs_change` events over WebSocket to sync the UI tree.
+- [x] **Virtual Filesystem (VFS) Indexer**: High-speed mapping between virtual paths (`/src/index.ts`) and document UUIDs with relative import resolution.
+- [x] **Bulk Directory Drop & ZIP Export**: 1-click project ZIP downloads and desktop folder drag-and-drop ingestion.
+- [x] **Global IDE Keyboard Shortcuts**: `Escape` (dismiss), `Ctrl+S` (save), `Ctrl+B` (sidebar), `Ctrl+\`` (terminal).

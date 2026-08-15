@@ -183,6 +183,9 @@
                   <button (click)="collapseAllFolders()" matTooltip="Collapse All Folders">
                     <mat-icon>unfold_less</mat-icon>
                   </button>
+                  <button (click)="exportProjectAsZip()" [disabled]="isExportingZip()" matTooltip="Download Project as ZIP">
+                    <mat-icon>{{ isExportingZip() ? 'hourglass_top' : 'download' }}</mat-icon>
+                  </button>
                   <button (click)="loadWorkspace()" matTooltip="Refresh Explorer">
                     <mat-icon>refresh</mat-icon>
                   </button>
@@ -214,7 +217,19 @@
               </div>
 
               <!-- Scrollable Tree Body -->
-              <div class="explorer-tree">
+              <div
+                class="explorer-tree"
+                [class.drag-over-active]="isDraggingExternalFolder()"
+                (dragover)="onExternalDragOver($event)"
+                (dragleave)="onExternalDragLeave($event)"
+                (drop)="onExternalDrop($event, scopedProject()?.id || null)"
+              >
+                @if (isDraggingExternalFolder()) {
+                  <div class="drop-zone-overlay">
+                    <mat-icon>file_download</mat-icon>
+                    <span>Drop files or folders to import</span>
+                  </div>
+                }
 
                 <!-- Recursive Folder Tree Template -->
                 <ng-template #folderTreeNode let-folder="folder" let-depth="depth">
@@ -264,6 +279,26 @@
 
               <!-- Expanded children -->
               @if (isFolderExpanded(folder.id)) {
+                <!-- Inline Creation Row for this folder -->
+                @if (inlineCreation(); as ic) {
+                  @if (ic.parentFolderId === folder.id) {
+                    <div class="tree-row inline-creation-row" [style.paddingLeft.px]="(depth + 1) * 12 + 20">
+                      <mat-icon class="row-icon inline-icon">{{ ic.type === 'folder' ? 'folder' : 'description' }}</mat-icon>
+                      <input
+                        type="text"
+                        class="inline-tree-input"
+                        placeholder="File name or path..."
+                        [ngModel]="inlineCreationName()"
+                        (ngModelChange)="inlineCreationName.set($event)"
+                        (keydown.enter)="commitInlineCreation()"
+                        (keydown.escape)="cancelInlineCreation()"
+                        (blur)="onInlineBlur()"
+                        autofocus
+                      />
+                    </div>
+                  }
+                }
+
                 <!-- Child Subfolders -->
                 @for (subfolder of getSubfoldersOf(folder.id); track subfolder.id) {
                   <ng-container *ngTemplateOutlet="folderTreeNode; context: { folder: subfolder, depth: depth + 1 }"></ng-container>
@@ -313,6 +348,26 @@
                 }
               }
             </ng-template>
+
+            <!-- Root Level Inline Creation Row (Multi-Root Mode Only) -->
+            @if (inlineCreation(); as ic) {
+              @if (ic.parentFolderId === null && !scopedProject()) {
+                <div class="tree-row inline-creation-row" [style.paddingLeft.px]="8">
+                  <mat-icon class="row-icon inline-icon">{{ ic.type === 'folder' ? 'folder' : 'description' }}</mat-icon>
+                  <input
+                    type="text"
+                    class="inline-tree-input"
+                    placeholder="File name or path..."
+                    [ngModel]="inlineCreationName()"
+                    (ngModelChange)="inlineCreationName.set($event)"
+                    (keydown.enter)="commitInlineCreation()"
+                    (keydown.escape)="cancelInlineCreation()"
+                    (blur)="onInlineBlur()"
+                    autofocus
+                  />
+                </div>
+              }
+            }
 
             <!-- Render Root Folders (Scoped or Multi-Root) -->
             @for (folder of getExplorerRootFolders(); track folder.id) {

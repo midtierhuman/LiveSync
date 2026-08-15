@@ -26,6 +26,14 @@ export class LiveTerminalService {
 
   readonly isConnected = signal<boolean>(false);
   readonly terminalStatus = signal<string>('Idle');
+  readonly onFileSystemChange = signal<{
+    type: string;
+    action: string;
+    event: string;
+    path: string;
+    isDir: boolean;
+    timestamp: number;
+  } | null>(null);
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -273,6 +281,19 @@ export class LiveTerminalService {
 
       this.socket.onmessage = (event) => {
         if (typeof event.data === 'string') {
+          // Detect structured JSON change notifications from fsnotify
+          const trimmed = event.data.trim();
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              const msg = JSON.parse(trimmed);
+              if (msg.type === 'fs_change' || msg.action === 'fs_change') {
+                this.onFileSystemChange.set({ ...msg, timestamp: Date.now() });
+                return;
+              }
+            } catch {
+              // Not JSON, fallthrough to terminal rendering
+            }
+          }
           this.term?.write(event.data);
         } else if (event.data instanceof ArrayBuffer) {
           this.term?.write(new Uint8Array(event.data));

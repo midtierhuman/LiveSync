@@ -19,12 +19,12 @@ Every code modification must be reflected across corresponding documentation:
 1. **Root [`README.md`](./README.md)**: Keep architecture diagrams, port mappings, microservice registry, and quick-start commands accurate.
 2. **[`docs/DOCS_INDEX.md`](./docs/DOCS_INDEX.md)**: Keep documentation catalog and index descriptions up-to-date.
 3. **[`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md)**: Keep inter-service communication flows, protocols, and port topography synchronized.
-4. **Service Documentation**:
+4. **Service & Domain Documentation**:
    - Updates to Go gateway -> Update [`docs/GO_GATEWAY_SERVICE.md`](./docs/GO_GATEWAY_SERVICE.md).
    - Updates to Python AI / gRPC -> Update [`docs/AI_INTELLIGENCE_SERVICE.md`](./docs/AI_INTELLIGENCE_SERVICE.md).
    - Updates to Go API -> Update [`docs/GO_API_SERVICE.md`](./docs/GO_API_SERVICE.md).
-   - Updates to Realtime / Socket.IO -> Update [`docs/REALTIME_COLLABORATION_SERVICE.md`](./docs/REALTIME_COLLABORATION_SERVICE.md).
-   - Updates to OT / CRDT algorithms -> Update [`docs/CONFLICT_RESOLUTION_DESIGN.md`](./docs/CONFLICT_RESOLUTION_DESIGN.md).
+   - Updates to Realtime / Socket.IO / CRDT & OT algorithms -> Update [`docs/REALTIME_COLLABORATION_SERVICE.md`](./docs/REALTIME_COLLABORATION_SERVICE.md).
+   - Updates to Backlog / Tasks / Milestones -> Update [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md).
 5. **[`docs/TESTING_GUIDE.md`](./docs/TESTING_GUIDE.md)**: Keep test and verification commands working and up-to-date.
 
 ---
