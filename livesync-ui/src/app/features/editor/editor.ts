@@ -9,9 +9,9 @@ import {
   ElementRef,
   OnInit,
   DestroyRef,
+  HostListener,
   input,
 } from '@angular/core';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -55,17 +55,17 @@ import { markdown } from '@codemirror/lang-markdown';
 import { css } from '@codemirror/lang-css';
 import { FormsModule } from '@angular/forms';
 import { RealtimeService } from '../../services/realtime.service';
-import { DecimalPipe } from '@angular/common';
 import {
   DocumentDto,
-  DocumentExecutionResponse,
   DocumentService,
 } from '../../services/document.service';
 import { FolderService } from '../../services/folder.service';
 import { AuthService } from '../../services/auth.service';
-import { ExecutionStreamService } from '../../services/execution-stream.service';
+import { LiveTerminalService } from '../../services/live-terminal.service';
 import { TimeTravelService } from '../../services/time-travel.service';
 import { PackageManagerService, PackageItem } from '../../services/package-manager.service';
+
+import { MatMenuModule } from '@angular/material/menu';
 
 export interface ExecutionLanguageOption {
   name: string;
@@ -86,12 +86,12 @@ export interface ChatMessage {
 @Component({
   selector: 'app-editor',
   standalone: true,
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, DecimalPipe, FormsModule],
+  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule, FormsModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
   // Scope these services to each Editor instance so every open tab gets isolated
   // realtime, terminal, time-travel, and package manager state.
-  providers: [ExecutionStreamService, TimeTravelService, PackageManagerService],
+  providers: [LiveTerminalService, TimeTravelService, PackageManagerService],
 })
 export class Editor implements OnInit {
   readonly documentId = input<string>('');
@@ -99,9 +99,10 @@ export class Editor implements OnInit {
   readonly isActive = input<boolean>(true);
 
   readonly editorHost = viewChild.required<ElementRef<HTMLDivElement>>('editorHost');
+  readonly xtermContainer = viewChild<ElementRef<HTMLDivElement>>('xtermContainer');
 
   readonly realtimeService = inject(RealtimeService);
-  public readonly streamService = inject(ExecutionStreamService);
+  public readonly liveTerminalService = inject(LiveTerminalService);
   public readonly timeTravelService = inject(TimeTravelService);
   public readonly packageManagerService = inject(PackageManagerService);
   private readonly documentService = inject(DocumentService);
@@ -111,6 +112,8 @@ export class Editor implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private activeCleanupResizer?: () => void;
+
+  readonly isTerminalOpen = signal<boolean>(false);
 
   readonly isPackageManagerOpen = signal(false);
   readonly packageSearchInput = signal('');
@@ -214,14 +217,10 @@ export class Editor implements OnInit {
   readonly lastSaved = signal<Date | null>(null);
 
   readonly isSaving = signal(false);
-  readonly isExecuting = signal(false);
-  readonly executionResult = signal<DocumentExecutionResponse | null>(null);
-  readonly executionError = signal('');
   readonly executionLanguages = signal<ExecutionLanguageOption[]>([]);
   readonly selectedExecutionLanguage = signal('');
   readonly isLoadingExecutionLanguages = signal(false);
   readonly terminalHeight = signal<number>(280);
-  readonly terminalBodyElement = viewChild<ElementRef<HTMLPreElement>>('terminalBody');
 
   private isUpdatingFromRemote = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -274,7 +273,6 @@ export class Editor implements OnInit {
         void this.realtimeService.leaveDocument(currentDocId);
       }
 
-      this.streamService.closeTerminal();
       this.editorView?.destroy();
       this.editorView = null;
     });
@@ -324,19 +322,6 @@ export class Editor implements OnInit {
             scrollIntoView: true,
           });
         }
-      }
-    });
-
-    effect(() => {
-      // Auto-scroll terminal console to bottom whenever output or stderr updates
-      this.streamService.streamOutput();
-      this.streamService.streamErrorOutput();
-
-      const el = this.terminalBodyElement()?.nativeElement;
-      if (el) {
-        requestAnimationFrame(() => {
-          el.scrollTop = el.scrollHeight;
-        });
       }
     });
 
@@ -421,7 +406,8 @@ export class Editor implements OnInit {
 
       const accessLevel = await this.documentService.getAccessLevel(id);
       this.accessLevel.set(accessLevel);
-      this.isEditable.set(accessLevel === 'Edit');
+      const isEditable = (accessLevel === 'Edit' || accessLevel === 'Owner') && doc.permission !== 'View';
+      this.updateReadOnlyState(isEditable);
 
       await this.loadExecutionLanguages();
     } catch (loadError) {
@@ -513,7 +499,10 @@ export class Editor implements OnInit {
           defaultKeymap: true,
         }),
         this.languageCompartment.of(this.getLanguageExtension(language)),
-        this.readOnlyCompartment.of(EditorState.readOnly.of(!this.isEditable())),
+        this.readOnlyCompartment.of([
+          EditorState.readOnly.of(!this.isEditable()),
+          EditorView.editable.of(this.isEditable()),
+        ]),
         this.wrapCompartment.of([]),
         this.themeCompartment.of(oneDark),
         this.editorThemeExtension(),
@@ -777,6 +766,12 @@ export class Editor implements OnInit {
           this.realtimeService.connectionState() === 'connected' ? 'Real-time user' : 'Offline user',
       });
       this.lastSaved.set(new Date());
+
+      // Silently sync saved file to live workspace terminal on disk
+      const docTitle = this.document()?.title;
+      if (docTitle && this.liveTerminalService.isConnected()) {
+        this.liveTerminalService.syncFiles({ [docTitle]: content });
+      }
     } catch (saveError: any) {
       console.error('Error saving document to backend:', saveError);
       const errorMessage = this.getErrorMessage(saveError, '').toLowerCase();
@@ -803,12 +798,24 @@ export class Editor implements OnInit {
     }
   }
 
+  updateReadOnlyState(isEditable: boolean): void {
+    this.isEditable.set(isEditable);
+    if (this.editorView) {
+      this.editorView.dispatch({
+        effects: this.readOnlyCompartment.reconfigure([
+          EditorState.readOnly.of(!isEditable),
+          EditorView.editable.of(isEditable),
+        ]),
+      });
+    }
+  }
+
   dismissPermissionBanner(): void {
     this.showPermissionBanner.set(false);
   }
 
   private handlePermissionRevoked(): void {
-    this.isEditable.set(false);
+    this.updateReadOnlyState(false);
     this.accessLevel.set('View');
     this.permissionRevokedMessage.set(
       'Your edit access has been revoked. You can still view real-time updates but cannot make changes.',
@@ -819,6 +826,7 @@ export class Editor implements OnInit {
   toggleTheme() {
     const shouldBeDark = !this.isDarkMode();
     this.isDarkMode.set(shouldBeDark);
+    this.liveTerminalService.setTheme(shouldBeDark);
 
     if (!this.editorView) {
       return;
@@ -966,242 +974,98 @@ export class Editor implements OnInit {
     void navigator.clipboard.writeText(this.codeSignal());
   }
 
-  async runCode(): Promise<void> {
-    return this.runCodeStream();
+  @HostListener('window:keydown', ['$event'])
+  handleKeyboardShortcut(event: KeyboardEvent): void {
+    if (event.ctrlKey && (event.key === '`' || event.key === '~')) {
+      event.preventDefault();
+      this.toggleTerminalPanel();
+    }
   }
 
-  readonly interactiveInput = signal<string>('');
-
-  async runCodeStream(): Promise<void> {
-    const currentDocId = this.docId();
-    if (!currentDocId || !this.isEditable()) {
-      return;
+  toggleTerminalPanel(): void {
+    const next = !this.isTerminalOpen();
+    this.isTerminalOpen.set(next);
+    if (next) {
+      this.initLiveTerminal();
     }
+  }
 
-    if (!this.selectedExecutionLanguage()) {
-      this.executionError.set('No execution language available for this document.');
-      return;
-    }
+  openTerminalPanel(): void {
+    this.isTerminalOpen.set(true);
+    this.initLiveTerminal();
+  }
 
-    this.executionError.set('');
-    this.executionResult.set(null);
+  initLiveTerminal(): void {
+    setTimeout(async () => {
+      const el = this.xtermContainer()?.nativeElement;
+      if (el) {
+        const projectId = this.document()?.folderId || this.docId() || 'default';
+        this.liveTerminalService.attachToElement(el, projectId, this.isDarkMode());
 
-    try {
-      await this.documentService.updateContent(currentDocId, {
-        content: this.codeSignal(),
-        lastEditedBy: 'Live REPL stream',
-      });
-      this.lastSaved.set(new Date());
-
-      const currentDoc = this.document();
-      let filesSnapshot: Record<string, string> | undefined;
-      let entrypoint: string | undefined;
-
-      if (currentDoc?.folderId) {
         try {
-          const folderData = await this.folderService.getFolder(currentDoc.folderId);
-          if (folderData?.documents && folderData.documents.length > 0) {
-            filesSnapshot = {};
-            for (const d of folderData.documents) {
-              filesSnapshot[d.title] = d.id === currentDoc.id ? this.codeSignal() : (d.content || '');
-            }
-            entrypoint = currentDoc.title;
+          const snapshot = await this.getWorkspaceFilesSnapshot();
+          if (Object.keys(snapshot.files).length > 0) {
+            this.liveTerminalService.syncFiles(snapshot.files, snapshot.lockedFiles);
           }
-        } catch (err) {
-          console.warn('Could not snapshot project folder files for execution:', err);
+        } catch {
+          // Non-blocking file snapshot sync
         }
       }
-
-      if (!filesSnapshot) {
-        const title = currentDoc?.title || 'script.py';
-        filesSnapshot = { [title]: this.codeSignal() };
-        entrypoint = title;
-      }
-
-      this.streamService.startExecution(
-        this.selectedExecutionLanguage(),
-        this.codeSignal(),
-        120000,
-        80,
-        24,
-        undefined,
-        currentDocId,
-        filesSnapshot,
-        entrypoint,
-      );
-      this.activeTerminalTab.set('repl');
-    } catch (error: unknown) {
-      this.executionError.set(this.getErrorMessage(error, 'Streaming execution setup failed.'));
-      this.activeTerminalTab.set('result');
-    }
+    }, 50);
   }
 
-  private readonly sanitizer = inject(DomSanitizer);
+  async getWorkspaceFilesSnapshot(): Promise<{ files: Record<string, string>; lockedFiles: string[] }> {
+    const currentDoc = this.document();
+    const filesSnapshot: Record<string, string> = {};
+    const lockedFiles: string[] = [];
+    const entrypoint = currentDoc?.title || 'main.py';
 
-  readonly activeTerminalTab = signal<'repl' | 'result'>('repl');
-  readonly terminalViewMode = signal<'console' | 'html' | 'json'>('console');
-  readonly terminalCopied = signal<boolean>(false);
-  readonly autoScrollTerminal = signal<boolean>(true);
+    if (currentDoc?.folderId) {
+      try {
+        const folderData = await this.folderService.getFolder(currentDoc.folderId);
+        if (folderData?.documents && folderData.documents.length > 0) {
+          for (const d of folderData.documents) {
+            const isDocReadOnly =
+              d.permission === 'View' ||
+              d.defaultAccessLevel === 'View' ||
+              (d.id === currentDoc.id && !this.isEditable());
+
+            filesSnapshot[d.title] = d.id === currentDoc.id ? this.codeSignal() : (d.content || '');
+            if (isDocReadOnly) {
+              lockedFiles.push(d.title);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not snapshot project folder files for workspace:', err);
+      }
+    }
+
+    if (Object.keys(filesSnapshot).length === 0) {
+      filesSnapshot[entrypoint] = this.codeSignal();
+      if (!this.isEditable()) {
+        lockedFiles.push(entrypoint);
+      }
+    }
+    return { files: filesSnapshot, lockedFiles };
+  }
+
+  restartTerminal(): void {
+    this.liveTerminalService.restart();
+  }
+
+  clearTerminal(): void {
+    this.liveTerminalService.clear();
+  }
+
+  focusTerminal(): void {
+    this.liveTerminalService.focus();
+  }
+
   readonly isTerminalMaximized = signal<boolean>(false);
 
-  private readonly stdinHistory = signal<string[]>([]);
-  private readonly stdinHistoryIndex = signal<number>(-1);
-
-  readonly rawCurrentOutput = computed(() => {
-    if (this.activeTerminalTab() === 'repl') {
-      return (this.streamService.streamOutput() || '') + (this.streamService.streamErrorOutput() || '');
-    } else {
-      return (this.executionResult()?.standardOutput || '') + (this.executionResult()?.standardError || '');
-    }
-  });
-
-  readonly formattedJsonOutput = computed<string | null>(() => {
-    const raw = this.rawCurrentOutput().trim();
-    if (!raw || raw.length < 2) return null;
-    if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
-      try {
-        const parsed = JSON.parse(raw);
-        return JSON.stringify(parsed, null, 2);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
-
-  readonly hasJsonInOutputSignal = computed(() => this.formattedJsonOutput() !== null);
-
-  readonly hasHtmlInOutputSignal = computed(() => {
-    const raw = this.rawCurrentOutput();
-    if (!raw || raw.length < 5) return false;
-    return /<(!DOCTYPE|html|head|body|div|p|h1|h2|h3|span|table|iframe|svg|section|header|footer)\b/i.test(raw);
-  });
-
-  getRawCurrentOutput(): string {
-    return this.rawCurrentOutput();
-  }
-
-  hasHtmlInOutput(): boolean {
-    return this.hasHtmlInOutputSignal();
-  }
-
-  hasJsonInOutput(): boolean {
-    return this.hasJsonInOutputSignal();
-  }
-
-  parseAnsiToHtml(text: string): string {
-    if (!text) return '';
-    const ansiMap: Record<string, string> = {
-      '30': 'color:#484f58',
-      '31': 'color:#f85149',
-      '32': 'color:#3fb950',
-      '33': 'color:#d29922',
-      '34': 'color:#58a6ff',
-      '35': 'color:#bc8cff',
-      '36': 'color:#39c5cf',
-      '37': 'color:#b1bac4',
-      '90': 'color:#6e7681',
-      '91': 'color:#ffa198',
-      '92': 'color:#56d364',
-      '93': 'color:#e3b341',
-      '94': 'color:#79c0ff',
-      '95': 'color:#d2a8ff',
-      '96': 'color:#56d4dd',
-      '97': 'color:#f0f6fc',
-      '1': 'font-weight:bold',
-      '2': 'opacity:0.8',
-      '3': 'font-style:italic',
-      '4': 'text-decoration:underline',
-    };
-    let escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    escaped = escaped.replace(/\x1b\[([0-9;]+)m/g, (_, codes) => {
-      if (codes === '0' || codes === '') {
-        return '</span>';
-      }
-      const styles = codes
-        .split(';')
-        .map((c: string) => ansiMap[c])
-        .filter(Boolean);
-      if (styles.length > 0) {
-        return `<span style="${styles.join(';')}">`;
-      }
-      return '';
-    });
-    return escaped;
-  }
-
-  getFormattedReplConsoleHtml(): SafeHtml {
-    const stdout = this.parseAnsiToHtml(this.streamService.streamOutput() || '');
-    const stderr = this.parseAnsiToHtml(this.streamService.streamErrorOutput() || '');
-    const combined = stderr ? `${stdout}<span class="terminal-stderr">${stderr}</span>` : stdout;
-    return this.sanitizer.bypassSecurityTrustHtml(combined || '<span class="terminal-placeholder">Ready for execution...</span>');
-  }
-
-  getFormattedResultConsoleHtml(): SafeHtml {
-    const stdout = this.parseAnsiToHtml(this.executionResult()?.standardOutput || '');
-    const stderr = this.parseAnsiToHtml(this.executionResult()?.standardError || this.executionError() || '');
-    const combined = stderr ? `${stdout}<span class="terminal-stderr">${stderr}</span>` : stdout;
-    return this.sanitizer.bypassSecurityTrustHtml(combined || '<span class="terminal-placeholder">No output generated.</span>');
-  }
-
-  getSafeIframeSrcDoc(): string {
-    return this.rawCurrentOutput();
-  }
-
-  getFormattedJsonOutput(): string {
-    return this.formattedJsonOutput() ?? this.rawCurrentOutput();
-  }
-
-  hasReplOutput(): boolean {
-    return (
-      this.streamService.isStreaming() ||
-      Boolean(this.streamService.streamOutput()) ||
-      Boolean(this.streamService.streamErrorOutput()) ||
-      Boolean(this.streamService.finalExecutionResult())
-    );
-  }
-
-  hasStaticOutput(): boolean {
-    return Boolean(this.executionResult() || this.executionError());
-  }
-
-  hasAnyTerminalOutput(): boolean {
-    return this.hasReplOutput() || this.hasStaticOutput();
-  }
-
-  selectTerminalTab(tab: 'repl' | 'result'): void {
-    this.activeTerminalTab.set(tab);
-  }
-
-  closeTerminalTab(tab: 'repl' | 'result'): void {
-    if (tab === 'repl') {
-      this.streamService.closeTerminal();
-      if (this.hasStaticOutput()) {
-        this.activeTerminalTab.set('result');
-      }
-    } else {
-      this.clearExecutionResult();
-      if (this.hasReplOutput()) {
-        this.activeTerminalTab.set('repl');
-      }
-    }
-  }
-
   closeAllTerminals(): void {
-    this.streamService.closeTerminal();
-    this.clearExecutionResult();
-  }
-
-  clearTerminalOutput(): void {
-    this.streamService.clearOutput();
-  }
-
-  toggleAutoScrollTerminal(): void {
-    this.autoScrollTerminal.update((prev) => !prev);
+    this.isTerminalOpen.set(false);
   }
 
   toggleMaximizeTerminal(): void {
@@ -1214,73 +1078,7 @@ export class Editor implements OnInit {
       this.terminalHeight.set(maxHeight);
       this.isTerminalMaximized.set(true);
     }
-  }
-
-  copyTerminalOutput(): void {
-    const stdout = this.streamService.streamOutput() || '';
-    const stderr = this.streamService.streamErrorOutput() || '';
-    const text = stdout + (stderr ? `\n--- ERRORS ---\n${stderr}` : '');
-
-    if (text.trim()) {
-      navigator.clipboard.writeText(text);
-      this.terminalCopied.set(true);
-      setTimeout(() => this.terminalCopied.set(false), 2000);
-    }
-  }
-
-  sendInteractiveInput(): void {
-    const text = this.interactiveInput();
-    if (text) {
-      this.streamService.sendStdin(text);
-      this.stdinHistory.update((prev) => [text, ...prev.filter((item) => item !== text)]);
-      this.stdinHistoryIndex.set(-1);
-      this.interactiveInput.set('');
-
-      if (this.autoScrollTerminal()) {
-        const el = this.terminalBodyElement()?.nativeElement;
-        if (el) {
-          requestAnimationFrame(() => {
-            el.scrollTop = el.scrollHeight;
-          });
-        }
-      }
-    }
-  }
-
-  navigateStdinHistory(direction: 'up' | 'down'): void {
-    const history = this.stdinHistory();
-    if (history.length === 0) return;
-
-    let index = this.stdinHistoryIndex();
-    if (direction === 'up') {
-      if (index < history.length - 1) {
-        index++;
-        this.stdinHistoryIndex.set(index);
-        this.interactiveInput.set(history[index]);
-      }
-    } else if (direction === 'down') {
-      if (index > 0) {
-        index--;
-        this.stdinHistoryIndex.set(index);
-        this.interactiveInput.set(history[index]);
-      } else if (index === 0) {
-        this.stdinHistoryIndex.set(-1);
-        this.interactiveInput.set('');
-      }
-    }
-  }
-
-  stopStream(): void {
-    this.streamService.stopExecution();
-  }
-
-  closeTerminal(): void {
-    this.streamService.closeTerminal();
-  }
-
-  clearExecutionResult(): void {
-    this.executionResult.set(null);
-    this.executionError.set('');
+    setTimeout(() => this.liveTerminalService.fit(), 50);
   }
 
   private isResizingTerminal = false;

@@ -219,6 +219,9 @@
                   >
                     <mat-icon class="row-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
                     <span class="row-label">{{ doc.title }}</span>
+                    @if (isProjectEntrypoint(doc)) {
+                      <span class="entrypoint-badge" matTooltip="Project Entrypoint (⭐)">⭐</span>
+                    }
                     <span class="row-badges">
                       @if (isSharedExplorerDocument(doc)) {
                         @if (doc.permission === 'Edit') {
@@ -499,6 +502,9 @@
           <mat-icon>edit</mat-icon> Rename Folder...
         </button>
       } @else {
+        <button class="ctx-item" (click)="onContextMenuAction('setEntrypoint')">
+          <mat-icon>star</mat-icon> Set as Project Entrypoint (⭐)
+        </button>
         <button class="ctx-item" (click)="onContextMenuAction('rename')">
           <mat-icon>edit</mat-icon> Rename File...
         </button>

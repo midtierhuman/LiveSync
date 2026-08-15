@@ -12,13 +12,19 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
    - Forwards multi-file project snapshot maps (`files: map[string]string`) and entrypoint identifiers for full workspace execution over both synchronous REST and live WebSocket streaming.
    - Features thread-safe WebSocket write multiplexing via `SafeWSConn` with mutex locking, preventing concurrent write frame corruption during high-throughput stdout/stderr bursts.
 
-2. **Live PTY Terminal Engine (`handlers/terminal.go`)**:
-   - Allocates full OS pseudo-terminals (`cmd.exe` on Windows, `/bin/bash` on Linux/Docker) using `creack/pty`.
-   - Handles full-duplex bi-directional WebSocket streaming (`/api/terminal/ws`) with `coder/websocket` protected by mutex synchronizers.
-   - Supports terminal resizing frames (`cols`, `rows`) and interactive input (`stdin`).
+2. **Live PTY Terminal Engine (`handlers/terminal.go`, `handlers/pty_windows.go`, `handlers/pty_unix.go`, `handlers/pty_common.go`)**:
+   - Cross-platform true OS interactive pseudo-terminal allocation:
+     - **Windows**: Native Windows ConPTY (`CreatePseudoConsole`, `ResizePseudoConsole`, `ClosePseudoConsole` via `golang.org/x/sys/windows`) running `powershell.exe -NoLogo`, with graceful fallback.
+     - **Linux/macOS/Docker**: Unix PTY (`github.com/creack/pty`) running `/bin/bash` or `/bin/sh`.
+   - Anchored to project-scoped workspace folders (`./workspaces/{projectId}`).
+   - Automatically synchronizes project files on disk before executing run commands (`python <entrypoint>`, `node <entrypoint>`, `go run <entrypoint>`).
+   - Enforces OS Read-Only permissions (`chmod 0444`) on locked files (`lockedFiles: []string`), preventing unauthorized terminal modifications while permitting imports and execution.
+   - Handles full-duplex bi-directional WebSocket streaming (`/api/terminal/ws`) with `coder/websocket` protected by mutex synchronizers for xterm.js integration.
+   - Robust structured message dispatcher preventing JSON protocol frames (`resize`, `sync_files`, etc.) from leaking into shell stdin as raw text.
+   - Supports live dynamic terminal resizing frames (`cols`, `rows`), file sync payloads, command piping, and raw VT100/ANSI keycode streaming with real-time prompt, arrow key navigation, and history.
 
 3. **JWT Authentication & CORS (`middleware/auth.go` & `middleware/cors.go`)**:
-   - Enforces HMAC SHA-256 JWT validation on incoming HTTP REST calls and WebSocket connection upgrade handshakes (`/api/execution/stream` and `/api/terminal/ws` via Authorization header or `?token=` query param).
+   - Enforces HMAC SHA-256 JWT validation on incoming HTTP REST calls and WebSocket connection upgrade handshakes (`/api/terminal/ws` via Authorization header or `?token=` query param).
    - Configures origin policies matching Angular frontend clients.
 
 ---
@@ -27,10 +33,8 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
 
 | Endpoint | Protocol | Handler | Target Backend |
 | :--- | :--- | :--- | :--- |
-| `POST /api/execution/run` | HTTP REST | `ExecutionHandler.RunCode` | `SandboxService.ExecuteCode` (gRPC) |
+| `WS /api/terminal/ws` | WebSocket | `TerminalHandler.ServeWS` | Native OS PTY (`powershell.exe` / `/bin/bash`) anchored in `./workspaces/{projectId}` |
 | `GET /api/execution/languages` | HTTP REST | `ExecutionHandler.GetLanguages` | `SandboxService.GetLanguages` (gRPC) |
-| `WS /api/execution/stream` | WebSocket | `TerminalHandler.ServeExecutionStream` | `SandboxService.StreamExecution` (gRPC) |
-| `WS /api/terminal/ws` | WebSocket | `TerminalHandler.ServeWS` | Native OS PTY (`cmd.exe` / `/bin/bash`) |
 | `POST /api/ai/analyze` | HTTP REST | `AIHandler.AnalyzeCode` | `SandboxService.AnalyzeCode` (gRPC) |
 | `GET /api/ai/models` | HTTP REST | `AIHandler.ListModels` | In-memory local & cloud model registry |
 | `GET /api/packages/` | HTTP REST | `PackagesHandler.SearchPackages` | `SandboxService.SearchPackages` (gRPC) |

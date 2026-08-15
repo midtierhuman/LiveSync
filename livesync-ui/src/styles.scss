@@ -4,6 +4,7 @@
 // Learn more about theming and how to use it for your application's
 // custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
+@import '@xterm/xterm/css/xterm.css';
 
 html {
   @include mat.theme(

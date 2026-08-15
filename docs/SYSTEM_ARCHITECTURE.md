@@ -50,11 +50,9 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
 ## ⚡ Inter-Service Communication Protocol
 
 ### 1. Client to Go Gateway (`livesync-gateway`)
-- `POST /api/execution/run` -> Executes code synchronously via gRPC.
+- `WS /api/terminal/ws?projectId=...` -> Interactive workspace PTY shell session streaming (`powershell.exe` on Windows / `/bin/bash` in Docker) anchored in `./workspaces/{projectId}`.
 - `GET /api/execution/languages` -> Fetches supported polyglot execution runtimes.
-- `WS /api/execution/stream` -> Real-time bi-directional code execution streaming over WebSockets.
-- `WS /api/terminal/ws` -> Interactive PTY shell session streaming (`cmd.exe` / `/bin/bash`).
-- `POST /api/ai/analyze` -> Triggers AI code analysis (Explain, Refactor, Unit Tests, Suggest).
+- `POST /api/ai/analyze` -> Triggers AI code analysis (Explain, Refactor, Unit Tests, Suggest, Big-O Complexity).
 - `GET /api/ai/models` -> Returns active local and cloud LLM models.
 - `GET /api/packages/?query=...&language=...` -> Searches PyPI / npm package registries.
 

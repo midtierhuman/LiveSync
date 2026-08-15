@@ -182,7 +182,14 @@ export class Workspace implements OnInit {
     return this.myFolders();
   });
 
+  readonly entrypointMap = signal<Record<string, string>>({});
+
   ngOnInit() {
+    try {
+      const saved = localStorage.getItem('livesync_entrypoints');
+      if (saved) this.entrypointMap.set(JSON.parse(saved));
+    } catch {}
+
     this.loadWorkspace().then(() => {
       this.route.params.subscribe((params) => {
         const projectName = params['projectName'];
@@ -712,12 +719,34 @@ export class Workspace implements OnInit {
     this.contextMenu.set(null);
   }
 
+  isProjectEntrypoint(doc: DocumentDto): boolean {
+    const folderId = doc.folderId || this.scopedProject()?.id || 'root';
+    const designated = this.entrypointMap()[folderId];
+    if (designated) {
+      return designated === doc.title || designated === doc.id;
+    }
+    const title = doc.title.toLowerCase();
+    return title === 'main.py' || title === 'app.py' || title === 'index.js' || title === 'server.js';
+  }
+
+  setProjectEntrypoint(doc: DocumentDto) {
+    const folderId = doc.folderId || this.scopedProject()?.id || 'root';
+    const current = { ...this.entrypointMap() };
+    current[folderId] = doc.title;
+    this.entrypointMap.set(current);
+    try {
+      localStorage.setItem('livesync_entrypoints', JSON.stringify(current));
+    } catch {}
+  }
+
   onContextMenuAction(action: string) {
     const ctx = this.contextMenu();
     if (!ctx) return;
     this.closeContextMenu();
 
-    if (action === 'newFile') {
+    if (action === 'setEntrypoint') {
+      this.setProjectEntrypoint(ctx.item);
+    } else if (action === 'newFile') {
       this.openCreateInFolder(ctx.item.id, 'file');
     } else if (action === 'newFolder') {
       this.openCreateInFolder(ctx.item.id, 'folder');

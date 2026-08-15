@@ -59,32 +59,6 @@ export interface DocumentAccessResponse {
   accessLevel: string;
 }
 
-export interface ExecuteDocumentRequest {
-  language: string;
-  standardInput?: string;
-  code?: string;
-  files?: Record<string, string>;
-  entrypoint?: string;
-}
-
-export interface DocumentExecutionResponse {
-  documentId: string;
-  language: string;
-  status: string;
-  isSuccess: boolean;
-  message: string;
-  standardOutput?: string;
-  standardError?: string;
-  executionDurationMs?: number;
-  peakMemoryBytes?: number;
-  cpuTimeMs?: number;
-  timeComplexity?: string;
-  spaceComplexity?: string;
-  complexityExplanation?: string;
-  requestedAt: string;
-  completedAt: string;
-}
-
 export interface ExecutionLanguageDescriptor {
   id?: string;
   name: string;
@@ -204,27 +178,6 @@ export class DocumentService {
         (permissionError as any).isPermissionError = true;
         throw permissionError;
       }
-      throw error;
-    }
-  }
-
-  async executeDocument(
-    id: string,
-    request: ExecuteDocumentRequest,
-  ): Promise<DocumentExecutionResponse> {
-    try {
-      const response = await firstValueFrom(
-        this.http.post<DocumentExecutionResponse>(`${this.sandboxUrl}/api/execution/run`, {
-          language: request.language,
-          code: request.code || '',
-          standardInput: request.standardInput,
-          files: request.files,
-          entrypoint: request.entrypoint,
-        }),
-      );
-      return { ...response, documentId: id };
-    } catch (error) {
-      console.error('Error executing document:', error);
       throw error;
     }
   }

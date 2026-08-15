@@ -30,7 +30,7 @@ func main() {
 	// Handlers
 	execHandler := handlers.NewExecutionHandler(cfg, sbClient.Client)
 	aiHandler := handlers.NewAIHandler(cfg, sbClient.Client)
-	termHandler := handlers.NewTerminalHandler(cfg, sbClient.Client)
+	termHandler := handlers.NewTerminalHandler(cfg)
 	pkgHandler := handlers.NewPackagesHandler(cfg, sbClient.Client)
 
 	// Routes
@@ -40,9 +40,7 @@ func main() {
 		w.Write([]byte(`{"status":"UP","service":"livesync-gateway","version":"1.0.0"}`))
 	})
 
-	mux.HandleFunc("/api/execution/run", middleware.JWTAuth(cfg, execHandler.RunCode))
 	mux.HandleFunc("/api/execution/languages", middleware.JWTAuth(cfg, execHandler.GetLanguages))
-	mux.HandleFunc("/api/execution/stream", middleware.JWTAuth(cfg, termHandler.ServeExecutionStream))
 	mux.HandleFunc("/api/ai/analyze", middleware.JWTAuth(cfg, aiHandler.AnalyzeCode))
 	mux.HandleFunc("/api/ai/models", middleware.JWTAuth(cfg, aiHandler.ListModels))
 	mux.HandleFunc("/api/packages/", middleware.JWTAuth(cfg, pkgHandler.SearchPackages))

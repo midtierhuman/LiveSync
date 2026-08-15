@@ -11,7 +11,8 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **PERF-01** | ⚡ Optimization | O(N²) Line Diff in Time-Travel Timeline Scrubber | `livesync-ui` | Medium | ⏳ Pending |
 | **PERF-02** | ⚡ Optimization | Data Loss Prevention on Editor Tab Close / Debounced Save Unmount | `livesync-ui` | High | ⏳ Pending |
-| **FEAT-01** | 🚀 Feature | Background Execution Mode (Keep REPL Running on Panel Collapse) | `livesync-ui`, `livesync-gateway` | Low | ⏳ Pending |
+| **FEAT-01** | 🚀 Feature | True Workspace Terminal & Background Process Mode | `livesync-ui`, `livesync-gateway` | Low | ✅ Done |
+| **FEAT-02** | 🚀 Feature | Smart Project Entrypoints & Auto-Dependency Resolver | `livesync-ui`, `livesync-gateway` | High | ✅ Done |
 
 ---
 
@@ -31,18 +32,26 @@
 ### ⚡ PERF-02: Data Loss Prevention on Editor Tab Close / Unmount
 
 #### Problem Statement
-When navigating away or closing an editor tab in `editor.ts` ([lines 258–261](file:///D:/Projects/LiveSync/livesync-ui/src/app/features/editor/editor.ts#L258-L261)), `onDestroy` cancels the `saveDebounceTimer` with `clearTimeout(this.saveDebounceTimer)`. Any unsaved edits typed within the 2-second debounce window are silently discarded rather than being saved to the backend before destruction.
+When navigating away or closing an editor tab in `editor.ts`, `onDestroy` cancels the `saveDebounceTimer` with `clearTimeout(this.saveDebounceTimer)`. Any unsaved edits typed within the 2-second debounce window are silently discarded rather than being saved to the backend before destruction.
 
 #### Action Items & Requirements
 - [ ] **Synchronous Flush on Destroy (`editor.ts`):** Implement a `flushPendingSave()` helper function. Call `flushPendingSave()` inside `onDestroy` so pending content edits are flushed to `documentService.updateContent()` before CodeMirror instance destruction.
 
 ---
 
-### 🚀 FEAT-01: Background Execution Mode (Keep REPL Running on Panel Collapse)
+### 🚀 FEAT-01: True Workspace Terminal & Background Process Execution (COMPLETED ✅)
 
-#### Problem Statement
-Closing or minimizing the REPL terminal panel currently terminates the execution process. Users should be able to collapse the terminal UI panel while letting long-running scripts continue executing in the background, displaying an active process pill in the editor status bar.
+#### Implemented Features
+- [x] **Decoupled Panel Visibility from Process Lifetime (`editor.ts`):** Explicit `isTerminalOpen` signal for toggling UI panel visibility (`Ctrl+\``) without terminating the background PTY shell.
+- [x] **Native Workspace Directory Anchoring (`livesync-gateway`):** Terminal process is anchored directly in `./workspaces/{projectId}` with bi-directional streaming via `xterm.js`.
+- [x] **Shared Dependencies Pool:** Injected `PYTHONPATH` and `NODE_PATH` for instant access to common packages.
 
-#### Action Items & Requirements
-- [ ] **Decouple Panel Visibility from Process Termination (`editor.ts`):** Create an explicit `isTerminalPanelOpen` signal for toggling UI visibility without triggering `streamService.closeTerminal()`.
-- [ ] **StatusBar Active Process Badge (`editor.html`):** Add a pulsating "Running..." status badge to the status bar when `streamService.isStreaming()` is true and the terminal panel is collapsed.
+---
+
+### 🚀 FEAT-02: Smart Project Entrypoints & Auto-Dependency Resolver (COMPLETED ✅)
+
+#### Implemented Features
+- [x] **Intelligent Entrypoint Detection:** Auto-detects root entrypoints (`main.py`, `app.py`, `server.py`, `index.js`, `package.json`).
+- [x] **Right-Click ⭐ Set as Entrypoint:** Set and persist entrypoints in Project Explorer Tree.
+- [x] **Dual Run Actions:** **▶ Run Project** vs **▷ Run File**.
+- [x] **Automated Package Resolution:** Pre-execution check for `requirements.txt` (`pip install -r requirements.txt`) and `package.json` (`npm install`).

@@ -89,8 +89,36 @@ Status: All Milestones Completed ✅ 🎉
     - [x] Duplicate File (`Duplicate File` action creating deep-copy in the same folder and auto-opening it).
     - [x] Move File / Move Folder across hierarchy.
     - [x] Back to Projects Hub button (`← Projects`) in IDE header.
-- [ ] **Phase 3: Multi-Terminal Concurrent Process Sessions**
-  - [ ] Multi-tab terminal manager in `EditorComponent` allowing concurrent independent processes (e.g. Terminal 1: Backend, Terminal 2: Frontend).
+- [x] **Phase 3: Multi-Terminal Concurrent Process Sessions**
+  - [x] Multi-tab terminal manager in `EditorComponent` allowing concurrent independent processes (e.g. Terminal 1: Live Interactive Terminal, Terminal 2: Run Output).
+
+---
+
+### **Milestone 8: True Interactive Workspace Terminal (`xterm.js` + Native PTY Session + Workspace File Sync)** (COMPLETED ✅ 🎉)
+- [x] **Phase 1: Workspace Directory Sync & Native PTY Engine (`livesync-gateway`)**
+  - Anchored interactive terminal processes (`powershell.exe`/`cmd.exe` on Windows, `/bin/bash` on Linux/Docker) to dedicated workspace folders (`./workspaces/{projectId}`).
+  - Synchronized multi-file editor snapshots into the workspace directory so commands (`ls`, `dir`, `python main.py`, `node index.js`, `cat`) work seamlessly.
+  - Implemented bi-directional streaming over `/api/terminal/ws` with window resize signaling (`cols`/`rows`) and raw VT100/ANSI byte support.
+- [x] **Phase 2: Full `xterm.js` Terminal Canvas Integration (`livesync-ui`)**
+  - Integrated `@xterm/xterm` and `@xterm/addon-fit` inside `EditorComponent` replacing the static `<pre>` and synthetic stdin prompt.
+  - Supported true terminal capabilities: ANSI colors, VT100 control keys, tab completion, interactive REPLs (`python`, `node`), Ctrl+C process interruption, and dynamic viewport resizing.
+  - Added explicit "Terminal" toggle button to editor toolbar with keyboard shortcut (`Ctrl+\``).
+- [x] **Phase 3: Unified "Run Code" Execution Pipeline**
+  - Directed the toolbar "Run" action straight into the active interactive terminal session by syncing modified files and piping `python <entrypoint>` or `node <entrypoint>` into the PTY.
+
+---
+
+### **Milestone 10: Streamlined Native PTY Terminal & Granular RBAC Locked Files Protection** (COMPLETED ✅ 🎉)
+- [x] **Phase 1: Cross-Platform Native PTY Shells (`livesync-gateway`)**
+  - Implemented Windows ConPTY (`windows.CreatePseudoConsole`, `ResizePseudoConsole`, `ClosePseudoConsole`) with `powershell.exe -NoLogo`.
+  - Implemented Unix PTY (`github.com/creack/pty`) for Linux/macOS/Docker environments.
+  - Removed legacy unused headless execution endpoints (`/api/execution/stream`) in favor of direct interactive PTY terminal execution.
+- [x] **Phase 2: Frontend CodeMirror Live Read-Only Enforcement (`livesync-ui`)**
+  - Configured `readOnlyCompartment` with both `EditorState.readOnly.of(!isEditable)` and `EditorView.editable.of(isEditable)`.
+  - Dynamically reconfigured compartments upon `loadDocument` and permission revocation events to prevent unauthorized editing on the client.
+- [x] **Phase 3: Gateway OS-Level File Permissions on Locked Files (`livesync-gateway`)**
+  - Updated `syncWorkspaceFiles` to enforce OS Read-Only file modes (`chmod 0444`) on locked project files (`lockedFiles: []string`).
+  - Allows full execution and runtime imports while prohibiting write/tamper attempts from terminal processes.
 
 ---
 
@@ -99,14 +127,14 @@ Status: All Milestones Completed ✅ 🎉
 | Service | Files Touched | Purpose |
 |---------|---------------|---------|
 | **Documentation** | [PROJECT_ROADMAP.md](file:///D:/Projects/LiveSync/docs/PROJECT_ROADMAP.md), [GO_API_SERVICE.md](file:///D:/Projects/LiveSync/docs/GO_API_SERVICE.md), [GO_GATEWAY_SERVICE.md](file:///D:/Projects/LiveSync/docs/GO_GATEWAY_SERVICE.md), [SANDBOX_EXECUTION_SERVICE.md](file:///D:/Projects/LiveSync/docs/SANDBOX_EXECUTION_SERVICE.md) | Roadmap & service docs synchronization |
-| **proto** | `proto/sandbox.proto` | Added `map<string, string> files` & `entrypoint` to `ExecutionRequest` |
-| **livesync-ui** | `src/app/shared/components/`, `src/app/features/dashboard/`, `src/app/features/editor/`, `src/app/services/` | Reusable modals, prompt modal integration, project file containment, multi-file snapshot runner, project browser hub |
-| **livesync-api** | `handlers/folder_handler.go`, `services/folder_service.go`, `services/document_service.go`, `database/migrations.go`, `models/dtos.go` | Full folder containment, backfill migrations, sharing parity |
-| **livesync-gateway** | `handlers/execution.go`, `handlers/terminal.go`, `pb/` | Multi-file snapshot gRPC execution & streaming forwarding |
-| **livesync-sandbox** | `app/services/executors/`, `app/grpc_server.py`, `app/models/execution.py`, `tests/` | Multi-file workspace snapshot execution for Python & Node.js |
+| **proto** | `proto/sandbox.proto` | Protobuf contracts for sandbox service |
+| **livesync-ui** | `src/app/features/editor/`, `src/app/services/live-terminal.service.ts` | CodeMirror read-only enforcement, terminal auto-focus, snapshot syncing with locked files |
+| **livesync-gateway** | `handlers/terminal.go`, `handlers/pty_windows.go`, `handlers/pty_unix.go`, `handlers/pty_common.go` | Native Windows ConPTY, Unix PTY, locked file permission enforcement |
+| **livesync-sandbox** | `app/grpc_server.py`, `app/services/` | Streamlined gRPC service, AI analysis, package discovery |
 
 ---
 
 ## 🎉 Status Summary
-Milestones 1–6 completed. Milestone 7 actively in development.
+All Milestones 1–10 completed ✅ 🎉
+
 
