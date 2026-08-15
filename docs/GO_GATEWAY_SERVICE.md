@@ -6,9 +6,10 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
 
 ## 🛠️ Architecture & Core Responsibilities
 
-1. **gRPC Client Pool (`client/sandbox_client.go`)**:
+1. **gRPC Client Pool & Multi-File Snapshot Proxy (`client/sandbox_client.go`, `handlers/execution.go`, `handlers/terminal.go`)**:
    - Maintains a thread-safe connection to `livesync-sandbox` over HTTP/2 gRPC (`port 50051`).
    - Dispatches `ExecuteCode`, `StreamExecution`, `AnalyzeCode`, `SearchPackages`, and `GetLanguages` RPCs.
+   - Forwards multi-file project snapshot maps (`files: map[string]string`) and entrypoint identifiers for full workspace execution over both synchronous REST and live WebSocket streaming.
 
 2. **Live PTY Terminal Engine (`handlers/terminal.go`)**:
    - Allocates full OS pseudo-terminals (`cmd.exe` on Windows, `/bin/bash` on Linux/Docker) using `creack/pty`.

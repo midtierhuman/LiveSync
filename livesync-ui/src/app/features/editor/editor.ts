@@ -61,6 +61,7 @@ import {
   DocumentExecutionResponse,
   DocumentService,
 } from '../../services/document.service';
+import { FolderService } from '../../services/folder.service';
 import { AuthService } from '../../services/auth.service';
 import { ExecutionStreamService } from '../../services/execution-stream.service';
 import { TimeTravelService } from '../../services/time-travel.service';
@@ -104,6 +105,7 @@ export class Editor implements OnInit {
   public readonly timeTravelService = inject(TimeTravelService);
   public readonly packageManagerService = inject(PackageManagerService);
   private readonly documentService = inject(DocumentService);
+  private readonly folderService = inject(FolderService);
   private readonly authService = inject(AuthService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -991,6 +993,31 @@ export class Editor implements OnInit {
       });
       this.lastSaved.set(new Date());
 
+      const currentDoc = this.document();
+      let filesSnapshot: Record<string, string> | undefined;
+      let entrypoint: string | undefined;
+
+      if (currentDoc?.folderId) {
+        try {
+          const folderData = await this.folderService.getFolder(currentDoc.folderId);
+          if (folderData?.documents && folderData.documents.length > 0) {
+            filesSnapshot = {};
+            for (const d of folderData.documents) {
+              filesSnapshot[d.title] = d.id === currentDoc.id ? this.codeSignal() : (d.content || '');
+            }
+            entrypoint = currentDoc.title;
+          }
+        } catch (err) {
+          console.warn('Could not snapshot project folder files for execution:', err);
+        }
+      }
+
+      if (!filesSnapshot) {
+        const title = currentDoc?.title || 'script.py';
+        filesSnapshot = { [title]: this.codeSignal() };
+        entrypoint = title;
+      }
+
       this.streamService.startExecution(
         this.selectedExecutionLanguage(),
         this.codeSignal(),
@@ -999,6 +1026,8 @@ export class Editor implements OnInit {
         24,
         undefined,
         currentDocId,
+        filesSnapshot,
+        entrypoint,
       );
       this.activeTerminalTab.set('repl');
     } catch (error: unknown) {

@@ -11,7 +11,9 @@ The `livesync-api` microservice is built with **Go 1.26** and **chi v5**. It ser
    - HMAC-SHA256 JWT generation and validation (`JWTService`, `AuthMiddleware`).
    - Account lockout security with automatic lockout window expiration.
 
-2. **Hierarchical Document & Folder Management**:
+2. **Hierarchical Document & Folder Management (Project Containment Rule)**:
+   - Enforces "Every file belongs to a folder/project" workspace containment rule across creation and migrations.
+   - Automatically provisions an initial user project workspace folder (`Main Project`) if a document is created without an explicit folder ID.
    - Deep nested folder hierarchy traversal with cycle detection.
    - Cascading recursive deletion of subfolders, documents, and associated access shares.
    - Multi-tab document metadata retrieval and owner/shared permission evaluation (`Owner`, `Edit`, `View`).

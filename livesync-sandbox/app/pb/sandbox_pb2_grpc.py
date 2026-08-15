@@ -3,10 +3,7 @@
 import grpc
 import warnings
 
-try:
-    from . import sandbox_pb2 as sandbox__pb2
-except ImportError:
-    import sandbox_pb2 as sandbox__pb2
+from . import sandbox_pb2 as sandbox__pb2
 
 GRPC_GENERATED_VERSION = '1.83.0'
 GRPC_VERSION = grpc.__version__

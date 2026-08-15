@@ -81,6 +81,23 @@ func Migrate(ctx context.Context, db *DB) error {
 		// Adjustments / Constraints / Column Alterations
 		`ALTER TABLE "Documents" ALTER COLUMN "Content" TYPE TEXT;`,
 		`ALTER TABLE "Documents" ADD COLUMN IF NOT EXISTS "FolderId" VARCHAR(255);`,
+
+		// Backfill any legacy root documents without a folder into user's folder
+		`DO $$
+		DECLARE
+			r RECORD;
+			f_id VARCHAR(255);
+		BEGIN
+			FOR r IN SELECT DISTINCT "OwnerId" FROM "Documents" WHERE "FolderId" IS NULL LOOP
+				SELECT "Id" INTO f_id FROM "Folders" WHERE "OwnerId" = r."OwnerId" AND "ParentFolderId" IS NULL ORDER BY "CreatedAt" ASC LIMIT 1;
+				IF f_id IS NULL THEN
+					f_id := gen_random_uuid()::text;
+					INSERT INTO "Folders" ("Id", "Name", "OwnerId", "ParentFolderId", "ShareCode", "DefaultAccessLevel", "CreatedAt", "UpdatedAt")
+					VALUES (f_id, 'Main Project', r."OwnerId", NULL, substring(md5(random()::text) from 1 for 10), 'View', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+				END IF;
+				UPDATE "Documents" SET "FolderId" = f_id WHERE "OwnerId" = r."OwnerId" AND "FolderId" IS NULL;
+			END LOOP;
+		END $$;`,
 	}
 
 	for _, query := range queries {

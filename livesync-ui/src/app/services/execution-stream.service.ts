@@ -121,6 +121,8 @@ export class ExecutionStreamService {
     rows: number = 24,
     sessionId?: string,
     documentId?: string,
+    files?: Record<string, string>,
+    entrypoint?: string,
   ) {
     this.currentLanguage = language;
     this.currentDocumentId = documentId || '';
@@ -147,6 +149,8 @@ export class ExecutionStreamService {
             rows,
             sessionId: this.activeSessionId,
             token: this.authService.token() || '',
+            files,
+            entrypoint,
           }),
         );
       }

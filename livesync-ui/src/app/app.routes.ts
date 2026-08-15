@@ -23,6 +23,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'workspace/:projectName',
+    loadComponent: () => import('./features/workspace/workspace').then((m) => m.Workspace),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'workspace',
+    redirectTo: 'dashboard',
+    pathMatch: 'full',
+  },
+  {
     path: 'editor/:id',
     loadComponent: () => import('./features/editor/editor').then((m) => m.Editor),
     canActivate: [authGuard],

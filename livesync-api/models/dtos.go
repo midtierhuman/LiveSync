@@ -71,8 +71,9 @@ type SharedDocumentDto struct {
 }
 
 type CreateDocumentRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Title    string  `json:"title"`
+	Content  string  `json:"content"`
+	FolderID *string `json:"folderId,omitempty"`
 }
 
 type UpdateDocumentRequest struct {

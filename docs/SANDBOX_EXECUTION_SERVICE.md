@@ -4,11 +4,18 @@ The `livesync-sandbox` microservice is an isolated execution engine and AI worke
 
 ---
 
-## 🚀 Language Runtimes
+## 🚀 Language Runtimes & Multi-File Project Mounting
  
 The sandbox manages isolated subprocess execution, timeouts, and resource monitoring for:
 - 🐍 **Python 3.14** (`python`) — Executed with unbuffered stdout and process memory tracking.
 - 🟨 **JavaScript / Node.js 24** (`javascript`) — Executed with isolated heap limit (`--max-old-space-size=256`) and process tree cleanup.
+
+### 📦 Multi-File Project Workspace Snapshots
+Both `ExecuteCode` and `StreamExecution` support multi-file full project mounting via `map<string, string> files` and `string entrypoint`:
+- Multi-file structures with relative subpaths (e.g. `utils/math.py`, `models/user.js`) are reconstructed inside an isolated sandbox execution directory.
+- Subprocesses execute with `cwd=temp_dir`, enabling intra-project imports (`import utils`, `const helper = require('./helper')`), shared configs, and modular packages.
+- Automatic entrypoint detection selects `entrypoint`, `main.py`, `index.js`, `app.py`, or explicit buffer codes.
+- Complete sandboxed cleanup recursively clears execution directories on process termination.
 
 ---
 

@@ -14,9 +14,11 @@ class SandboxExecutionRequest(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     language: str
-    code: str
+    code: str = ""
     standard_input: str | None = Field(default=None)
     timeout_ms: int = Field(default=15000, ge=1, le=120000)
+    files: dict[str, str] = Field(default_factory=dict)
+    entrypoint: str | None = None
 
 
 class SandboxExecutionResponse(BaseModel):

@@ -64,6 +64,8 @@ type ExecutionRequest struct {
 	StandardInput string                 `protobuf:"bytes,3,opt,name=standard_input,json=standardInput,proto3" json:"standard_input,omitempty"`
 	TimeoutMs     int32                  `protobuf:"varint,4,opt,name=timeout_ms,json=timeoutMs,proto3" json:"timeout_ms,omitempty"`
 	Action        string                 `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"` // "start", "stdin", "kill"
+	Files         map[string]string      `protobuf:"bytes,6,rep,name=files,proto3" json:"files,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Entrypoint    string                 `protobuf:"bytes,7,opt,name=entrypoint,proto3" json:"entrypoint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,6 +131,20 @@ func (x *ExecutionRequest) GetTimeoutMs() int32 {
 func (x *ExecutionRequest) GetAction() string {
 	if x != nil {
 		return x.Action
+	}
+	return ""
+}
+
+func (x *ExecutionRequest) GetFiles() map[string]string {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+func (x *ExecutionRequest) GetEntrypoint() string {
+	if x != nil {
+		return x.Entrypoint
 	}
 	return ""
 }
@@ -742,14 +758,22 @@ var File_sandbox_proto protoreflect.FileDescriptor
 const file_sandbox_proto_rawDesc = "" +
 	"\n" +
 	"\rsandbox.proto\x12\asandbox\"\a\n" +
-	"\x05Empty\"\xa0\x01\n" +
+	"\x05Empty\"\xb6\x02\n" +
 	"\x10ExecutionRequest\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12%\n" +
 	"\x0estandard_input\x18\x03 \x01(\tR\rstandardInput\x12\x1d\n" +
 	"\n" +
 	"timeout_ms\x18\x04 \x01(\x05R\ttimeoutMs\x12\x16\n" +
-	"\x06action\x18\x05 \x01(\tR\x06action\"\xf9\x01\n" +
+	"\x06action\x18\x05 \x01(\tR\x06action\x12:\n" +
+	"\x05files\x18\x06 \x03(\v2$.sandbox.ExecutionRequest.FilesEntryR\x05files\x12\x1e\n" +
+	"\n" +
+	"entrypoint\x18\a \x01(\tR\n" +
+	"entrypoint\x1a8\n" +
+	"\n" +
+	"FilesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf9\x01\n" +
 	"\x11ExecutionResponse\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1d\n" +
@@ -815,7 +839,7 @@ func file_sandbox_proto_rawDescGZIP() []byte {
 	return file_sandbox_proto_rawDescData
 }
 
-var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_sandbox_proto_goTypes = []any{
 	(*Empty)(nil),                 // 0: sandbox.Empty
 	(*ExecutionRequest)(nil),      // 1: sandbox.ExecutionRequest
@@ -828,25 +852,27 @@ var file_sandbox_proto_goTypes = []any{
 	(*PackageSearchRequest)(nil),  // 8: sandbox.PackageSearchRequest
 	(*PackageItem)(nil),           // 9: sandbox.PackageItem
 	(*PackageSearchResponse)(nil), // 10: sandbox.PackageSearchResponse
+	nil,                           // 11: sandbox.ExecutionRequest.FilesEntry
 }
 var file_sandbox_proto_depIdxs = []int32{
-	4,  // 0: sandbox.LanguagesResponse.languages:type_name -> sandbox.LanguageDescriptor
-	9,  // 1: sandbox.PackageSearchResponse.packages:type_name -> sandbox.PackageItem
-	1,  // 2: sandbox.SandboxService.ExecuteCode:input_type -> sandbox.ExecutionRequest
-	1,  // 3: sandbox.SandboxService.StreamExecution:input_type -> sandbox.ExecutionRequest
-	6,  // 4: sandbox.SandboxService.AnalyzeCode:input_type -> sandbox.AiAnalysisRequest
-	8,  // 5: sandbox.SandboxService.SearchPackages:input_type -> sandbox.PackageSearchRequest
-	0,  // 6: sandbox.SandboxService.GetLanguages:input_type -> sandbox.Empty
-	2,  // 7: sandbox.SandboxService.ExecuteCode:output_type -> sandbox.ExecutionResponse
-	3,  // 8: sandbox.SandboxService.StreamExecution:output_type -> sandbox.ExecutionChunk
-	7,  // 9: sandbox.SandboxService.AnalyzeCode:output_type -> sandbox.AiAnalysisResponse
-	10, // 10: sandbox.SandboxService.SearchPackages:output_type -> sandbox.PackageSearchResponse
-	5,  // 11: sandbox.SandboxService.GetLanguages:output_type -> sandbox.LanguagesResponse
-	7,  // [7:12] is the sub-list for method output_type
-	2,  // [2:7] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	11, // 0: sandbox.ExecutionRequest.files:type_name -> sandbox.ExecutionRequest.FilesEntry
+	4,  // 1: sandbox.LanguagesResponse.languages:type_name -> sandbox.LanguageDescriptor
+	9,  // 2: sandbox.PackageSearchResponse.packages:type_name -> sandbox.PackageItem
+	1,  // 3: sandbox.SandboxService.ExecuteCode:input_type -> sandbox.ExecutionRequest
+	1,  // 4: sandbox.SandboxService.StreamExecution:input_type -> sandbox.ExecutionRequest
+	6,  // 5: sandbox.SandboxService.AnalyzeCode:input_type -> sandbox.AiAnalysisRequest
+	8,  // 6: sandbox.SandboxService.SearchPackages:input_type -> sandbox.PackageSearchRequest
+	0,  // 7: sandbox.SandboxService.GetLanguages:input_type -> sandbox.Empty
+	2,  // 8: sandbox.SandboxService.ExecuteCode:output_type -> sandbox.ExecutionResponse
+	3,  // 9: sandbox.SandboxService.StreamExecution:output_type -> sandbox.ExecutionChunk
+	7,  // 10: sandbox.SandboxService.AnalyzeCode:output_type -> sandbox.AiAnalysisResponse
+	10, // 11: sandbox.SandboxService.SearchPackages:output_type -> sandbox.PackageSearchResponse
+	5,  // 12: sandbox.SandboxService.GetLanguages:output_type -> sandbox.LanguagesResponse
+	8,  // [8:13] is the sub-list for method output_type
+	3,  // [3:8] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_sandbox_proto_init() }
@@ -860,7 +886,7 @@ func file_sandbox_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sandbox_proto_rawDesc), len(file_sandbox_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

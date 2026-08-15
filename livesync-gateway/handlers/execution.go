@@ -19,10 +19,12 @@ func NewExecutionHandler(cfg *config.Config, grpcClient pb.SandboxServiceClient)
 }
 
 type ExecutionHTTPRequest struct {
-	Language      string `json:"language"`
-	Code          string `json:"code"`
-	StandardInput string `json:"standardInput"`
-	TimeoutMS     int32  `json:"timeoutMs"`
+	Language      string            `json:"language"`
+	Code          string            `json:"code"`
+	StandardInput string            `json:"standardInput"`
+	TimeoutMS     int32             `json:"timeoutMs"`
+	Files         map[string]string `json:"files,omitempty"`
+	Entrypoint    string            `json:"entrypoint,omitempty"`
 }
 
 type ExecutionHTTPResponse struct {
@@ -66,6 +68,8 @@ func (h *ExecutionHandler) RunCode(w http.ResponseWriter, r *http.Request) {
 		Code:          reqPayload.Code,
 		StandardInput: reqPayload.StandardInput,
 		TimeoutMs:     reqPayload.TimeoutMS,
+		Files:         reqPayload.Files,
+		Entrypoint:    reqPayload.Entrypoint,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"gRPC sandbox worker error: `+err.Error()+`"}`, http.StatusBadGateway)

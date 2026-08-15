@@ -27,16 +27,18 @@ func NewTerminalHandler(cfg *config.Config, grpcClient pb.SandboxServiceClient) 
 }
 
 type StartWSMessage struct {
-	Action    string `json:"action"` // "start", "input", "stdin", "resize", "kill"
-	Type      string `json:"type"`
-	Language  string `json:"language"`
-	Code      string `json:"code"`
-	TimeoutMS int32  `json:"timeoutMs"`
-	Data      string `json:"data"`
-	Cols      uint16 `json:"cols"`
-	Rows      uint16 `json:"rows"`
-	SessionID string `json:"sessionId"`
-	Token     string `json:"token"`
+	Action     string            `json:"action"` // "start", "input", "stdin", "resize", "kill"
+	Type       string            `json:"type"`
+	Language   string            `json:"language"`
+	Code       string            `json:"code"`
+	TimeoutMS  int32             `json:"timeoutMs"`
+	Data       string            `json:"data"`
+	Cols       uint16            `json:"cols"`
+	Rows       uint16            `json:"rows"`
+	SessionID  string            `json:"sessionId"`
+	Token      string            `json:"token"`
+	Files      map[string]string `json:"files,omitempty"`
+	Entrypoint string            `json:"entrypoint,omitempty"`
 }
 
 type StreamEventJSON struct {
@@ -132,6 +134,8 @@ func (h *TerminalHandler) ServeExecutionStream(w http.ResponseWriter, r *http.Re
 				Code:          msg.Code,
 				StandardInput: msg.Data,
 				TimeoutMs:     msg.TimeoutMS,
+				Files:         msg.Files,
+				Entrypoint:    msg.Entrypoint,
 			})
 
 		case "stdin", "input":

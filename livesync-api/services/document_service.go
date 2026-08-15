@@ -145,13 +145,29 @@ func (s *DocumentService) Create(ctx context.Context, userId string, req *models
 	title := strings.TrimSpace(req.Title)
 	content := req.Content
 
+	var finalFolderId *string
+	if req.FolderID != nil && strings.TrimSpace(*req.FolderID) != "" {
+		targetId := strings.TrimSpace(*req.FolderID)
+		perm, err := s.folderAccess(ctx, targetId, userId)
+		if err != nil || perm != "Edit" {
+			return nil, errors.New("forbidden: no edit access to target folder")
+		}
+		finalFolderId = &targetId
+	} else {
+		defaultFolderId, err := s.getOrCreateDefaultFolder(ctx, userId)
+		if err != nil {
+			return nil, err
+		}
+		finalFolderId = &defaultFolderId
+	}
+
 	query := `
 		INSERT INTO "Documents" (
 			"Id", "Title", "Content", "OwnerId", "FolderId", "ShareCode",
 			"DefaultAccessLevel", "CreatedAt", "UpdatedAt"
-		) VALUES ($1, $2, $3, $4, NULL, NULL, 'View', $5, $6);
+		) VALUES ($1, $2, $3, $4, $5, NULL, 'View', $6, $7);
 	`
-	_, err := s.db.Pool.Exec(ctx, query, id, title, content, userId, now, now)
+	_, err := s.db.Pool.Exec(ctx, query, id, title, content, userId, finalFolderId, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -161,12 +177,37 @@ func (s *DocumentService) Create(ctx context.Context, userId string, req *models
 		Title:              title,
 		Content:            content,
 		OwnerID:            userId,
+		FolderID:           finalFolderId,
 		DefaultAccessLevel: "View",
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
 
 	return s.toDto(ctx, doc, userId)
+}
+
+func (s *DocumentService) getOrCreateDefaultFolder(ctx context.Context, userId string) (string, error) {
+	var folderId string
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT "Id" FROM "Folders" 
+		WHERE "OwnerId" = $1 AND "ParentFolderId" IS NULL 
+		ORDER BY "CreatedAt" ASC LIMIT 1;
+	`, userId).Scan(&folderId)
+	if err == nil && folderId != "" {
+		return folderId, nil
+	}
+
+	now := time.Now()
+	newId := uuid.New().String()
+	shareCode := generateRandomCode(10)
+	_, err = s.db.Pool.Exec(ctx, `
+		INSERT INTO "Folders" ("Id", "Name", "OwnerId", "ParentFolderId", "ShareCode", "DefaultAccessLevel", "CreatedAt", "UpdatedAt")
+		VALUES ($1, 'Main Project', $2, NULL, $3, 'View', $4, $5);
+	`, newId, userId, shareCode, now, now)
+	if err != nil {
+		return "", err
+	}
+	return newId, nil
 }
 
 func (s *DocumentService) Update(ctx context.Context, id, userId string, req *models.UpdateDocumentRequest) (*models.DocumentDto, error) {

@@ -42,6 +42,8 @@ class SandboxExecutionService:
             code=request.code,
             standard_input=request.standard_input,
             timeout_ms=timeout,
+            files=request.files,
+            entrypoint=request.entrypoint,
         )
 
         return await executor.execute(normalized_request)

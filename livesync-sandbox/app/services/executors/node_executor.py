@@ -50,11 +50,35 @@ class NodeExecutor(BaseExecutor):
             )
 
         temp_dir = tempfile.mkdtemp(prefix="livesync_js_")
-        file_path = os.path.join(temp_dir, "script.js")
+        entry_file_path = os.path.join(temp_dir, "script.js")
 
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(request.code)
+            if request.files:
+                for rel_path, content in request.files.items():
+                    clean_path = os.path.normpath(rel_path.lstrip("/\\"))
+                    target_file = os.path.join(temp_dir, clean_path)
+                    os.makedirs(os.path.dirname(target_file), exist_ok=True)
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        f.write(content)
+
+                if request.entrypoint and os.path.exists(os.path.join(temp_dir, request.entrypoint)):
+                    entry_file_path = os.path.join(temp_dir, request.entrypoint)
+                elif os.path.exists(os.path.join(temp_dir, "index.js")):
+                    entry_file_path = os.path.join(temp_dir, "index.js")
+                elif os.path.exists(os.path.join(temp_dir, "main.js")):
+                    entry_file_path = os.path.join(temp_dir, "main.js")
+                elif os.path.exists(os.path.join(temp_dir, "app.js")):
+                    entry_file_path = os.path.join(temp_dir, "app.js")
+                elif request.code:
+                    with open(entry_file_path, "w", encoding="utf-8") as f:
+                        f.write(request.code)
+                else:
+                    js_files = [os.path.join(temp_dir, p) for p in request.files.keys() if p.endswith(".js") or p.endswith(".mjs") or p.endswith(".ts")]
+                    if js_files:
+                        entry_file_path = js_files[0]
+            else:
+                with open(entry_file_path, "w", encoding="utf-8") as f:
+                    f.write(request.code)
 
             from app.utils.env_sanitizer import get_sanitized_env
             from app.utils.process_killer import kill_process_tree
@@ -66,10 +90,11 @@ class NodeExecutor(BaseExecutor):
                 "--max-old-space-size=256",
                 "--require",
                 preload_path,
-                file_path,
+                entry_file_path,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=temp_dir,
                 env=get_sanitized_env(),
             )
 
@@ -169,9 +194,6 @@ class NodeExecutor(BaseExecutor):
         finally:
             ACTIVE_EXECUTIONS_GAUGE.dec()
             try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                if os.path.exists(temp_dir):
-                    os.rmdir(temp_dir)
+                shutil.rmtree(temp_dir, ignore_errors=True)
             except Exception:
                 pass

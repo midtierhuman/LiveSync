@@ -25,12 +25,15 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
         code = request.code
         stdin = request.standard_input or None
         timeout_ms = request.timeout_ms if request.timeout_ms > 0 else 15000
+        files_map = dict(request.files) if request.files else {}
 
         exec_req = SandboxExecutionRequest(
             language=lang,
             code=code,
             standard_input=stdin,
-            timeout_ms=timeout_ms
+            timeout_ms=timeout_ms,
+            files=files_map,
+            entrypoint=request.entrypoint or None,
         )
 
         res = asyncio.run(executor_service.execute(exec_req))
@@ -62,16 +65,45 @@ class SandboxServiceServicer(sandbox_pb2_grpc.SandboxServiceServicer):
 
         lang = (first_req.language or "python").lower()
         code = first_req.code
+        files_map = dict(first_req.files) if first_req.files else {}
 
         temp_dir = tempfile.mkdtemp(prefix="livesync_pty_")
-        file_name = "script.py" if lang in ("python", "py") else "script.js"
-        file_path = os.path.join(temp_dir, file_name)
+        entry_file_path = os.path.join(temp_dir, "script.py" if lang in ("python", "py") else "script.js")
 
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(code)
+            if files_map:
+                for rel_path, content in files_map.items():
+                    clean_path = os.path.normpath(rel_path.lstrip("/\\"))
+                    target_file = os.path.join(temp_dir, clean_path)
+                    os.makedirs(os.path.dirname(target_file), exist_ok=True)
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        f.write(content)
 
-            exec_cmd = ["python", "-u", file_path] if lang in ("python", "py") else ["node", file_path]
+                if first_req.entrypoint and os.path.exists(os.path.join(temp_dir, first_req.entrypoint)):
+                    entry_file_path = os.path.join(temp_dir, first_req.entrypoint)
+                elif lang in ("python", "py"):
+                    if os.path.exists(os.path.join(temp_dir, "main.py")):
+                        entry_file_path = os.path.join(temp_dir, "main.py")
+                    elif os.path.exists(os.path.join(temp_dir, "app.py")):
+                        entry_file_path = os.path.join(temp_dir, "app.py")
+                    elif code:
+                        with open(entry_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+                else:
+                    if os.path.exists(os.path.join(temp_dir, "index.js")):
+                        entry_file_path = os.path.join(temp_dir, "index.js")
+                    elif os.path.exists(os.path.join(temp_dir, "main.js")):
+                        entry_file_path = os.path.join(temp_dir, "main.js")
+                    elif os.path.exists(os.path.join(temp_dir, "app.js")):
+                        entry_file_path = os.path.join(temp_dir, "app.js")
+                    elif code:
+                        with open(entry_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+            else:
+                with open(entry_file_path, "w", encoding="utf-8") as f:
+                    f.write(code)
+
+            exec_cmd = ["python", "-u", entry_file_path] if lang in ("python", "py") else ["node", entry_file_path]
             env = get_sanitized_env()
             env["PYTHONUNBUFFERED"] = "1"
 

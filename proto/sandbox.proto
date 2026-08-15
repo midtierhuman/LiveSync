@@ -20,6 +20,8 @@ message ExecutionRequest {
   string standard_input = 3;
   int32 timeout_ms = 4;
   string action = 5; // "start", "stdin", "kill"
+  map<string, string> files = 6;
+  string entrypoint = 7;
 }
 
 message ExecutionResponse {

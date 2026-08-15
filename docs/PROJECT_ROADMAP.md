@@ -51,7 +51,7 @@ Status: All Milestones Completed ✅ 🎉
 
 ---
 
-### **Milestone 6: Multi-File Project IDE & Unified Share/Action Modal Architecture** (IN PROGRESS 🚀)
+### **Milestone 6: Multi-File Project IDE & Unified Share/Action Modal Architecture** (COMPLETED ✅ 🎉)
 - [x] **Phase 1: Unified Reusable Modal Design System (`livesync-ui`)**
   - [x] Created `ShareModalComponent`: Universal sharing modal supporting both Documents and Folders/Projects with share code generation, default access levels (`View`/`Edit`), collaborator listing, permission toggles, and access revocation.
   - [x] Created `ConfirmDeleteModalComponent`: Universal confirmation dialog with context-aware warning text for Documents, Folders, and Projects.
@@ -62,10 +62,25 @@ Status: All Milestones Completed ✅ 🎉
   - [x] Added `DELETE /api/folders/{id}/shared/{userId}` endpoint to revoke folder collaborator shares.
   - [x] Added `PUT /api/folders/{id}/shared/{userId}/access-level` endpoint to update specific collaborator permissions.
   - [x] Populated `SharedWith` collaborator arrays in `FolderDto` for complete feature parity with `DocumentDto`.
-- [ ] **Phase 3: Project-First Workspace & Multi-File Tree Explorer**
-  - [ ] Enforce "Every file belongs to a folder/project" workspace containment rule.
-  - [ ] Build Angular Project Explorer Tree with multi-tab file switching.
-  - [ ] Implement multi-file project snapshot mounting & execution in `livesync-sandbox` / `livesync-gateway`.
+- [x] **Phase 3: Project-First Workspace & Multi-File Tree Explorer**
+  - [x] Enforced "Every file belongs to a folder/project" workspace containment rule across database migrations, Go API creation handlers, and Angular UI modals.
+  - [x] Built Angular Project Explorer Tree with multi-tab file switching, integrated prompt modal creation, and tree management.
+  - [x] Implemented multi-file project snapshot mounting & execution across `proto/sandbox.proto`, `livesync-sandbox` Python/Node runners, `livesync-gateway` gRPC proxy, and `livesync-ui` live streaming runner.
+
+---
+
+### **Milestone 7: Project Hub & Multi-Root Workspace Navigation Architecture** (IN PROGRESS 🚀)
+- [x] **Phase 1: Dedicated Project Browser Hub (`/dashboard`)**
+  - [x] Clean, dedicated landing page showing Project Workspaces only without side solution explorer.
+  - [x] Interactive Project Cards displaying project name, file/subfolder counts, collaborator pills, click-to-copy share badges, and "Open in IDE" action.
+  - [x] Project Hub quick actions: "+ New Project Workspace", "+ New File" (with folder selector), and "🔗 Join via Share Code".
+- [x] **Phase 2: IDE Workspace Routing & Realtime Scope Switcher (`/workspace/:projectName`)**
+  - [x] Dedicated IDE route (`/workspace/:projectName?id=...`) with VS Code sidebar solution explorer and multi-tab editor canvas.
+  - [x] Real-time Project Scope Switcher in sidebar top dropdown: seamlessly switch active project inside the IDE without going back to dashboard.
+  - [x] Dynamic Route & URL synchronization on scope change (`router.navigate(['/workspace', newProjectName])`).
+  - [x] Back to Projects Hub button (`← Projects`) in the IDE top bar.
+- [ ] **Phase 3: Multi-Terminal Concurrent Process Sessions**
+  - [ ] Multi-tab terminal manager in `EditorComponent` allowing concurrent independent processes (e.g. Terminal 1: Backend, Terminal 2: Frontend).
 
 ---
 
@@ -73,12 +88,15 @@ Status: All Milestones Completed ✅ 🎉
 
 | Service | Files Touched | Purpose |
 |---------|---------------|---------|
-| **Documentation** | [PROJECT_ROADMAP.md](file:///D:/Projects/LiveSync/docs/PROJECT_ROADMAP.md) | Roadmap tracking & state isolation |
-| **livesync-ui** | `src/app/shared/components/` | Reusable modal dialog components (Share, Delete, Rename, Move) |
-| **livesync-api** | `handlers/folder_handler.go`, `services/folder_service.go`, `models/dtos.go` | Full folder sharing permission & collaborator parity |
-| **livesync-sandbox** | `app/services/` | Multi-file workspace snapshot execution |
+| **Documentation** | [PROJECT_ROADMAP.md](file:///D:/Projects/LiveSync/docs/PROJECT_ROADMAP.md), [GO_API_SERVICE.md](file:///D:/Projects/LiveSync/docs/GO_API_SERVICE.md), [GO_GATEWAY_SERVICE.md](file:///D:/Projects/LiveSync/docs/GO_GATEWAY_SERVICE.md), [SANDBOX_EXECUTION_SERVICE.md](file:///D:/Projects/LiveSync/docs/SANDBOX_EXECUTION_SERVICE.md) | Roadmap & service docs synchronization |
+| **proto** | `proto/sandbox.proto` | Added `map<string, string> files` & `entrypoint` to `ExecutionRequest` |
+| **livesync-ui** | `src/app/shared/components/`, `src/app/features/dashboard/`, `src/app/features/editor/`, `src/app/services/` | Reusable modals, prompt modal integration, project file containment, multi-file snapshot runner, project browser hub |
+| **livesync-api** | `handlers/folder_handler.go`, `services/folder_service.go`, `services/document_service.go`, `database/migrations.go`, `models/dtos.go` | Full folder containment, backfill migrations, sharing parity |
+| **livesync-gateway** | `handlers/execution.go`, `handlers/terminal.go`, `pb/` | Multi-file snapshot gRPC execution & streaming forwarding |
+| **livesync-sandbox** | `app/services/executors/`, `app/grpc_server.py`, `app/models/execution.py`, `tests/` | Multi-file workspace snapshot execution for Python & Node.js |
 
 ---
 
 ## 🎉 Status Summary
-Milestones 1–5 completed. Milestone 6 actively in development.
+Milestones 1–6 completed. Milestone 7 actively in development.
+

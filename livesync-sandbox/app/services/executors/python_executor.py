@@ -36,11 +36,35 @@ class PythonExecutor(BaseExecutor):
         complexity = complexity_analyzer.analyze("python", request.code)
 
         temp_dir = tempfile.mkdtemp(prefix="livesync_py_")
-        file_path = os.path.join(temp_dir, "script.py")
+        entry_file_path = os.path.join(temp_dir, "script.py")
 
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(request.code)
+            # Mount multi-file project files if provided
+            if request.files:
+                for rel_path, content in request.files.items():
+                    clean_path = os.path.normpath(rel_path.lstrip("/\\"))
+                    target_file = os.path.join(temp_dir, clean_path)
+                    os.makedirs(os.path.dirname(target_file), exist_ok=True)
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        f.write(content)
+
+                # Determine entrypoint
+                if request.entrypoint and os.path.exists(os.path.join(temp_dir, request.entrypoint)):
+                    entry_file_path = os.path.join(temp_dir, request.entrypoint)
+                elif os.path.exists(os.path.join(temp_dir, "main.py")):
+                    entry_file_path = os.path.join(temp_dir, "main.py")
+                elif os.path.exists(os.path.join(temp_dir, "app.py")):
+                    entry_file_path = os.path.join(temp_dir, "app.py")
+                elif request.code:
+                    with open(entry_file_path, "w", encoding="utf-8") as f:
+                        f.write(request.code)
+                else:
+                    py_files = [os.path.join(temp_dir, p) for p in request.files.keys() if p.endswith(".py")]
+                    if py_files:
+                        entry_file_path = py_files[0]
+            else:
+                with open(entry_file_path, "w", encoding="utf-8") as f:
+                    f.write(request.code)
 
             python_executable = sys.executable
             if "WindowsApps" in python_executable or not os.path.exists(python_executable):
@@ -48,15 +72,15 @@ class PythonExecutor(BaseExecutor):
                 if real_py:
                     python_executable = real_py
 
-
             from app.utils.env_sanitizer import get_sanitized_env
 
             process = await asyncio.create_subprocess_exec(
                 python_executable,
-                file_path,
+                entry_file_path,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=temp_dir,
                 env=get_sanitized_env(),
             )
 
@@ -168,9 +192,6 @@ class PythonExecutor(BaseExecutor):
         finally:
             ACTIVE_EXECUTIONS_GAUGE.dec()
             try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                if os.path.exists(temp_dir):
-                    os.rmdir(temp_dir)
+                shutil.rmtree(temp_dir, ignore_errors=True)
             except Exception:
                 pass

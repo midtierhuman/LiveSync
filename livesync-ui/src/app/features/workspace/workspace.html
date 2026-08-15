@@ -1,0 +1,488 @@
+<div class="workspace-container">
+  <!-- Top IDE Header Bar -->
+  <header class="workspace-header shrink-0">
+    <div class="header-left">
+      <button class="btn-back-hub" (click)="goToDashboard()" matTooltip="Back to Projects Hub">
+        <mat-icon>arrow_back</mat-icon>
+        <span class="btn-text">Projects</span>
+      </button>
+
+      <div class="brand-divider"></div>
+
+      <div class="project-pill" [class.active-scope]="scopedProject() !== null">
+        <mat-icon class="project-icon">{{ scopedProject() ? 'inventory_2' : 'workspaces' }}</mat-icon>
+        <span class="project-name">{{ scopedProject()?.name || 'All Workspace Projects' }}</span>
+      </div>
+
+      @if (getActiveTabTitle()) {
+        <div class="breadcrumb-item">
+          <mat-icon class="breadcrumb-chevron">chevron_right</mat-icon>
+          <span class="active-file-title">{{ getActiveTabTitle() }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="header-right">
+      @if (scopedProject(); as sp) {
+        <button class="btn-share-project" (click)="openShareFolderModal(sp)" matTooltip="Share Project Workspace">
+          <mat-icon>share</mat-icon>
+          <span>Share</span>
+        </button>
+      }
+
+      <div class="user-pill">
+        <mat-icon>person</mat-icon>
+        <span class="user-name">{{ authService.user()?.userName }}</span>
+      </div>
+
+      <button mat-icon-button [matMenuTriggerFor]="menu" class="avatar-btn">
+        <mat-icon>account_circle</mat-icon>
+      </button>
+
+      <mat-menu #menu="matMenu" class="user-menu">
+        <button mat-menu-item (click)="goToDashboard()">
+          <mat-icon>dashboard</mat-icon>
+          <span>Projects Dashboard</span>
+        </button>
+        <button mat-menu-item disabled>
+          <mat-icon>email</mat-icon>
+          <span>{{ authService.user()?.email }}</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Sign Out</span>
+        </button>
+      </mat-menu>
+    </div>
+  </header>
+
+  <!-- IDE Body: Sidebar Dock (Left) + Editor Canvas (Right) -->
+  <div class="workspace-body">
+
+    <!-- Fixed-Width VS Code Sidebar Dock -->
+    <aside class="sidebar-dock" [style.width.px]="explorerWidth()">
+      @if (isLoading()) {
+        <div class="sidebar-loading">
+          <span class="spinner">⚡</span> Loading workspace...
+        </div>
+      } @else {
+        <section class="vs-explorer">
+          <!-- Explorer Header Bar -->
+          <div class="explorer-header">
+            <span class="explorer-label">EXPLORER</span>
+            <div class="explorer-actions">
+              <button (click)="openCreateInFolder(currentFolderId(), 'file')" matTooltip="New File">
+                <mat-icon>note_add</mat-icon>
+              </button>
+              <button (click)="openCreateFolderModal()" matTooltip="New Folder">
+                <mat-icon>create_new_folder</mat-icon>
+              </button>
+              <button (click)="expandAllFolders()" matTooltip="Expand All">
+                <mat-icon>unfold_more</mat-icon>
+              </button>
+              <button (click)="collapseAllFolders()" matTooltip="Collapse All">
+                <mat-icon>unfold_less</mat-icon>
+              </button>
+              <button (click)="loadWorkspace()" matTooltip="Refresh">
+                <mat-icon>refresh</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Real-Time Project Scope Switcher -->
+          <div class="workspace-scope-bar">
+            <div class="scope-info" [class.focused]="scopedProject() !== null">
+              <mat-icon class="scope-icon">{{ scopedProject() ? 'inventory_2' : 'workspaces' }}</mat-icon>
+              <div class="scope-dropdown-container">
+                <select
+                  class="scope-select"
+                  [ngModel]="scopedProject()?.id || 'all'"
+                  (ngModelChange)="onScopeChange($event)"
+                >
+                  <option value="all">🌐 All Projects (Multi-Root)</option>
+                  <optgroup label="My Projects">
+                    @for (f of myFolders(); track f.id) {
+                      <option [value]="f.id">📦 {{ f.name }}</option>
+                    }
+                  </optgroup>
+                  @if (sharedFolderTree().length > 0) {
+                    <optgroup label="Shared Projects">
+                      @for (sf of sharedFolderTree(); track sf.id) {
+                        <option [value]="sf.id">👥 {{ sf.name }}</option>
+                      }
+                    </optgroup>
+                  }
+                </select>
+              </div>
+              @if (scopedProject()) {
+                <button
+                  class="btn-reset-scope"
+                  (click)="onScopeChange('all')"
+                  matTooltip="Show All Projects"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Sidebar Search Strip -->
+          <div class="explorer-search">
+            <mat-icon>search</mat-icon>
+            <input
+              type="text"
+              placeholder="Search files & folders..."
+              [value]="searchQuery()"
+              (input)="searchQuery.set($any($event.target).value)"
+            />
+          </div>
+
+          <!-- Workspace Section Header -->
+          <div class="section-header"
+            (dragover)="onDragOver($event, null)"
+            (dragenter)="onDragEnter($event, null)"
+            (dragleave)="onDragLeave($event, null)"
+            (drop)="onDrop($event, null)"
+            [class.drag-over]="dragOverFolderId() === 'root'"
+          >
+            <mat-icon class="section-chevron">expand_more</mat-icon>
+            <span class="section-label">{{ scopedProject() ? ('PROJECT: ' + scopedProject()?.name) : 'WORKSPACE (ALL PROJECTS)' }}</span>
+            <span class="section-badge">{{ getExplorerRootCount() }}</span>
+          </div>
+
+          <!-- Scrollable Tree Body -->
+          <div class="explorer-tree">
+
+            <!-- Recursive Folder Tree Template -->
+            <ng-template #folderTreeNode let-folder="folder" let-depth="depth">
+              <div class="tree-row folder-row" [class.structural]="folder.isStructural" [class.shared-row]="!isManageableExplorerFolder(folder)"
+                [style.paddingLeft.px]="depth * 12 + 8"
+                [class.expanded]="isFolderExpanded(folder.id)"
+                [class.drag-over]="dragOverFolderId() === folder.id"
+                [draggable]="isManageableExplorerFolder(folder)"
+                (dragstart)="isManageableExplorerFolder(folder) && onDragStart($event, 'folder', folder.id)"
+                (dragend)="onDragEnd()"
+                (dragover)="isManageableExplorerFolder(folder) && onDragOver($event, folder.id)"
+                (dragenter)="isManageableExplorerFolder(folder) && onDragEnter($event, folder.id)"
+                (dragleave)="isManageableExplorerFolder(folder) && onDragLeave($event, folder.id)"
+                (drop)="isManageableExplorerFolder(folder) && onDrop($event, folder.id)"
+                (click)="toggleFolderExpand(folder, $event)"
+                (contextmenu)="isManageableExplorerFolder(folder) && onContextMenu($event, 'folder', folder)"
+              >
+                <mat-icon class="row-chevron">{{ isFolderExpanded(folder.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                <mat-icon class="row-icon folder-color">{{ isFolderExpanded(folder.id) ? 'folder_open' : 'folder' }}</mat-icon>
+                <span class="row-label">{{ folder.name }}</span>
+                <span class="row-badges">
+                  @if (folder.isShared || folder.isStructural) {
+                    <mat-icon class="shared-badge-icon" matTooltip="Shared with you">group</mat-icon>
+                  }
+                  @if ((getSubfoldersOf(folder.id).length + getDocsOf(folder.id).length) || folder.documentsCount) {
+                    <span class="row-badge">{{ (getSubfoldersOf(folder.id).length + getDocsOf(folder.id).length) || folder.documentsCount }}</span>
+                  }
+                </span>
+                <div class="row-actions" (click)="$event.stopPropagation()">
+                  <button (click)="openCreateInFolder(folder.id, 'file', $event)" matTooltip="New File">
+                    <mat-icon>note_add</mat-icon>
+                  </button>
+                  <button (click)="openCreateInFolder(folder.id, 'folder', $event)" matTooltip="New Subfolder">
+                    <mat-icon>create_new_folder</mat-icon>
+                  </button>
+                  <button (click)="openShareFolderModal(folder, $event)" matTooltip="Share">
+                    <mat-icon>share</mat-icon>
+                  </button>
+                  <button (click)="deleteFolder(folder.id, $event)" matTooltip="Delete">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Expanded children -->
+              @if (isFolderExpanded(folder.id)) {
+                <!-- Child Subfolders -->
+                @for (subfolder of getSubfoldersOf(folder.id); track subfolder.id) {
+                  <ng-container *ngTemplateOutlet="folderTreeNode; context: { folder: subfolder, depth: depth + 1 }"></ng-container>
+                }
+                <!-- Child Files -->
+                @for (doc of (folderChildDocs()[folder.id] || getDocsOf(folder.id)); track doc.id) {
+                  <div class="tree-row file-row" [class.shared-row]="isSharedExplorerDocument(doc)"
+                    [style.paddingLeft.px]="(depth + 1) * 12 + 20"
+                    [draggable]="!isSharedExplorerDocument(doc)"
+                    (dragstart)="!isSharedExplorerDocument(doc) && onDragStart($event, 'file', doc.id)"
+                    (dragend)="onDragEnd()"
+                    (click)="openDocument(doc.id)"
+                    (contextmenu)="!isSharedExplorerDocument(doc) && onContextMenu($event, 'file', doc)"
+                  >
+                    <mat-icon class="row-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
+                    <span class="row-label">{{ doc.title }}</span>
+                    <span class="row-badges">
+                      @if (isSharedExplorerDocument(doc)) {
+                        @if (doc.permission === 'Edit') {
+                          <mat-icon class="permission-badge-icon edit-permission" matTooltip="Can Edit">edit</mat-icon>
+                        } @else {
+                          <mat-icon class="permission-badge-icon view-permission" matTooltip="Read Only">lock</mat-icon>
+                        }
+                      }
+                    </span>
+                    <div class="row-actions" (click)="$event.stopPropagation()">
+                      <button (click)="openMoveModal(doc, $event)" matTooltip="Move">
+                        <mat-icon>drive_file_move</mat-icon>
+                      </button>
+                      <button (click)="openShareModal(doc, $event)" matTooltip="Share">
+                        <mat-icon>share</mat-icon>
+                      </button>
+                      <button (click)="confirmDelete(doc.id, $event)" matTooltip="Delete">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                }
+              }
+            </ng-template>
+
+            <!-- Render Root Folders (Scoped or Multi-Root) -->
+            @for (folder of getExplorerRootFolders(); track folder.id) {
+              <ng-container *ngTemplateOutlet="folderTreeNode; context: { folder: folder, depth: 0 }"></ng-container>
+            }
+
+            <!-- Render Root Documents (if in multi-root mode) -->
+            @if (!scopedProject()) {
+              @for (doc of getExplorerRootDocs(); track doc.id) {
+                <div class="tree-row file-row" [class.shared-row]="isSharedExplorerDocument(doc)"
+                  [style.paddingLeft.px]="8"
+                  [draggable]="!isSharedExplorerDocument(doc)"
+                  (dragstart)="!isSharedExplorerDocument(doc) && onDragStart($event, 'file', doc.id)"
+                  (dragend)="onDragEnd()"
+                  (click)="openDocument(doc.id)"
+                  (contextmenu)="!isSharedExplorerDocument(doc) && onContextMenu($event, 'file', doc)"
+                >
+                  <mat-icon class="row-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
+                  <span class="row-label">{{ doc.title }}</span>
+                  <span class="row-badges">
+                    @if (isSharedExplorerDocument(doc)) {
+                      @if (doc.permission === 'Edit') {
+                        <mat-icon class="permission-badge-icon edit-permission" matTooltip="Can Edit">edit</mat-icon>
+                      } @else {
+                        <mat-icon class="permission-badge-icon view-permission" matTooltip="Read Only">lock</mat-icon>
+                      }
+                    }
+                  </span>
+                  <div class="row-actions" (click)="$event.stopPropagation()">
+                    <button (click)="openMoveModal(doc, $event)" matTooltip="Move">
+                      <mat-icon>drive_file_move</mat-icon>
+                    </button>
+                    <button (click)="openShareModal(doc, $event)" matTooltip="Share">
+                      <mat-icon>share</mat-icon>
+                    </button>
+                    <button (click)="confirmDelete(doc.id, $event)" matTooltip="Delete">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+            }
+
+            @if (getExplorerRootCount() === 0) {
+              <div class="empty-explorer">
+                <p>No project files found.</p>
+                <button class="btn-create-hint" (click)="openCreateFolderModal()">Create Project</button>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Explorer Horizontal Resizer Handle -->
+      <div
+        class="explorer-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize file explorer panel"
+        tabindex="0"
+        [attr.aria-valuenow]="explorerWidth()"
+        (mousedown)="startExplorerResize($event)"
+        (touchstart)="startExplorerTouchResize($event)"
+        (keydown)="onExplorerResizeKeydown($event)"
+      ></div>
+    </aside>
+
+    <!-- Main Workspace Center Area (Right): Tabbed Editor Canvas -->
+    <main class="workspace-content editor-workspace">
+      <!-- Editor Tabs Bar -->
+      <div class="editor-tabs-bar">
+        @for (tab of openTabs(); track tab.id) {
+          <div
+            class="editor-tab"
+            [class.active]="activeTabId() === tab.id"
+            (click)="switchTab(tab.id)"
+          >
+            <mat-icon class="tab-file-icon" [class]="getLanguageBadge(tab.title).class">{{ getLanguageBadge(tab.title).icon }}</mat-icon>
+            <span class="tab-title">{{ tab.title }}</span>
+            <button class="tab-close" (click)="closeTab(tab.id, $event)" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Editor Canvas -->
+      <div class="editor-canvas">
+        @for (tab of openTabs(); track tab.id) {
+          <div class="editor-instance" [hidden]="activeTabId() !== tab.id">
+            <app-editor [documentId]="tab.id" [isModal]="true" [isActive]="activeTabId() === tab.id"></app-editor>
+          </div>
+        }
+
+        @if (!openTabs().length) {
+          <div class="editor-empty-state">
+            <mat-icon class="watermark-logo">terminal</mat-icon>
+            <div class="empty-message-group">
+              <h2>{{ scopedProject()?.name || 'Project Workspace' }}</h2>
+              <p>Select a file from the explorer on the left or create a new file to start coding.</p>
+              <button class="btn-new-file-hero" (click)="openCreateInFolder(scopedProject()?.id || null, 'file')">
+                <mat-icon>note_add</mat-icon> Create New File
+              </button>
+            </div>
+            <div class="empty-shortcuts">
+              <div class="shortcut-row">
+                <span class="keys"><kbd>Ctrl</kbd> + <kbd>N</kbd></span>
+                <span class="shortcut-label">New File</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="keys"><kbd>Ctrl</kbd> + <kbd>O</kbd></span>
+                <span class="shortcut-label">Open File</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></span>
+                <span class="shortcut-label">Search</span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </main>
+  </div>
+
+  <!-- Create Folder Modal -->
+  @if (showCreateFolderModal()) {
+    <div class="modal-overlay" (click)="showCreateFolderModal.set(false)">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h2>Create New Folder</h2>
+        <div class="form-group">
+          <label for="folderName">Folder Name:</label>
+          <input
+            id="folderName"
+            type="text"
+            [ngModel]="newFolderName()"
+            (ngModelChange)="newFolderName.set($event)"
+            placeholder="e.g. src, models, components, utils..."
+            (keyup.enter)="createFolder()"
+            class="doc-input"
+          />
+        </div>
+        <div class="modal-actions">
+          <button (click)="showCreateFolderModal.set(false)" class="btn-cancel">Cancel</button>
+          <button (click)="createFolder()" class="btn-create">Create</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Reusable Share Folder Modal -->
+  <app-share-modal
+    [isOpen]="showShareFolderModal()"
+    itemType="folder"
+    [itemTitle]="selectedFolderForShare()?.name || ''"
+    [shareCode]="folderShareCode()"
+    [defaultAccessLevel]="selectedFolderForShare()?.defaultAccessLevel || 'View'"
+    [sharedWith]="selectedFolderForShare()?.sharedWith || []"
+    (close)="showShareFolderModal.set(false)"
+    (copyCode)="copyFolderShareCode()"
+    (regenerateCode)="regenerateFolderShareCode()"
+    (updateDefaultAccess)="updateFolderDefaultAccessLevel($event)"
+    (updateUserAccess)="updateFolderSharedAccessLevel($event.userId, $event.accessLevel)"
+    (removeUser)="removeFolderSharedAccess($event)"
+  />
+
+  <!-- Reusable Move Modal -->
+  <app-move-modal
+    [isOpen]="showMoveModal()"
+    itemType="document"
+    [itemName]="selectedDocForMove()?.title || ''"
+    [availableFolders]="myFolders()"
+    (selectFolder)="moveDocumentToFolder($event)"
+    (cancel)="showMoveModal.set(false)"
+  />
+
+  <!-- Reusable Share Document Modal -->
+  <app-share-modal
+    [isOpen]="showShareModal()"
+    itemType="document"
+    [itemTitle]="selectedDocForShare()?.title || ''"
+    [shareCode]="shareCode()"
+    [defaultAccessLevel]="defaultAccessLevel()"
+    [sharedWith]="selectedDocForShare()?.sharedWith || []"
+    (close)="closeShareModal()"
+    (copyCode)="copyShareCode()"
+    (regenerateCode)="regenerateShareCode()"
+    (updateDefaultAccess)="updateDocumentDefaultAccessLevel($event)"
+    (updateUserAccess)="updateDocumentSharedAccessLevel(selectedDocForShare()!.id, $event.userId, $event.accessLevel)"
+    (removeUser)="removeDocumentSharedAccess(selectedDocForShare()!.id, $event)"
+  />
+
+  <!-- Reusable Delete Confirmation Modal -->
+  <app-confirm-delete-modal
+    [isOpen]="showDeleteConfirm()"
+    itemType="document"
+    [itemName]="getDeleteDocTitle()"
+    warningText="This action cannot be undone and will remove the document for all collaborators."
+    (confirm)="deleteDocument()"
+    (cancel)="showDeleteConfirm.set(false)"
+  />
+
+  <!-- Reusable File Creation Modal with Destination Selector -->
+  <app-create-file-modal
+    [isOpen]="showCreateFilePrompt()"
+    [availableFolders]="availableFolderOptions()"
+    [initialFolderId]="targetFolderForNewFile() || scopedProject()?.id || currentFolderId()"
+    (submit)="handleCreateFileSubmit($event)"
+    (cancel)="showCreateFilePrompt.set(false)"
+  />
+
+  <!-- Custom Right-Click Context Menu -->
+  @if (contextMenu(); as ctx) {
+    <div
+      class="context-menu-backdrop"
+      (click)="closeContextMenu()"
+      (contextmenu)="$event.preventDefault(); closeContextMenu()"
+    ></div>
+    <div
+      class="custom-context-menu"
+      [style.left.px]="ctx.x"
+      [style.top.px]="ctx.y"
+      (click)="$event.stopPropagation()"
+    >
+      @if (ctx.type === 'folder') {
+        <button class="ctx-item" (click)="onContextMenuAction('newFile')">
+          <mat-icon>note_add</mat-icon> New File...
+        </button>
+        <button class="ctx-item" (click)="onContextMenuAction('newFolder')">
+          <mat-icon>create_new_folder</mat-icon> New Subfolder...
+        </button>
+        <div class="ctx-divider"></div>
+      }
+      <button class="ctx-item" (click)="onContextMenuAction('share')">
+        <mat-icon>share</mat-icon> Share {{ ctx.type === 'folder' ? 'Folder' : 'Document' }}
+      </button>
+      @if (ctx.type === 'file') {
+        <button class="ctx-item" (click)="onContextMenuAction('move')">
+          <mat-icon>drive_file_move</mat-icon> Move Document...
+        </button>
+      }
+      <div class="ctx-divider"></div>
+      <button class="ctx-item danger" (click)="onContextMenuAction('delete')">
+        <mat-icon>delete_forever</mat-icon> Delete {{ ctx.type === 'folder' ? 'Folder' : 'Document' }}
+      </button>
+    </div>
+  }
+</div>

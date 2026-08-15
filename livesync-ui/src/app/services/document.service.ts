@@ -9,6 +9,7 @@ export interface DocumentDto {
   content: string;
   ownerId: string;
   folderId?: string;
+  folderPath?: FolderPathNode[];
   ownerName?: string;
   shareCode?: string;
   defaultAccessLevel: string;
@@ -40,6 +41,7 @@ export interface SharedDocumentDto {
 export interface CreateDocumentRequest {
   title: string;
   content?: string;
+  folderId?: string;
 }
 
 export interface UpdateDocumentRequest {
@@ -60,7 +62,9 @@ export interface DocumentAccessResponse {
 export interface ExecuteDocumentRequest {
   language: string;
   standardInput?: string;
-  code: string;
+  code?: string;
+  files?: Record<string, string>;
+  entrypoint?: string;
 }
 
 export interface DocumentExecutionResponse {
@@ -212,8 +216,10 @@ export class DocumentService {
       const response = await firstValueFrom(
         this.http.post<DocumentExecutionResponse>(`${this.sandboxUrl}/api/execution/run`, {
           language: request.language,
-          code: request.code,
+          code: request.code || '',
           standardInput: request.standardInput,
+          files: request.files,
+          entrypoint: request.entrypoint,
         }),
       );
       return { ...response, documentId: id };
