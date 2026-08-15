@@ -1636,6 +1636,13 @@ export class Editor implements OnInit {
     void this.runAiAnalysis(this.aiAction());
   }
 
+  handleChatKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void this.sendCustomAiPrompt();
+    }
+  }
+
   async sendCustomAiPrompt(): Promise<void> {
     const customPrompt = this.userCustomPrompt().trim();
     if (!customPrompt || this.isAiLoading()) return;

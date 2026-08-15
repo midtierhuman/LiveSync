@@ -256,14 +256,14 @@
           @if (chatMessages().length === 0 && !isAiLoading() && !aiError()) {
             <div class="ai-empty-state">
               <mat-icon class="ai-empty-icon">smart_toy</mat-icon>
-              <h4>Local AI Pair Programmer</h4>
-              <p>Type any coding question below or click a predefined quick prompt:</p>
+              <h4>AI Pair Programmer</h4>
+              <p>Ask anything about this document, request refactorings, or select a starter prompt below:</p>
               <div class="quick-prompt-grid">
-                <button (click)="runAiAnalysis('explain')">💡 Explain Code</button>
-                <button (click)="runAiAnalysis('refactor')">⚡ Refactor & Modernize</button>
-                <button (click)="runAiAnalysis('generate-tests')">🛠️ Generate Unit Tests</button>
-                <button (click)="runAiAnalysis('complexity')">⏱️ Big-O Complexity</button>
-                <button (click)="runAiAnalysis('suggest')">✨ Autocomplete Snippet</button>
+                <button (click)="runAiAnalysis('explain')">💡 Explain this code</button>
+                <button (click)="runAiAnalysis('refactor')">⚡ Refactor & modernize</button>
+                <button (click)="runAiAnalysis('generate-tests')">🛠️ Generate unit tests</button>
+                <button (click)="runAiAnalysis('complexity')">⏱️ Big-O complexity analysis</button>
+                <button (click)="runAiAnalysis('suggest')">✨ Autocomplete snippet</button>
               </div>
             </div>
           }
@@ -274,7 +274,7 @@
                 <div class="message-header">
                   <span class="sender-name">
                     @if (msg.sender === 'user') {
-                      👤 User
+                      👤 You
                     } @else {
                       🤖 AI Assistant
                     }
@@ -339,7 +339,7 @@
 
             @if (isAiLoading()) {
               <div class="ai-loading">
-                <span class="spinner-icon">⚡</span> Local AI is analyzing code & generating response...
+                <span class="spinner-icon">⚡</span> AI is analyzing code & formulating response...
               </div>
             }
 
@@ -352,26 +352,29 @@
           </div>
         </div>
 
-        <div class="quick-chip-bar">
-          <button (click)="runAiAnalysis('explain')" [disabled]="isAiLoading()">💡 Explain</button>
-          <button (click)="runAiAnalysis('refactor')" [disabled]="isAiLoading()">⚡ Refactor</button>
-          <button (click)="runAiAnalysis('generate-tests')" [disabled]="isAiLoading()">🛠️ Tests</button>
-          <button (click)="runAiAnalysis('complexity')" [disabled]="isAiLoading()">⏱️ Big-O</button>
-          <button (click)="runAiAnalysis('suggest')" [disabled]="isAiLoading()">✨ Suggest</button>
-        </div>
-
         <div class="ai-chat-input-bar">
-          <input
-            type="text"
-            placeholder="Ask AI question or custom instruction..."
-            [value]="userCustomPrompt()"
-            (input)="userCustomPrompt.set($any($event.target).value)"
-            (keyup.enter)="sendCustomAiPrompt()"
-            [disabled]="isAiLoading()"
-          />
-          <button mat-icon-button color="primary" (click)="sendCustomAiPrompt()" [disabled]="!userCustomPrompt().trim() || isAiLoading()">
-            <mat-icon>send</mat-icon>
-          </button>
+          <div class="chat-input-container">
+            <textarea
+              class="chat-textarea"
+              rows="1"
+              placeholder="Ask anything about your code... (Enter to send)"
+              [value]="userCustomPrompt()"
+              (input)="userCustomPrompt.set($any($event.target).value)"
+              (keydown)="handleChatKeyDown($event)"
+              [disabled]="isAiLoading()"
+            ></textarea>
+            <button
+              mat-icon-button
+              class="chat-send-btn"
+              color="primary"
+              (click)="sendCustomAiPrompt()"
+              [disabled]="!userCustomPrompt().trim() || isAiLoading()"
+              matTooltip="Send message (Enter)"
+            >
+              <mat-icon>arrow_upward</mat-icon>
+            </button>
+          </div>
+          <div class="chat-hint"><strong>Enter</strong> to send &bull; <strong>Shift+Enter</strong> for new line</div>
         </div>
       </aside>
     }
