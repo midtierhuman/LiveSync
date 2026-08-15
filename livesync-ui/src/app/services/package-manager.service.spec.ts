@@ -25,6 +25,8 @@ describe('PackageManagerService', () => {
 
     service = TestBed.inject(PackageManagerService);
     httpMock = TestBed.inject(HttpTestingController);
+    const initReq = httpMock.match((r) => r.url.includes('/api/packages'));
+    initReq.forEach((req) => req.flush({ packages: [] }));
   });
 
   afterEach(() => {
@@ -60,19 +62,7 @@ describe('PackageManagerService', () => {
   });
 
   it('fetchLanguageSupport returns response from sandbox API', async () => {
-    const promise = service.fetchLanguageSupport('python');
-
-    const req = httpMock.expectOne((r) => r.url.includes('/api/packages/support'));
-    expect(req.request.method).toBe('GET');
-    req.flush({
-      requested_language: 'python',
-      supported: true,
-      package_language: 'python',
-      package_display_name: 'Python / pip',
-      message: 'Python / pip',
-    });
-
-    const res = await promise;
+    const res = await service.fetchLanguageSupport('python');
     expect(res.supported).toBeTrue();
     expect(service.packageLanguageSupport()?.package_language).toBe('python');
   });
@@ -97,8 +87,8 @@ describe('PackageManagerService', () => {
     // Allow microtasks to run so fetchInstalledPackages emits HTTP request
     await Promise.resolve();
 
-    const listReq = httpMock.expectOne((r) => r.url.includes('/api/packages/list'));
-    listReq.flush({ language: 'python', packages: [{ name: 'requests', version: '2.31.0' }] });
+    const listReq = httpMock.expectOne((r) => r.url.includes('/api/packages/?language=python'));
+    listReq.flush({ packages: [{ name: 'requests', version: '2.31.0' }] });
 
     const res = await promise;
     expect(res.success).toBeTrue();

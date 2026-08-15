@@ -433,6 +433,15 @@
         <section class="vs-sidebar-panel vs-packages-panel">
           <div class="panel-header">
             <span class="panel-title"><mat-icon>inventory_2</mat-icon> PACKAGE HUB</span>
+            <div class="panel-actions">
+              <button
+                class="btn-panel-action"
+                (click)="packageManagerService.fetchPopularPackages(getCurrentWorkspaceLanguage())"
+                matTooltip="Refresh Packages"
+              >
+                <mat-icon>refresh</mat-icon>
+              </button>
+            </div>
           </div>
 
           <div class="panel-body packages-sidebar-body">
@@ -441,16 +450,17 @@
               <input
                 type="text"
                 placeholder="Search npm / PyPI packages..."
-                [value]="activeEditorInstance()?.packageSearchInput() || ''"
-                (input)="activeEditorInstance()?.onSearchPackageInput($any($event.target).value)"
-                (keyup.enter)="activeEditorInstance()?.installTargetPackage()"
+                [value]="packageSearchInput()"
+                (input)="onSearchPackageInput($any($event.target).value)"
+                (keyup.enter)="installTargetPackage()"
               />
             </div>
 
             <!-- Search Results or Popular Packages List -->
             <div class="packages-list">
-              @if (activeEditorInstance()?.packageManagerService?.searchResults()?.length) {
-                @for (pkg of activeEditorInstance()?.packageManagerService?.searchResults(); track pkg.name) {
+              @if (packageManagerService.searchResults().length) {
+                <div class="section-label">Search Results ({{ packageManagerService.searchResults().length }})</div>
+                @for (pkg of packageManagerService.searchResults(); track pkg.name) {
                   <div class="package-list-item">
                     <div class="pkg-info">
                       <span class="pkg-name">{{ pkg.name }}</span>
@@ -459,16 +469,16 @@
                     </div>
                     <button
                       class="btn-install-sm"
-                      (click)="activeEditorInstance()?.installTargetPackage(pkg.name)"
-                      [disabled]="activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name)"
+                      (click)="installTargetPackage(pkg.name)"
+                      [disabled]="packageManagerService.isPackageInstalling(pkg.name)"
                     >
-                      {{ activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name) ? 'Installing...' : 'Install' }}
+                      {{ packageManagerService.isPackageInstalling(pkg.name) ? 'Installing...' : 'Install' }}
                     </button>
                   </div>
                 }
-              } @else if (activeEditorInstance()?.packageManagerService?.popularPackages()?.length) {
-                <div class="section-label">Popular Packages</div>
-                @for (pkg of activeEditorInstance()?.packageManagerService?.popularPackages(); track pkg.name) {
+              } @else if (packageManagerService.popularPackages().length) {
+                <div class="section-label">Popular Packages ({{ getCurrentWorkspaceLanguage() === 'javascript' ? 'npm' : 'PyPI' }})</div>
+                @for (pkg of packageManagerService.popularPackages(); track pkg.name) {
                   <div class="package-list-item">
                     <div class="pkg-info">
                       <span class="pkg-name">{{ pkg.name }}</span>
@@ -477,28 +487,29 @@
                     </div>
                     <button
                       class="btn-install-sm"
-                      (click)="activeEditorInstance()?.installTargetPackage(pkg.name)"
-                      [disabled]="activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name)"
+                      (click)="installTargetPackage(pkg.name)"
+                      [disabled]="packageManagerService.isPackageInstalling(pkg.name)"
                     >
-                      {{ activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name) ? 'Installing...' : 'Install' }}
+                      {{ packageManagerService.isPackageInstalling(pkg.name) ? 'Installing...' : 'Install' }}
                     </button>
                   </div>
                 }
               } @else {
                 <div class="empty-packages-state">
+                  <mat-icon>inventory_2</mat-icon>
                   <p>Search packages above to install into current workspace.</p>
                 </div>
               }
             </div>
 
             <!-- Installed Packages -->
-            @if (activeEditorInstance()?.packageManagerService?.installedPackages()?.length) {
+            @if (packageManagerService.installedPackages().length) {
               <div class="section-label installed-label">Installed in Workspace</div>
               <div class="installed-list">
-                @for (pkg of activeEditorInstance()?.packageManagerService?.installedPackages(); track pkg.name) {
+                @for (pkg of packageManagerService.installedPackages(); track pkg.name) {
                   <div class="installed-item">
                     <span class="installed-name">{{ pkg.name }} ({{ pkg.version }})</span>
-                    <button class="btn-uninstall-sm" (click)="activeEditorInstance()?.uninstallTargetPackage(pkg.name)" matTooltip="Uninstall">
+                    <button class="btn-uninstall-sm" (click)="uninstallTargetPackage(pkg.name)" matTooltip="Uninstall">
                       <mat-icon>delete</mat-icon>
                     </button>
                   </div>

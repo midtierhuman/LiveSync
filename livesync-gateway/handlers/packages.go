@@ -71,6 +71,9 @@ func (h *PackagesHandler) SearchPackages(w http.ResponseWriter, r *http.Request)
 	if query == "" {
 		query = strings.TrimSpace(r.URL.Query().Get("text"))
 	}
+	if query == "" {
+		query = strings.TrimSpace(r.URL.Query().Get("q"))
+	}
 
 	pkgMgr := "pypi"
 	mgrParam := strings.ToLower(r.URL.Query().Get("mgr"))
@@ -86,18 +89,10 @@ func (h *PackagesHandler) SearchPackages(w http.ResponseWriter, r *http.Request)
 	}
 
 	var results []PackageHTTPItem
-	if query == "" {
-		if pkgMgr == "npm" {
-			results = popularJSPackages
-		} else {
-			results = popularPythonPackages
-		}
+	if pkgMgr == "npm" {
+		results = h.searchNPM(r.Context(), query)
 	} else {
-		if pkgMgr == "npm" {
-			results = h.searchNPM(r.Context(), query)
-		} else {
-			results = h.searchPyPI(r.Context(), query)
-		}
+		results = h.searchPyPI(r.Context(), query)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -110,15 +105,14 @@ func (h *PackagesHandler) SearchPackages(w http.ResponseWriter, r *http.Request)
 
 func (h *PackagesHandler) searchNPM(ctx context.Context, query string) []PackageHTTPItem {
 	var items []PackageHTTPItem
-	qLower := strings.ToLower(query)
+	var apiURL string
 
-	for _, p := range popularJSPackages {
-		if strings.Contains(strings.ToLower(p.Name), qLower) || strings.Contains(strings.ToLower(p.Description), qLower) {
-			items = append(items, p)
-		}
+	if query == "" {
+		apiURL = "https://registry.npmjs.org/-/v1/search?text=popularity:1&size=20"
+	} else {
+		apiURL = fmt.Sprintf("https://registry.npmjs.org/-/v1/search?text=%s&size=20", url.QueryEscape(query))
 	}
 
-	apiURL := fmt.Sprintf("https://registry.npmjs.org/-/v1/search?text=%s&size=15", url.QueryEscape(query))
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err == nil {
 		req.Header.Set("User-Agent", "LiveSync-Gateway/1.0")
@@ -159,7 +153,7 @@ func (h *PackagesHandler) searchNPM(ctx context.Context, query string) []Package
 		}
 	}
 
-	if len(items) == 0 {
+	if len(items) == 0 && query != "" {
 		items = append(items, PackageHTTPItem{
 			Name:        query,
 			Version:     "latest",
@@ -167,60 +161,59 @@ func (h *PackagesHandler) searchNPM(ctx context.Context, query string) []Package
 		})
 	}
 
-	if len(items) > 15 {
-		items = items[:15]
-	}
 	return items
 }
 
 func (h *PackagesHandler) searchPyPI(ctx context.Context, query string) []PackageHTTPItem {
 	var items []PackageHTTPItem
-	qLower := strings.ToLower(query)
 
-	for _, p := range popularPythonPackages {
-		if strings.Contains(strings.ToLower(p.Name), qLower) || strings.Contains(strings.ToLower(p.Description), qLower) {
-			items = append(items, p)
-		}
+	targets := []string{query}
+	if query == "" {
+		targets = []string{"requests", "fastapi", "numpy", "pandas", "pydantic", "pytest", "torch", "transformers", "scipy", "matplotlib", "httpx", "flask", "django", "rich", "black"}
 	}
 
-	apiURL := fmt.Sprintf("https://pypi.org/pypi/%s/json", url.PathEscape(query))
-	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
-	if err == nil {
+	for _, target := range targets {
+		if target == "" {
+			continue
+		}
+		apiURL := fmt.Sprintf("https://pypi.org/pypi/%s/json", url.PathEscape(target))
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+		if err != nil {
+			continue
+		}
 		req.Header.Set("User-Agent", "LiveSync-Gateway/1.0")
 		resp, err := h.httpClient.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			defer resp.Body.Close()
-			var pypiResp struct {
-				Info struct {
-					Name    string `json:"name"`
-					Version string `json:"version"`
-					Summary string `json:"summary"`
-				} `json:"info"`
+		if err != nil || resp.StatusCode != http.StatusOK {
+			if resp != nil && resp.Body != nil {
+				resp.Body.Close()
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&pypiResp); err == nil {
-				name := pypiResp.Info.Name
-				if name == "" {
-					name = query
-				}
-				exists := false
-				for _, existing := range items {
-					if strings.EqualFold(existing.Name, name) {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					items = append([]PackageHTTPItem{{
-						Name:        name,
-						Version:     pypiResp.Info.Version,
-						Description: pypiResp.Info.Summary,
-					}}, items...)
-				}
+			continue
+		}
+
+		var pypiResp struct {
+			Info struct {
+				Name    string `json:"name"`
+				Version string `json:"version"`
+				Summary string `json:"summary"`
+			} `json:"info"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&pypiResp); err == nil {
+			resp.Body.Close()
+			name := pypiResp.Info.Name
+			if name == "" {
+				name = target
 			}
+			items = append(items, PackageHTTPItem{
+				Name:        name,
+				Version:     pypiResp.Info.Version,
+				Description: pypiResp.Info.Summary,
+			})
+		} else {
+			resp.Body.Close()
 		}
 	}
 
-	if len(items) == 0 {
+	if len(items) == 0 && query != "" {
 		items = append(items, PackageHTTPItem{
 			Name:        query,
 			Version:     "latest",
@@ -228,8 +221,5 @@ func (h *PackagesHandler) searchPyPI(ctx context.Context, query string) []Packag
 		})
 	}
 
-	if len(items) > 15 {
-		items = items[:15]
-	}
 	return items
 }

@@ -18,6 +18,7 @@ import { FolderService, FolderDto, SharedFolderDto } from '../../services/folder
 import { LiveTerminalService } from '../../services/live-terminal.service';
 import { VFSService } from '../../services/vfs.service';
 import { RealtimeService } from '../../services/realtime.service';
+import { PackageManagerService } from '../../services/package-manager.service';
 import JSZip from 'jszip';
 import { Editor } from '../editor/editor';
 import {
@@ -99,6 +100,16 @@ export class Workspace implements OnInit {
       const proj = this.scopedProject();
       if (proj?.id) {
         void this.realtimeService.joinWorkspace(proj.id);
+      }
+    });
+
+    effect(() => {
+      const view = this.activeSidebarView();
+      const tabId = this.activeTabId();
+      if (view === 'packages') {
+        const lang = this.getCurrentWorkspaceLanguage();
+        void this.packageManagerService.fetchPopularPackages(lang);
+        void this.packageManagerService.fetchInstalledPackages(lang);
       }
     });
   }
@@ -210,6 +221,40 @@ export class Workspace implements OnInit {
   runAiQuickAction(action: string) {
     this.showAiQuickMenu.set(false);
     this.activeEditorInstance()?.runAiAnalysis(action);
+  }
+
+  // Package Hub State & Methods
+  readonly packageManagerService = inject(PackageManagerService);
+  readonly packageSearchInput = signal('');
+
+  onSearchPackageInput(query: string) {
+    this.packageSearchInput.set(query);
+    const lang = this.getCurrentWorkspaceLanguage();
+    this.packageManagerService.searchPackagesReactive(query, lang);
+  }
+
+  async installTargetPackage(pkgName?: string) {
+    const target = (pkgName || this.packageSearchInput()).trim();
+    if (!target) return;
+    const lang = this.getCurrentWorkspaceLanguage();
+    await this.packageManagerService.installPackage(target, lang);
+  }
+
+  async uninstallTargetPackage(pkgName: string) {
+    if (!pkgName) return;
+    const lang = this.getCurrentWorkspaceLanguage();
+    await this.packageManagerService.uninstallPackage(pkgName, lang);
+  }
+
+  getCurrentWorkspaceLanguage(): string {
+    const activeTab = this.openTabs().find((t) => t.id === this.activeTabId());
+    if (activeTab) {
+      const ext = activeTab.title.split('.').pop()?.toLowerCase();
+      if (['js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs', 'json'].includes(ext || '')) {
+        return 'javascript';
+      }
+    }
+    return 'python';
   }
 
   // Search & Drag-Drop

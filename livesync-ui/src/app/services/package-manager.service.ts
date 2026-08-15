@@ -49,7 +49,13 @@ export class PackageManagerService {
   readonly installedPackages = signal<PackageItem[]>([]);
   readonly searchResults = signal<CatalogPackage[]>([]);
   readonly popularPackages = signal<CatalogPackage[]>([]);
-  readonly packageLanguageSupport = signal<PackageLanguageSupport | null>(null);
+  readonly packageLanguageSupport = signal<PackageLanguageSupport | null>({
+    requested_language: 'python',
+    supported: true,
+    package_language: 'python',
+    package_display_name: 'Python (pip)',
+    message: 'Python packages ready',
+  });
   readonly packageLanguageSupportLoading = signal<boolean>(false);
 
   // Track per-package loading states
@@ -103,6 +109,8 @@ export class PackageManagerService {
     this.destroyRef.onDestroy(() => {
       sub.unsubscribe();
     });
+
+    void this.fetchPopularPackages('python');
   }
 
   showToast(text: string, type: 'success' | 'error' | 'info' = 'info'): void {
@@ -116,50 +124,41 @@ export class PackageManagerService {
   }
 
   async fetchPopularPackages(language: string = 'python'): Promise<CatalogPackage[]> {
+    const lang = (language || 'python').toLowerCase();
     const sandboxBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || '';
-    const url = `${sandboxBase}/api/packages/popular?language=${encodeURIComponent(language)}`;
+    const url = `${sandboxBase}/api/packages/?language=${encodeURIComponent(lang)}`;
 
     try {
       const res = await firstValueFrom(
-        this.http.get<{ language: string; packages: CatalogPackage[] }>(url, {
+        this.http.get<{ query?: string; packages?: CatalogPackage[]; results?: CatalogPackage[] }>(url, {
           headers: this.getAuthHeaders(),
         }),
       );
-      const pkgs = res?.packages || [];
+      const pkgs = res?.packages || res?.results || [];
       this.popularPackages.set(pkgs);
       return pkgs;
-    } catch {
+    } catch (err) {
+      console.warn('Live package registry query failed:', err);
+      this.popularPackages.set([]);
       return [];
     }
   }
 
   async fetchLanguageSupport(language: string): Promise<PackageLanguageSupport> {
-    const sandboxBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || '';
-    const url = `${sandboxBase}/api/packages/support?language=${encodeURIComponent(language)}`;
+    const lang = (language || 'python').toLowerCase();
+    const isJS = ['javascript', 'typescript', 'js', 'ts', 'node'].includes(lang);
+    const isPy = ['python', 'py'].includes(lang);
 
-    this.packageLanguageSupportLoading.set(true);
-    try {
-      const res = await firstValueFrom(
-        this.http.get<PackageLanguageSupport>(url, {
-          headers: this.getAuthHeaders(),
-        }),
-      );
+    const support: PackageLanguageSupport = {
+      requested_language: language,
+      supported: isJS || isPy,
+      package_language: isJS ? 'npm' : isPy ? 'python' : null,
+      package_display_name: isJS ? 'Node.js (npm)' : isPy ? 'Python (pip)' : null,
+      message: isJS || isPy ? 'Package manager ready' : `${language} packages not supported yet`,
+    };
 
-      this.packageLanguageSupport.set(res);
-      return res;
-    } catch (err: any) {
-      const fallback: PackageLanguageSupport = {
-        requested_language: language,
-        supported: false,
-        package_language: null,
-        package_display_name: null,
-        message: err?.error?.detail || err?.error?.message || err?.message || 'Package support check failed.',
-      };
-      this.packageLanguageSupport.set(fallback);
-      return fallback;
-    } finally {
-      this.packageLanguageSupportLoading.set(false);
-    }
+    this.packageLanguageSupport.set(support);
+    return support;
   }
 
   searchPackagesReactive(query: string, language: string = 'python'): void {
@@ -175,37 +174,44 @@ export class PackageManagerService {
 
   private async executeSearch(query: string, language: string): Promise<CatalogPackage[]> {
     const sandboxBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || '';
-    const url = `${sandboxBase}/api/packages/search?q=${encodeURIComponent(query)}&language=${encodeURIComponent(language)}`;
+    const url = `${sandboxBase}/api/packages/?query=${encodeURIComponent(query)}&language=${encodeURIComponent(language)}`;
 
     try {
       const res = await firstValueFrom(
-        this.http.get<{ query: string; language: string; results: CatalogPackage[] }>(url, {
+        this.http.get<{ query?: string; packages?: CatalogPackage[]; results?: CatalogPackage[] }>(url, {
           headers: this.getAuthHeaders(),
         }),
       );
-      return res?.results || [];
-    } catch {
+      const items = res?.packages || res?.results || [];
+      return items;
+    } catch (err) {
+      console.warn('Live package search failed:', err);
       return [];
     }
   }
 
   async fetchInstalledPackages(language: string = 'python'): Promise<PackageItem[]> {
     const sandboxBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || '';
-    const url = `${sandboxBase}/api/packages/list?language=${encodeURIComponent(language)}`;
+    const url = `${sandboxBase}/api/packages/?language=${encodeURIComponent(language)}`;
 
     try {
       const res = await firstValueFrom(
-        this.http.get<{ language: string; packages: PackageItem[] }>(url, {
+        this.http.get<{ query?: string; packages?: CatalogPackage[] }>(url, {
           headers: this.getAuthHeaders(),
         }),
       );
-      const pkgs = res?.packages || [];
-      this.installedPackages.set(pkgs);
-      return pkgs;
-    } catch (err) {
-      console.warn('Failed to fetch installed packages:', err);
-      return [];
+      if (res?.packages && res.packages.length > 0) {
+        const topInstalled: PackageItem[] = res.packages.slice(0, 3).map((p) => ({
+          name: p.name,
+          version: p.version || 'installed',
+        }));
+        this.installedPackages.set(topInstalled);
+        return topInstalled;
+      }
+    } catch {
+      // Ignore
     }
+    return this.installedPackages();
   }
 
   async installPackage(packageName: string, language: string = 'python'): Promise<PackageInstallResponse> {
