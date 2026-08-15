@@ -140,6 +140,8 @@ services:
   # =========================================================================
   api-loadbalancer:
     image: nginx:alpine
+    stop_signal: SIGQUIT
+    stop_grace_period: 1s
     ports:
       - "5038:80"
     volumes:

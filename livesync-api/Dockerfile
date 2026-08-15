@@ -10,13 +10,15 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 # Cache Go modules
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 # Copy source code
 COPY . .
 
-# Build statically linked standalone binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Build statically linked standalone binary with compiler cache mount
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s" \
     -o /app/livesync-api .
 

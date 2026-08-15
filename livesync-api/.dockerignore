@@ -1,0 +1,6 @@
+.git
+.vscode
+Dockerfile
+*.exe
+livesync-api
+*.log

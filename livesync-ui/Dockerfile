@@ -3,9 +3,9 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
 
-# Install dependencies first for better build cache usage.
+# Install dependencies first for better build cache usage with BuildKit cache mount
 COPY package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Build the Angular app using standard npm build script
 COPY . .
@@ -22,4 +22,5 @@ COPY --from=builder /app/dist/LiveSync/browser/ /usr/share/nginx/html/
 RUN sed -i 's|<head>|<head><script>window.__LIVE_SYNC_CONFIG__ = { apiBaseUrl: "http://localhost:5038", realtimeBaseUrl: "http://localhost:5038" };</script>|g' /usr/share/nginx/html/index.html
 
 EXPOSE 80
+STOPSIGNAL SIGQUIT
 CMD ["nginx", "-g", "daemon off;"]

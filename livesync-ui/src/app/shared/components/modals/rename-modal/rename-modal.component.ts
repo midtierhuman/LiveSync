@@ -24,14 +24,11 @@ export type RenameItemType = 'project' | 'folder' | 'file';
   template: `
     @if (isOpen) {
       <div class="modal-overlay" (click)="onCancel()" (keydown.escape)="onCancel()">
-        <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-compact" (click)="$event.stopPropagation()">
           <div class="modal-header">
-            <div class="header-icon-badge" [class.file-type]="itemType === 'file'" [class.folder-type]="itemType !== 'file'">
-              <mat-icon>{{ getHeaderIcon() }}</mat-icon>
-            </div>
-            <div class="header-text">
+            <div class="header-left">
+              <mat-icon class="header-icon">{{ getHeaderIcon() }}</mat-icon>
               <h3>Rename {{ getDisplayType() }}</h3>
-              <p>Enter a new name for <strong>{{ currentName }}</strong></p>
             </div>
             <button class="btn-close" (click)="onCancel()" matTooltip="Close">
               <mat-icon>close</mat-icon>
@@ -39,45 +36,47 @@ export type RenameItemType = 'project' | 'folder' | 'file';
           </div>
 
           <form (ngSubmit)="onSubmit()" class="modal-form">
-            <div class="form-group">
-              <label for="renameInput">{{ getDisplayType() }} Name:</label>
-              <div class="input-with-icon">
-                @if (itemType === 'file') {
-                  <mat-icon class="input-icon" [class]="detectedLanguage().class">
-                    {{ detectedLanguage().icon }}
-                  </mat-icon>
-                } @else {
-                  <mat-icon class="input-icon folder-icon">folder</mat-icon>
-                }
-                <input
-                  #renameInput
-                  id="renameInput"
-                  type="text"
-                  [ngModel]="nameValue()"
-                  (ngModelChange)="nameValue.set($event)"
-                  name="newName"
-                  [placeholder]="getPlaceholder()"
-                  class="name-input"
-                  autocomplete="off"
-                />
-              </div>
-
-              @if (itemType === 'file' && detectedLanguage().name) {
-                <div class="detected-badge">
-                  <span class="badge-dot" [class]="detectedLanguage().class"></span>
-                  <span class="badge-label">Detected as <strong>{{ detectedLanguage().name }}</strong></span>
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="renameInput">New {{ getDisplayType() }} Name</label>
+                <div class="input-with-icon">
+                  @if (itemType === 'file') {
+                    <mat-icon class="input-icon" [class]="detectedLanguage().class">
+                      {{ detectedLanguage().icon }}
+                    </mat-icon>
+                  } @else {
+                    <mat-icon class="input-icon folder-icon">folder</mat-icon>
+                  }
+                  <input
+                    #renameInput
+                    id="renameInput"
+                    type="text"
+                    [ngModel]="nameValue()"
+                    (ngModelChange)="nameValue.set($event)"
+                    name="newName"
+                    [placeholder]="getPlaceholder()"
+                    class="name-input"
+                    autocomplete="off"
+                  />
                 </div>
-              }
+
+                @if (itemType === 'file' && detectedLanguage().name) {
+                  <div class="detected-badge">
+                    <span class="badge-dot" [class]="detectedLanguage().class"></span>
+                    <span class="badge-label">Type: <strong>{{ detectedLanguage().name }}</strong></span>
+                  </div>
+                }
+              </div>
             </div>
 
-            <div class="modal-actions">
-              <button type="button" class="btn-cancel" (click)="onCancel()">Cancel</button>
+            <div class="modal-footer">
+              <button type="button" class="btn-ghost" (click)="onCancel()">Cancel</button>
               <button
                 type="submit"
-                class="btn-submit"
+                class="btn-primary"
                 [disabled]="!isValid()"
               >
-                <mat-icon>check</mat-icon> Save Changes
+                Save
               </button>
             </div>
           </form>
@@ -93,115 +92,70 @@ export type RenameItemType = 'project' | 'folder' | 'file';
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(15, 23, 42, 0.82);
+        background: rgba(0, 0, 0, 0.65);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 10000;
-        backdrop-filter: blur(12px);
+        backdrop-filter: blur(4px);
       }
 
-      .modal-card {
-        background: #1e293b;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 18px;
-        padding: 1.75rem;
+      .modal-compact {
+        background: #161922;
+        border: 1px solid #272d3d;
+        border-radius: 6px;
         width: 90%;
-        max-width: 440px;
-        color: #f8fafc;
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
-        animation: scaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-      }
-
-      @keyframes scaleIn {
-        from {
-          transform: scale(0.95);
-          opacity: 0;
-        }
-        to {
-          transform: scale(1);
-          opacity: 1;
-        }
+        max-width: 380px;
+        color: #f0f6fc;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+        display: flex;
+        flex-direction: column;
       }
 
       .modal-header {
         display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        margin-bottom: 1.5rem;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid #232836;
 
-        .header-icon-badge {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
+        .header-left {
           display: flex;
           align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
+          gap: 6px;
 
-          &.folder-type {
-            background: rgba(220, 182, 122, 0.15);
-            color: #dcb67a;
-          }
-
-          &.file-type {
-            background: rgba(56, 189, 248, 0.15);
+          .header-icon {
             color: #38bdf8;
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
           }
-
-          mat-icon {
-            font-size: 22px;
-            width: 22px;
-            height: 22px;
-          }
-        }
-
-        .header-text {
-          flex: 1;
-          min-width: 0;
 
           h3 {
             margin: 0;
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: #f8fafc;
-          }
-
-          p {
-            margin: 0.25rem 0 0 0;
-            font-size: 0.85rem;
-            color: #94a3b8;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-
-            strong {
-              color: #cbd5e1;
-            }
+            font-size: 13px;
+            font-weight: 600;
+            color: #f0f6fc;
           }
         }
 
         .btn-close {
           background: transparent;
           border: none;
-          color: #94a3b8;
+          color: #6e7681;
           cursor: pointer;
-          padding: 4px;
-          border-radius: 6px;
+          padding: 2px;
           display: flex;
           align-items: center;
-          justify-content: center;
-          transition: all 0.15s ease;
 
           &:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #f8fafc;
+            color: #f0f6fc;
           }
 
           mat-icon {
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
           }
         }
       }
@@ -209,18 +163,21 @@ export type RenameItemType = 'project' | 'folder' | 'file';
       .modal-form {
         display: flex;
         flex-direction: column;
-        gap: 1.25rem;
+      }
+
+      .modal-body {
+        padding: 14px;
       }
 
       .form-group {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 6px;
 
         label {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: #cbd5e1;
+          font-size: 11.5px;
+          font-weight: 500;
+          color: #8b949e;
         }
 
         .input-with-icon {
@@ -230,10 +187,10 @@ export type RenameItemType = 'project' | 'folder' | 'file';
 
           .input-icon {
             position: absolute;
-            left: 12px;
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
+            left: 8px;
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
             pointer-events: none;
 
             &.folder-icon { color: #dcb67a; }
@@ -249,19 +206,22 @@ export type RenameItemType = 'project' | 'folder' | 'file';
 
           .name-input {
             width: 100%;
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(56, 189, 248, 0.35);
-            color: #f8fafc;
-            border-radius: 8px;
-            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            background: #0f1117;
+            border: 1px solid #272d3d;
+            color: #f0f6fc;
+            border-radius: 4px;
+            padding: 6px 10px 6px 28px;
             outline: none;
-            font-size: 0.95rem;
+            font-size: 12.5px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             box-sizing: border-box;
-            transition: all 0.15s ease;
 
             &:focus {
               border-color: #38bdf8;
-              box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+            }
+
+            &::placeholder {
+              color: #484f58;
             }
           }
         }
@@ -270,14 +230,14 @@ export type RenameItemType = 'project' | 'folder' | 'file';
       .detected-badge {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         margin-top: 4px;
-        font-size: 0.78rem;
-        color: #94a3b8;
+        font-size: 11px;
+        color: #8b949e;
 
         .badge-dot {
-          width: 8px;
-          height: 8px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
 
           &.lang-py { background: #38bdf8; }
@@ -291,58 +251,48 @@ export type RenameItemType = 'project' | 'folder' | 'file';
         }
 
         strong {
-          color: #f8fafc;
+          color: #f0f6fc;
         }
       }
 
-      .modal-actions {
+      .modal-footer {
         display: flex;
         justify-content: flex-end;
-        gap: 10px;
-        margin-top: 0.5rem;
+        gap: 8px;
+        padding: 10px 14px;
+        background: #12141c;
+        border-top: 1px solid #232836;
+        border-radius: 0 0 6px 6px;
 
         button {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 0.65rem 1.25rem;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 0.88rem;
+          padding: 4px 10px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
           cursor: pointer;
-          transition: all 0.15s ease;
 
-          &.btn-cancel {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #cbd5e1;
+          &.btn-ghost {
+            background: transparent;
+            border: 1px solid #272d3d;
+            color: #c9d1d9;
 
             &:hover {
-              background: rgba(255, 255, 255, 0.12);
-              color: #f8fafc;
+              background: #1c212c;
             }
           }
 
-          &.btn-submit {
+          &.btn-primary {
             background: #0284c7;
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: #fff;
 
             &:hover:not(:disabled) {
               background: #0369a1;
-              transform: translateY(-1px);
-              box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
             }
 
             &:disabled {
-              opacity: 0.5;
+              opacity: 0.4;
               cursor: not-allowed;
-            }
-
-            mat-icon {
-              font-size: 17px;
-              width: 17px;
-              height: 17px;
             }
           }
         }
@@ -369,7 +319,6 @@ export class RenameModalComponent implements OnChanges {
         if (this.renameInputRef) {
           const el = this.renameInputRef.nativeElement;
           el.focus();
-          // Select base name without extension for files
           const dotIdx = el.value.lastIndexOf('.');
           if (this.itemType === 'file' && dotIdx > 0) {
             el.setSelectionRange(0, dotIdx);
@@ -387,21 +336,21 @@ export class RenameModalComponent implements OnChanges {
     const ext = val.split('.').pop()?.toLowerCase();
     switch (ext) {
       case 'py':
-        return { name: 'Python (.py)', icon: 'code', class: 'lang-py' };
+        return { name: 'Python', icon: 'code', class: 'lang-py' };
       case 'js':
       case 'mjs':
-        return { name: 'JavaScript (.js)', icon: 'javascript', class: 'lang-js' };
+        return { name: 'JavaScript', icon: 'javascript', class: 'lang-js' };
       case 'ts':
-        return { name: 'TypeScript (.ts)', icon: 'code', class: 'lang-ts' };
+        return { name: 'TypeScript', icon: 'code', class: 'lang-ts' };
       case 'html':
-        return { name: 'HTML (.html)', icon: 'html', class: 'lang-html' };
+        return { name: 'HTML', icon: 'html', class: 'lang-html' };
       case 'css':
       case 'scss':
         return { name: 'CSS/SCSS', icon: 'css', class: 'lang-css' };
       case 'json':
-        return { name: 'JSON (.json)', icon: 'data_object', class: 'lang-json' };
+        return { name: 'JSON', icon: 'data_object', class: 'lang-json' };
       case 'md':
-        return { name: 'Markdown (.md)', icon: 'description', class: 'lang-md' };
+        return { name: 'Markdown', icon: 'description', class: 'lang-md' };
       default:
         return { name: '', icon: 'insert_drive_file', class: 'lang-default' };
     }
@@ -437,11 +386,11 @@ export class RenameModalComponent implements OnChanges {
   getPlaceholder(): string {
     switch (this.itemType) {
       case 'project':
-        return 'e.g. Backend-Service';
+        return 'e.g. backend-service';
       case 'folder':
-        return 'e.g. controllers, services, models...';
+        return 'e.g. controllers, models...';
       case 'file':
-        return 'e.g. main.py, server.js, index.ts...';
+        return 'e.g. main.py, index.ts...';
     }
   }
 

@@ -1,0 +1,9 @@
+.git
+.vscode
+**/node_modules
+**/.angular
+**/dist
+**/venv
+**/.venv
+**/__pycache__
+**/*.log
