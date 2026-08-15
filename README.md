@@ -1,17 +1,17 @@
 # ⚡ LiveSync
 
-> **Enterprise Real-Time Collaborative Code Editor, Go API Gateway, gRPC Polyglot Execution Sandbox & Interactive Live Terminal**
+> **Enterprise Real-Time Collaborative Code Editor, Go API Gateway, Python AI Intelligence & Interactive Live Terminal**
 
-LiveSync is a high-performance, real-time collaborative code editor built on a decoupled polyglot microservices architecture. It combines Google Docs-style real-time collaboration with a native gRPC-powered polyglot code execution sandbox, Go API Gateway & PTY terminal engine, AST Big-O complexity analysis, and hybrid AI assistance (Local LLM / Cloud Gemini).
+LiveSync is a high-performance, real-time collaborative code editor built on a decoupled polyglot microservices architecture. It combines Google Docs-style real-time collaboration with a high-throughput Go API Gateway & native PTY terminal engine, Python AI code intelligence & Big-O complexity analysis, and hybrid AI assistance (Local LLM / Cloud Gemini).
 
 ---
 
 ## 🚀 Key Capabilities
 
 - **🤝 Real-Time Collaboration**: Conflict-free collaborative editing with multi-cursor presence, follow mode, and inline threaded comments powered by Node.js, Socket.IO, and Redis.
-- **⚡ Go API Gateway (`livesync-gateway`)**: High-throughput gateway handling JWT validation, CORS, PTY shell allocation (`cmd.exe`/`/bin/bash`), and HTTP/2 gRPC client connection pooling.
-- **🛡️ Pure gRPC Polyglot Sandbox (`livesync-sandbox`)**: Dedicated worker serving requests over native gRPC (`port 50051`). Supports **Python 3.14** and **JavaScript/Node 24**.
-- **📺 True Interactive Workspace Terminal & Streaming**: Real-time bi-directional `xterm.js` terminal canvas connected via WebSockets to a native PTY shell (`powershell.exe`/`/bin/bash`) anchored in the project workspace.
+- **⚡ Go API Gateway (`livesync-gateway`)**: High-throughput gateway handling JWT validation, CORS, PTY shell allocation (`powershell.exe`/`/bin/bash`), direct PyPI/npm package search, and HTTP/2 gRPC client connection pooling.
+- **🤖 Python AI & AST Intelligence (`livesync-ai`)**: Dedicated worker serving requests over native gRPC (`port 50051`) for AST Big-O complexity analysis, unit test generation, refactoring, and hybrid local/cloud LLM intelligence.
+- **📺 True Interactive Workspace Terminal & Streaming**: Real-time bi-directional `xterm.js` terminal canvas connected via WebSockets to a native PTY shell (`powershell.exe`/`/bin/bash`) anchored in the project workspace with OS read-only protection for locked files.
 - **📊 AST Big-O Complexity Analyzer**: Static AST code analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$) and Space complexity.
 - **🤖 Hybrid AI Assistance**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) & Google Gemini with zero-cost offline AST structural analysis fallback.
 - **⚡ Event-Driven Persistence**: Realtime service appends saves to Redis Streams (`livesync:stream:document-saves`); Go API (`livesync-api`) consumes and persists to PostgreSQL.
@@ -39,7 +39,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
          │ (XREADGROUP)                 │ (XADD Event Stream)          │ gRPC (HTTP/2 Port 50051)      │
          ▼                              ▼                              ▼                               │
 ┌──────────────────────────────────────────────────┐          ┌──────────────────┐                     │
-│                Redis 7 (AOF)                     │          │ livesync-sandbox │─────────────────────┘
+│                Redis 7 (AOF)                     │          │   livesync-ai    │─────────────────────┘
 │         (Streams & Socket.IO Bus)                │          │  (Python gRPC)   │
 └──────────────────────────────────────────────────┘          └──────────────────┘
 ```
@@ -49,8 +49,8 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 | Service | Technology | Role | Port |
 | :--- | :--- | :--- | :--- |
 | **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Single-page reactive editor & terminal | `4200` (Dev) / `4000` (Prod) |
-| **`livesync-gateway`** | Go 1.26, PTY, gRPC client | API Gateway, live PTY shell, WS stream proxy | `8081` |
-| **`livesync-sandbox`** | Python 3.14, Native gRPC | Polyglot execution worker, AST analyzer, package search | `50051` (gRPC) |
+| **`livesync-gateway`** | Go 1.26, PTY, gRPC client | API Gateway, live PTY shell, package search | `8081` |
+| **`livesync-ai`** | Python 3.14, Native gRPC | AI Pair Assistant, AST Big-O analyzer, LLM proxy | `50051` (gRPC) |
 | **`livesync-api`** | Go 1.26, Chi, pgxpool | Auth, user sessions, document/folder CRUD, Redis Stream consumer | `8080` (Internal) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | CRDT room broadcasting, cursor sync & Redis Stream publisher | `5000` |
 | **`api-loadbalancer`** | Nginx Alpine | Reverse proxy & API Gateway Router | `5038` |
@@ -92,9 +92,9 @@ docker compose up -d postgres redis
   go run main.go
   ```
 
-* **Python Sandbox Worker (`livesync-sandbox`)**:
+* **Python AI Service (`livesync-ai`)**:
   ```powershell
-  cd livesync-sandbox
+  cd livesync-ai
   .\venv\Scripts\python -m app.main
   ```
 
@@ -123,8 +123,8 @@ docker compose up -d postgres redis
 ```
 LiveSync/
 ├── proto/               # Protobuf contracts (sandbox.proto)
-├── livesync-gateway/    # Go API Gateway, PTY Terminal Engine & gRPC Client
-├── livesync-sandbox/    # Python Polyglot Sandbox, Native gRPC Worker & AST Analyzer
+├── livesync-gateway/    # Go API Gateway, PTY Terminal Engine & Direct Package Search
+├── livesync-ai/         # Python AI Intelligence, Native gRPC Worker & AST Analyzer
 ├── livesync-api/        # Go 1.26 REST API, PostgreSQL & Redis Stream Consumer
 ├── livesync-realtime/   # Node.js 24 + Socket.IO Realtime Collaboration Service
 ├── livesync-ui/         # Angular 22 CodeMirror & xterm.js Workspace App

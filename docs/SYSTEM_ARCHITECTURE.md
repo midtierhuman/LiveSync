@@ -25,7 +25,7 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
          │ (XREADGROUP)                 │ (XADD Event Stream)          │ gRPC (HTTP/2 Port 50051)      │
          ▼                              ▼                              ▼                               │
 ┌──────────────────────────────────────────────────┐          ┌──────────────────┐                     │
-│                Redis 7 (AOF)                     │          │ livesync-sandbox │─────────────────────┘
+│                Redis 7 (AOF)                     │          │   livesync-ai    │─────────────────────┘
 │         (Streams & Socket.IO Bus)                │          │  (Python gRPC)   │
 └──────────────────────────────────────────────────┘          └──────────────────┘
 ```
@@ -36,8 +36,8 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
 
 | Service Name | Primary Tech Stack | Purpose | Internal Transport | Exposed Port |
 | :--- | :--- | :--- | :--- | :--- |
-| **`livesync-gateway`** | Go 1.26, `creack/pty`, `coder/websocket` | API Gateway, Live PTY shell, JWT middleware & gRPC client proxy | HTTP/1.1, WS, gRPC client | `8081` |
-| **`livesync-sandbox`** | Python 3.14, Native gRPC, Pytest | Polyglot execution worker, AST Big-O analyzer, PyPI/npm manager | gRPC (HTTP/2) | `50051` (gRPC) |
+| **`livesync-gateway`** | Go 1.26, `creack/pty`, `coder/websocket` | API Gateway, Live PTY shell, JWT middleware, direct package search & gRPC client proxy | HTTP/1.1, WS, gRPC client | `8081` |
+| **`livesync-ai`** | Python 3.14, Native gRPC, Pytest | AI Pair Assistant, AST Big-O complexity analyzer, LLM integration | gRPC (HTTP/2) | `50051` (gRPC) |
 | **`livesync-api`** | Go 1.26, `chi`, `pgxpool`, PostgreSQL 18 | Metadata, user authentication, document storage & Redis Stream consumer | REST / SQL | `8080` (Direct) / `5038` (Nginx) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | Low-latency room broadcasting, CRDT collaboration & Redis Stream publisher | WebSockets / Redis | `5000` |
 | **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Single-page application code editor & live terminal | HTTP | `4200` (Dev) / `4000` (Prod) |
@@ -54,11 +54,11 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
 - `GET /api/execution/languages` -> Fetches supported polyglot execution runtimes.
 - `POST /api/ai/analyze` -> Triggers AI code analysis (Explain, Refactor, Unit Tests, Suggest, Big-O Complexity).
 - `GET /api/ai/models` -> Returns active local and cloud LLM models.
-- `GET /api/packages/?query=...&language=...` -> Searches PyPI / npm package registries.
+- `GET /api/packages/?query=...&language=...` -> Direct high-performance PyPI / npm package search.
 
-### 2. Go Gateway to Python Sandbox (`livesync-sandbox`)
+### 2. Go Gateway to Python AI Service (`livesync-ai`)
 - Communicates exclusively over **HTTP/2 gRPC on port 50051** via `proto/sandbox.proto`.
-- Python sandbox runs completely isolated behind the Go Gateway with zero public HTTP route exposure.
+- Python AI service runs completely isolated behind the Go Gateway with zero public HTTP route exposure.
 
 ### 3. Realtime to Database Persistence (Write-Behind & Monotonic Read Cache)
 - `livesync-realtime` receives document operations, updates in-memory CRDT / Redis cache (`livesync:doc:{id}:content`), periodically takes snapshot checkpoints & compacts operation logs, and appends snapshots to Redis Stream `livesync:stream:document-saves`.

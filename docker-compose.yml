@@ -77,10 +77,10 @@ services:
       - LIVESYNC_JWT_AUDIENCE=LiveSyncClient
       - LIVESYNC_CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:4000,http://localhost:5038
 
-  # 2b. Python FastAPI Code Execution Sandbox
-  sandbox:
+  # 2b. Python AI Code Intelligence & AST Analyzer
+  ai:
     build:
-      context: ./livesync-sandbox
+      context: ./livesync-ai
       dockerfile: Dockerfile
     deploy:
       resources:
@@ -93,8 +93,6 @@ services:
       - .env
     environment:
       - ENVIRONMENT=Development
-      - DEFAULT_TIMEOUT_MS=15000
-      - MAX_TIMEOUT_MS=120000
       - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8080}
       - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-Qwen2.5-Coder-14B-Instruct-Q4_K_M}
       - JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
@@ -126,10 +124,11 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      - sandbox
+      - ai
     environment:
       - PORT=8081
-      - LIVESYNC_SANDBOX_GRPC_URL=sandbox:50051
+      - LIVESYNC_AI_GRPC_URL=ai:50051
+      - LIVESYNC_SANDBOX_GRPC_URL=ai:50051
       - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8080}
       - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-Qwen2.5-Coder-14B-Instruct-Q4_K_M}
       - LIVESYNC_JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
@@ -149,7 +148,7 @@ services:
     depends_on:
       - api
       - realtime
-      - sandbox
+      - ai
 
   # =========================================================================
   # 5. OBSERVABILITY (PROMETHEUS & GRAFANA) - (Disabled in Dev)

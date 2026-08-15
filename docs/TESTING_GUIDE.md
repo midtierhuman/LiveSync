@@ -19,12 +19,12 @@ npm run build
 
 ---
 
-## 🐍 Python Sandbox Tests (`livesync-sandbox`)
+## 🐍 Python AI Intelligence Tests (`livesync-ai`)
 
-Runs `pytest` verifying polyglot executor runtimes, AST Big-O complexity analyzer, package discovery, and gRPC endpoints:
+Runs `pytest` verifying AST Big-O complexity analyzer, AI assistant, and gRPC endpoints:
 
 ```powershell
-cd livesync-sandbox
+cd livesync-ai
 # Run all pytest suites
 .\venv\Scripts\python.exe -m pytest
 ```
@@ -86,5 +86,5 @@ docker compose up --build -d
 docker compose ps
 
 # Check logs across services
-docker compose logs -f gateway sandbox api realtime ui
+docker compose logs -f gateway ai api realtime ui
 ```

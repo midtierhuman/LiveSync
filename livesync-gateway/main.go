@@ -31,7 +31,7 @@ func main() {
 	execHandler := handlers.NewExecutionHandler(cfg, sbClient.Client)
 	aiHandler := handlers.NewAIHandler(cfg, sbClient.Client)
 	termHandler := handlers.NewTerminalHandler(cfg)
-	pkgHandler := handlers.NewPackagesHandler(cfg, sbClient.Client)
+	pkgHandler := handlers.NewPackagesHandler(cfg)
 
 	// Routes
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

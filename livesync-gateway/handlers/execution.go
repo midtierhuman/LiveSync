@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/livesync/livesync-gateway/config"
@@ -18,78 +17,9 @@ func NewExecutionHandler(cfg *config.Config, grpcClient pb.SandboxServiceClient)
 	return &ExecutionHandler{cfg: cfg, grpcClient: grpcClient}
 }
 
-type ExecutionHTTPRequest struct {
-	Language      string            `json:"language"`
-	Code          string            `json:"code"`
-	StandardInput string            `json:"standardInput"`
-	TimeoutMS     int32             `json:"timeoutMs"`
-	Files         map[string]string `json:"files,omitempty"`
-	Entrypoint    string            `json:"entrypoint,omitempty"`
-}
-
-type ExecutionHTTPResponse struct {
-	Language            string `json:"language"`
-	Status              string `json:"status"`
-	IsSuccess           bool   `json:"isSuccess"`
-	Message             string `json:"message"`
-	StandardOutput      string `json:"standardOutput"`
-	StandardError       string `json:"standardError"`
-	Stdout              string `json:"stdout"`
-	Stderr              string `json:"stderr"`
-	ExitCode            int32  `json:"exitCode"`
-	ExecutionDurationMS int64  `json:"executionDurationMs"`
-}
-
 type LanguageDescriptorHTTP struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
-}
-
-func (h *ExecutionHandler) RunCode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, `{"error":"Failed to read request body"}`, http.StatusBadRequest)
-		return
-	}
-
-	var reqPayload ExecutionHTTPRequest
-	if err := json.Unmarshal(body, &reqPayload); err != nil {
-		http.Error(w, `{"error":"Invalid JSON payload"}`, http.StatusBadRequest)
-		return
-	}
-
-	grpcResp, err := h.grpcClient.ExecuteCode(r.Context(), &pb.ExecutionRequest{
-		Language:      reqPayload.Language,
-		Code:          reqPayload.Code,
-		StandardInput: reqPayload.StandardInput,
-		TimeoutMs:     reqPayload.TimeoutMS,
-		Files:         reqPayload.Files,
-		Entrypoint:    reqPayload.Entrypoint,
-	})
-	if err != nil {
-		http.Error(w, `{"error":"gRPC sandbox worker error: `+err.Error()+`"}`, http.StatusBadGateway)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ExecutionHTTPResponse{
-		Language:            grpcResp.Language,
-		Status:              grpcResp.Status,
-		IsSuccess:           grpcResp.IsSuccess,
-		Message:             grpcResp.Message,
-		StandardOutput:      grpcResp.Stdout,
-		StandardError:       grpcResp.Stderr,
-		Stdout:              grpcResp.Stdout,
-		Stderr:              grpcResp.Stderr,
-		ExitCode:            grpcResp.ExitCode,
-		ExecutionDurationMS: grpcResp.ExecutionTimeMs,
-	})
 }
 
 func (h *ExecutionHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
@@ -109,5 +39,5 @@ func (h *ExecutionHandler) GetLanguages(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(langs)
+	_ = json.NewEncoder(w).Encode(langs)
 }
