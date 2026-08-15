@@ -16,6 +16,12 @@ import { AuthService } from '../../services/auth.service';
 import { DocumentService, DocumentDto, SharedDocumentDto, FolderPathNode } from '../../services/document.service';
 import { FolderService, FolderDto, SharedFolderDto } from '../../services/folder.service';
 import { Editor } from '../editor/editor';
+import {
+  ShareModalComponent,
+  ConfirmDeleteModalComponent,
+  PromptModalComponent,
+  MoveModalComponent,
+} from '../../shared/components/modals';
 
 const EXPLORER_WIDTH_STORAGE_KEY = 'livesync.explorerWidth';
 const EXPLORER_MIN_WIDTH = 180;
@@ -40,6 +46,10 @@ const EXPLORER_DEFAULT_WIDTH = 260;
     MatTooltipModule,
     Editor,
     NgTemplateOutlet,
+    ShareModalComponent,
+    ConfirmDeleteModalComponent,
+    PromptModalComponent,
+    MoveModalComponent,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
@@ -1045,6 +1055,51 @@ export class Dashboard implements OnInit {
     }
   }
 
+  async updateFolderDefaultAccessLevel(level: string) {
+    const folder = this.selectedFolderForShare();
+    if (!folder) return;
+    try {
+      await this.folderService.updateShareCodeAccessLevel(folder.id, level);
+      folder.defaultAccessLevel = level;
+      this.selectedFolderForShare.set({ ...folder });
+    } catch (err) {
+      console.error('Error updating folder default access level:', err);
+      alert('Failed to update folder access level');
+    }
+  }
+
+  async updateFolderSharedAccessLevel(userId: string, level: string) {
+    const folder = this.selectedFolderForShare();
+    if (!folder) return;
+    try {
+      await this.folderService.updateSharedAccessLevel(folder.id, userId, level);
+      if (folder.sharedWith) {
+        const target = folder.sharedWith.find((u) => u.userId === userId);
+        if (target) target.accessLevel = level;
+        this.selectedFolderForShare.set({ ...folder });
+      }
+    } catch (err) {
+      console.error('Error updating folder collaborator access:', err);
+      alert('Failed to update collaborator permission');
+    }
+  }
+
+  async removeFolderSharedAccess(userId: string) {
+    const folder = this.selectedFolderForShare();
+    if (!folder) return;
+    if (!confirm('Remove folder access for this user?')) return;
+    try {
+      await this.folderService.removeSharedAccess(folder.id, userId);
+      if (folder.sharedWith) {
+        folder.sharedWith = folder.sharedWith.filter((u) => u.userId !== userId);
+        this.selectedFolderForShare.set({ ...folder });
+      }
+    } catch (err) {
+      console.error('Error removing folder collaborator access:', err);
+      alert('Failed to remove collaborator');
+    }
+  }
+
   async createNewDocument() {
     if (!this.newDocTitle().trim()) {
       alert('Please enter a document title');
@@ -1255,6 +1310,12 @@ export class Dashboard implements OnInit {
   confirmDelete(docId: string) {
     this.deleteDocId.set(docId);
     this.showDeleteConfirm.set(true);
+  }
+
+  getDeleteDocTitle(): string {
+    const id = this.deleteDocId();
+    const doc = this.myDocuments().find((d) => d.id === id);
+    return doc?.title || 'this document';
   }
 
   async deleteDocument() {

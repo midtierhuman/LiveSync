@@ -384,6 +384,24 @@ export class EditorHub {
         `Operation applied for document ${documentId} by ${socket.id}. ServerRevision: ${committedOp.serverRevision}`
       );
 
+      // Periodic Operation Log Compaction & Snapshot Checkpointing (every 100 revisions)
+      if (committedOp.serverRevision % 100 === 0) {
+        void (async () => {
+          try {
+            await operationLog.saveSnapshot(documentId, committedOp.serverRevision, updatedContent);
+            const minKeepRevision = committedOp.serverRevision - 200;
+            if (minKeepRevision > 0) {
+              const pruned = await operationLog.pruneOperationsOlderThan(documentId, minKeepRevision);
+              if (pruned > 0) {
+                console.log(`[Log Compaction] Pruned ${pruned} operations for doc ${documentId} (< rev ${minKeepRevision})`);
+              }
+            }
+          } catch (compactErr) {
+            console.warn(`[Log Compaction] Failed compaction for doc ${documentId}:`, compactErr);
+          }
+        })();
+      }
+
       this.io.to(documentId).emit('ReceiveOperation', committedOp);
     } catch (error: any) {
       console.error(`Error processing operation for document ${documentId}:`, error);

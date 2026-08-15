@@ -532,6 +532,54 @@ func (s *FolderService) getRawFolder(ctx context.Context, id string) (*models.Fo
 	return &f, nil
 }
 
+func (s *FolderService) UpdateCodeAccess(ctx context.Context, folderId, userId, accessLevel string) (bool, error) {
+	f, err := s.getRawFolder(ctx, folderId)
+	if err != nil {
+		return false, err
+	}
+	if f.OwnerID != userId {
+		return false, errors.New("only owner can modify share code access")
+	}
+
+	result, err := s.db.Pool.Exec(ctx, `UPDATE "Folders" SET "DefaultAccessLevel" = $1, "UpdatedAt" = $2 WHERE "Id" = $3;`, accessLevel, time.Now(), folderId)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() > 0, nil
+}
+
+func (s *FolderService) RemoveShare(ctx context.Context, folderId, userId, targetUserId string) (bool, error) {
+	f, err := s.getRawFolder(ctx, folderId)
+	if err != nil {
+		return false, err
+	}
+	if f.OwnerID != userId && userId != targetUserId {
+		return false, errors.New("unauthorized to remove share")
+	}
+
+	result, err := s.db.Pool.Exec(ctx, `DELETE FROM "SharedFolders" WHERE "FolderId" = $1 AND "UserId" = $2;`, folderId, targetUserId)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() > 0, nil
+}
+
+func (s *FolderService) UpdateShareAccess(ctx context.Context, folderId, userId, targetUserId, accessLevel string) (bool, error) {
+	f, err := s.getRawFolder(ctx, folderId)
+	if err != nil {
+		return false, err
+	}
+	if f.OwnerID != userId {
+		return false, errors.New("only owner can modify collaborator permissions")
+	}
+
+	result, err := s.db.Pool.Exec(ctx, `UPDATE "SharedFolders" SET "AccessLevel" = $1 WHERE "FolderId" = $2 AND "UserId" = $3;`, accessLevel, folderId, targetUserId)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() > 0, nil
+}
+
 func (s *FolderService) toDto(ctx context.Context, f *models.Folder, includeSubfolders bool, viewerUserId string) (*models.FolderDto, error) {
 	var subfolders []models.FolderDto
 	if includeSubfolders {
@@ -569,6 +617,27 @@ func (s *FolderService) toDto(ctx context.Context, f *models.Folder, includeSubf
 		}
 	}
 
+	var sharedWith []models.SharedFolderUserDto
+	sharedRows, err := s.db.Pool.Query(ctx, `
+		SELECT sf."Id", sf."FolderId", sf."UserId", sf."AccessLevel", sf."SharedAt", COALESCE(u."UserName", 'Unknown')
+		FROM "SharedFolders" sf
+		LEFT JOIN "AspNetUsers" u ON sf."UserId" = u."Id"
+		WHERE sf."FolderId" = $1
+		ORDER BY sf."SharedAt" DESC;
+	`, f.ID)
+	if err == nil {
+		defer sharedRows.Close()
+		for sharedRows.Next() {
+			var su models.SharedFolderUserDto
+			if err := sharedRows.Scan(&su.ID, &su.FolderID, &su.UserID, &su.AccessLevel, &su.SharedAt, &su.UserName); err == nil {
+				sharedWith = append(sharedWith, su)
+			}
+		}
+	}
+	if sharedWith == nil {
+		sharedWith = []models.SharedFolderUserDto{}
+	}
+
 	return &models.FolderDto{
 		ID:                 f.ID,
 		Name:               f.Name,
@@ -583,6 +652,7 @@ func (s *FolderService) toDto(ctx context.Context, f *models.Folder, includeSubf
 		Subfolders:         subfolders,
 		Documents:          []models.DocumentDto{},
 		FolderPath:         []models.FolderPathNode{},
+		SharedWith:         sharedWith,
 		IsShared:           isShared,
 		Permission:         permission,
 	}, nil
@@ -642,6 +712,27 @@ func (s *FolderService) toDtoWithContents(ctx context.Context, f *models.Folder,
 		}
 	}
 
+	var sharedWith []models.SharedFolderUserDto
+	sharedRows, err := s.db.Pool.Query(ctx, `
+		SELECT sf."Id", sf."FolderId", sf."UserId", sf."AccessLevel", sf."SharedAt", COALESCE(u."UserName", 'Unknown')
+		FROM "SharedFolders" sf
+		LEFT JOIN "AspNetUsers" u ON sf."UserId" = u."Id"
+		WHERE sf."FolderId" = $1
+		ORDER BY sf."SharedAt" DESC;
+	`, f.ID)
+	if err == nil {
+		defer sharedRows.Close()
+		for sharedRows.Next() {
+			var su models.SharedFolderUserDto
+			if err := sharedRows.Scan(&su.ID, &su.FolderID, &su.UserID, &su.AccessLevel, &su.SharedAt, &su.UserName); err == nil {
+				sharedWith = append(sharedWith, su)
+			}
+		}
+	}
+	if sharedWith == nil {
+		sharedWith = []models.SharedFolderUserDto{}
+	}
+
 	return &models.FolderDto{
 		ID:                 f.ID,
 		Name:               f.Name,
@@ -656,6 +747,7 @@ func (s *FolderService) toDtoWithContents(ctx context.Context, f *models.Folder,
 		Subfolders:         subfolders,
 		Documents:          documents,
 		FolderPath:         s.BuildFolderPath(ctx, f.ID),
+		SharedWith:         sharedWith,
 		IsShared:           isShared,
 		Permission:         permission,
 	}, nil

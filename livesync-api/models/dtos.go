@@ -122,21 +122,31 @@ type FolderPathNode struct {
 }
 
 type FolderDto struct {
-	ID                 string           `json:"id"`
-	Name               string           `json:"name"`
-	OwnerID            string           `json:"ownerId"`
-	ParentFolderID     *string          `json:"parentFolderId"`
-	ShareCode          *string          `json:"shareCode"`
-	DefaultAccessLevel string           `json:"defaultAccessLevel"`
-	CreatedAt          time.Time        `json:"createdAt"`
-	UpdatedAt          time.Time        `json:"updatedAt"`
-	SubfoldersCount    int              `json:"subfoldersCount"`
-	DocumentsCount     int              `json:"documentsCount"`
-	Subfolders         []FolderDto      `json:"subfolders"`
-	Documents          []DocumentDto    `json:"documents"`
-	FolderPath         []FolderPathNode `json:"folderPath"`
-	IsShared           bool             `json:"isShared"`
-	Permission         string           `json:"permission"`
+	ID                 string                `json:"id"`
+	Name               string                `json:"name"`
+	OwnerID            string                `json:"ownerId"`
+	ParentFolderID     *string               `json:"parentFolderId"`
+	ShareCode          *string               `json:"shareCode"`
+	DefaultAccessLevel string                `json:"defaultAccessLevel"`
+	CreatedAt          time.Time             `json:"createdAt"`
+	UpdatedAt          time.Time             `json:"updatedAt"`
+	SubfoldersCount    int                   `json:"subfoldersCount"`
+	DocumentsCount     int                   `json:"documentsCount"`
+	Subfolders         []FolderDto           `json:"subfolders"`
+	Documents          []DocumentDto         `json:"documents"`
+	FolderPath         []FolderPathNode      `json:"folderPath"`
+	SharedWith         []SharedFolderUserDto `json:"sharedWith"`
+	IsShared           bool                  `json:"isShared"`
+	Permission         string                `json:"permission"`
+}
+
+type SharedFolderUserDto struct {
+	ID          string    `json:"id"`
+	FolderID    string    `json:"folderId"`
+	UserID      string    `json:"userId"`
+	UserName    string    `json:"userName"`
+	SharedAt    time.Time `json:"sharedAt"`
+	AccessLevel string    `json:"accessLevel"`
 }
 
 type SharedFolderDto struct {

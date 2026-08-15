@@ -51,16 +51,34 @@ Status: All Milestones Completed ✅ 🎉
 
 ---
 
+### **Milestone 6: Multi-File Project IDE & Unified Share/Action Modal Architecture** (IN PROGRESS 🚀)
+- [x] **Phase 1: Unified Reusable Modal Design System (`livesync-ui`)**
+  - [x] Created `ShareModalComponent`: Universal sharing modal supporting both Documents and Folders/Projects with share code generation, default access levels (`View`/`Edit`), collaborator listing, permission toggles, and access revocation.
+  - [x] Created `ConfirmDeleteModalComponent`: Universal confirmation dialog with context-aware warning text for Documents, Folders, and Projects.
+  - [x] Created `PromptModalComponent` / `RenameModalComponent`: Universal rename/input dialog for files, folders, and projects.
+  - [x] Created `MoveItemModalComponent`: Universal folder destination selector for moving files and subfolders.
+- [x] **Phase 2: Backend Folder & Document Sharing Parity (`livesync-api`)**
+  - [x] Added `PUT /api/folders/{id}/share-code-access-level` endpoint in `FolderHandler` and `FolderService`.
+  - [x] Added `DELETE /api/folders/{id}/shared/{userId}` endpoint to revoke folder collaborator shares.
+  - [x] Added `PUT /api/folders/{id}/shared/{userId}/access-level` endpoint to update specific collaborator permissions.
+  - [x] Populated `SharedWith` collaborator arrays in `FolderDto` for complete feature parity with `DocumentDto`.
+- [ ] **Phase 3: Project-First Workspace & Multi-File Tree Explorer**
+  - [ ] Enforce "Every file belongs to a folder/project" workspace containment rule.
+  - [ ] Build Angular Project Explorer Tree with multi-tab file switching.
+  - [ ] Implement multi-file project snapshot mounting & execution in `livesync-sandbox` / `livesync-gateway`.
+
+---
+
 ## 📑 Touched Files & Services Tracking
 
 | Service | Files Touched | Purpose |
 |---------|---------------|---------|
 | **Documentation** | [PROJECT_ROADMAP.md](file:///D:/Projects/LiveSync/docs/PROJECT_ROADMAP.md) | Roadmap tracking & state isolation |
-| **livesync-sandbox** | `app/services/ai_assistant.py`, `app/grpc_server.py`, `app/main.py` | AST AI analysis engine (explain, refactor, unit test generator) |
-| **livesync-api** | `handlers/`, `services/`, `models/` | Go 1.26 REST API, JWT Auth & PostgreSQL persistence |
-| **frontend** | `document.service.ts`, `editor.ts`, `editor.html`, `editor.scss` | AI Assistant drawer & snippet application |
+| **livesync-ui** | `src/app/shared/components/` | Reusable modal dialog components (Share, Delete, Rename, Move) |
+| **livesync-api** | `handlers/folder_handler.go`, `services/folder_service.go`, `models/dtos.go` | Full folder sharing permission & collaborator parity |
+| **livesync-sandbox** | `app/services/` | Multi-file workspace snapshot execution |
 
 ---
 
 ## 🎉 Status Summary
-All 5 major feature milestones are fully implemented, connected across microservices, and tracked in `docs/PROJECT_ROADMAP.md`!
+Milestones 1–5 completed. Milestone 6 actively in development.

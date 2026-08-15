@@ -12,16 +12,22 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/livesync/livesync-api/database"
 	"github.com/livesync/livesync-api/models"
+	"github.com/redis/go-redis/v9"
 )
 
 const ShareChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type DocumentService struct {
-	db *database.DB
+	db  *database.DB
+	rdb *redis.Client
 }
 
 func NewDocumentService(db *database.DB) *DocumentService {
 	return &DocumentService{db: db}
+}
+
+func (s *DocumentService) SetRedisClient(rdb *redis.Client) {
+	s.rdb = rdb
 }
 
 func (s *DocumentService) Find(ctx context.Context, id, userId string) (*models.DocumentDto, error) {
@@ -548,10 +554,17 @@ func (s *DocumentService) toDto(ctx context.Context, doc *models.Document, viewe
 		}
 	}
 
+	content := doc.Content
+	if s.rdb != nil {
+		if cachedContent, err := s.rdb.Get(ctx, "livesync:doc:"+doc.ID+":content").Result(); err == nil && cachedContent != "" {
+			content = cachedContent
+		}
+	}
+
 	return &models.DocumentDto{
 		ID:                 doc.ID,
 		Title:              doc.Title,
-		Content:            doc.Content,
+		Content:            content,
 		OwnerID:            doc.OwnerID,
 		FolderID:           doc.FolderID,
 		OwnerName:          ownerName,

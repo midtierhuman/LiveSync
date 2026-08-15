@@ -53,6 +53,7 @@ func main() {
 
 	// 4. Redis Stream Write-Behind Consumer
 	streamConsumer := services.NewDocumentSaveStreamConsumer(cfg.RedisURL, docService)
+	docService.SetRedisClient(streamConsumer.GetRedisClient())
 	go streamConsumer.Start(ctx)
 
 	// 5. HTTP Handlers

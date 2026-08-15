@@ -62,7 +62,8 @@ LiveSync utilizes a decoupled, high-performance microservices architecture where
 - Communicates exclusively over **HTTP/2 gRPC on port 50051** via `proto/sandbox.proto`.
 - Python sandbox runs completely isolated behind the Go Gateway with zero public HTTP route exposure.
 
-### 3. Realtime to Database Persistence (Write-Behind)
-- `livesync-realtime` receives document operations, updates in-memory CRDT / Redis cache, and appends snapshots to Redis Stream `livesync:stream:document-saves`.
+### 3. Realtime to Database Persistence (Write-Behind & Monotonic Read Cache)
+- `livesync-realtime` receives document operations, updates in-memory CRDT / Redis cache (`livesync:doc:{id}:content`), periodically takes snapshot checkpoints & compacts operation logs, and appends snapshots to Redis Stream `livesync:stream:document-saves`.
 - `livesync-api` reads from the Redis Stream via `XREADGROUP` (group: `api-save-group`) and asynchronously flushes document content snapshots into PostgreSQL.
+- `livesync-api` inspects the active Redis document snapshot cache on `GET /api/documents/{id}` before falling back to PostgreSQL, guaranteeing monotonic read consistency.
 - Periodic and on-disconnect flushers ensure zero data loss during server restarts or room closures.

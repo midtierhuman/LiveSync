@@ -147,19 +147,11 @@ This combines benefits of both: simplicity of CRDTs with efficiency of OT.
 
 ## Limitations & Future Improvements
 
-### Current Limitations
-
-1. **Character-level granularity**: Operations are at the character level. Large pastes create many operations.
-   - Future: Implement operation compression/batching
-
-2. **Full operation log retention**: All operations stored in Redis indefinitely.
-   - Future: Implement snapshotting (periodic document state save) + compaction
-
-3. **Concurrent edit visualization**: Clients don't yet show concurrent editing cursors.
-   - Future: Broadcast cursor positions from all active users
-
-4. **Tombstone cleanup**: Deleted characters aren't truly removed, just marked.
-   - Current design: This is fine for correctness; can optimize later
+### Current Status & Optimizations
+1. **Periodic Snapshotting & Compaction (Implemented ✅)**:
+   - LiveSync automatically captures state snapshots and prunes operations older than `serverRevision - 200` every 100 revisions via `RedisOperationLog.pruneOperationsOlderThan`.
+2. **Character-level granularity**: Operations operate at granular character boundaries.
+3. **Multi-Cursor Presence (Implemented ✅)**: Broadcasts multi-user cursor coordinates and color assignments across rooms.
 
 ### Potential Enhancements
 

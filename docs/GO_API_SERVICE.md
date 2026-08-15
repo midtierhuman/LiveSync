@@ -25,6 +25,10 @@ The `livesync-api` microservice is built with **Go 1.26** and **chi v5**. It ser
    - Listens on Redis Stream `livesync:stream:document-saves` via consumer group `api-save-group`.
    - Flushes real-time snapshot content updates asynchronously into PostgreSQL via `pgxpool` without blocking collaborative socket loops.
 
+5. **Monotonic Read-Through Caching (`DocumentService.toDto`)**:
+   - Inspects active Redis document keys (`livesync:doc:{id}:content`) during document fetch queries (`GET /api/documents/{id}`).
+   - Guarantees immediate read-after-write consistency even before asynchronous Redis Stream write-behind flushes complete.
+
 ---
 
 ## 🔌 Key REST API Endpoints
@@ -69,6 +73,10 @@ The `livesync-api` microservice is built with **Go 1.26** and **chi v5**. It ser
 | `PUT` | `/api/folders/move-document/{documentId}` | Moves document between folders or to root |
 | `PUT` | `/api/folders/move-folder/{folderId}` | Moves folder into a parent folder (with cycle protection) |
 | `POST` | `/api/folders/add-shared` | Joins a shared folder via share code |
+| `POST` | `/api/folders/{id}/generate-share-code` | Generates a new share code for the folder |
+| `DELETE` | `/api/folders/{id}/shared/{userId}` | Revokes folder share access for a collaborator |
+| `PUT` | `/api/folders/{id}/shared/{userId}/access-level` | Updates access level (`View`/`Edit`) for a collaborator |
+| `PUT` | `/api/folders/{id}/share-code-access-level` | Updates default join permission for the folder share code |
 
 ---
 

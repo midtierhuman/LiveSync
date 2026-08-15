@@ -4,6 +4,15 @@ import { firstValueFrom } from 'rxjs';
 import { appEndpoints } from '../app-endpoints';
 import { DocumentDto, FolderPathNode } from './document.service';
 
+export interface SharedFolderUserDto {
+  id: string;
+  folderId: string;
+  userId: string;
+  userName: string;
+  sharedAt: string;
+  accessLevel: string;
+}
+
 export interface FolderDto {
   id: string;
   name: string;
@@ -18,6 +27,7 @@ export interface FolderDto {
   subfolders: FolderDto[];
   documents: DocumentDto[];
   folderPath?: FolderPathNode[];
+  sharedWith?: SharedFolderUserDto[];
   isStructural?: boolean;
   isShared?: boolean;
   permission?: string;
@@ -67,6 +77,7 @@ export class FolderService {
       this.http.get<FolderDto[]>(`${appEndpoints.apiBaseUrl}/api/folders/shared-with-me/details`)
     );
   }
+
   async generateShareCode(id: string): Promise<FolderDto> {
     return firstValueFrom(
       this.http.post<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/${id}/generate-share-code`, {})
@@ -117,6 +128,28 @@ export class FolderService {
     await firstValueFrom(
       this.http.post(`${appEndpoints.apiBaseUrl}/api/folders/add-shared`, {
         shareCode,
+      })
+    );
+  }
+
+  async updateShareCodeAccessLevel(id: string, accessLevel: string): Promise<void> {
+    await firstValueFrom(
+      this.http.put(`${appEndpoints.apiBaseUrl}/api/folders/${id}/share-code-access-level`, {
+        accessLevel,
+      })
+    );
+  }
+
+  async removeSharedAccess(folderId: string, userId: string): Promise<void> {
+    await firstValueFrom(
+      this.http.delete(`${appEndpoints.apiBaseUrl}/api/folders/${folderId}/shared/${userId}`)
+    );
+  }
+
+  async updateSharedAccessLevel(folderId: string, userId: string, accessLevel: string): Promise<void> {
+    await firstValueFrom(
+      this.http.put(`${appEndpoints.apiBaseUrl}/api/folders/${folderId}/shared/${userId}/access-level`, {
+        accessLevel,
       })
     );
   }

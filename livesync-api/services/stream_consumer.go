@@ -35,6 +35,10 @@ func NewDocumentSaveStreamConsumer(redisURL string, documentService *DocumentSer
 	}
 }
 
+func (c *DocumentSaveStreamConsumer) GetRedisClient() *redis.Client {
+	return c.rdb
+}
+
 func (c *DocumentSaveStreamConsumer) Start(ctx context.Context) {
 	log.Println("🚀 Starting Redis Stream write-behind consumer for document saves...")
 

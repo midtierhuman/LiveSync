@@ -318,143 +318,57 @@
     </div>
   }
 
-  <!-- Share Folder Modal -->
-  @if (showShareFolderModal()) {
-    <div class="modal-overlay" (click)="showShareFolderModal.set(false)">
-      <div class="modal" (click)="$event.stopPropagation()">
-        <h2>Share Folder: {{ selectedFolderForShare()?.name }}</h2>
-        <div class="share-code-section">
-          <p>Share this folder code to give collaborators access to all documents inside:</p>
-          <div class="share-code-display">
-            <input type="text" [value]="folderShareCode()" readonly class="share-code-input" />
-            <button (click)="copyFolderShareCode()" class="btn-copy">Copy Code</button>
-          </div>
-          <button (click)="regenerateFolderShareCode()" class="btn-regenerate">Generate New Code</button>
-        </div>
-        <button (click)="showShareFolderModal.set(false)" class="btn-close">Close</button>
-      </div>
-    </div>
-  }
+  <!-- Reusable Share Folder Modal -->
+  <app-share-modal
+    [isOpen]="showShareFolderModal()"
+    itemType="folder"
+    [itemTitle]="selectedFolderForShare()?.name || ''"
+    [shareCode]="folderShareCode()"
+    [defaultAccessLevel]="selectedFolderForShare()?.defaultAccessLevel || 'View'"
+    [sharedWith]="selectedFolderForShare()?.sharedWith || []"
+    (close)="showShareFolderModal.set(false)"
+    (copyCode)="copyFolderShareCode()"
+    (regenerateCode)="regenerateFolderShareCode()"
+    (updateDefaultAccess)="updateFolderDefaultAccessLevel($event)"
+    (updateUserAccess)="updateFolderSharedAccessLevel($event.userId, $event.accessLevel)"
+    (removeUser)="removeFolderSharedAccess($event)"
+  />
 
-  <!-- Move Document Modal -->
-  @if (showMoveModal()) {
-    <div class="modal-overlay" (click)="showMoveModal.set(false)">
-      <div class="modal" (click)="$event.stopPropagation()">
-        <h2>Move Document: {{ selectedDocForMove()?.title }}</h2>
-        <p>Select target destination folder:</p>
-        <div class="folder-select-list">
-          <div
-            class="folder-select-item"
-            (click)="moveDocumentToFolder(null)"
-          >
-            <mat-icon>home</mat-icon>
-            <span>Root Workspace</span>
-          </div>
+  <!-- Reusable Move Modal -->
+  <app-move-modal
+    [isOpen]="showMoveModal()"
+    itemType="document"
+    [itemName]="selectedDocForMove()?.title || ''"
+    [availableFolders]="myFolders()"
+    (selectFolder)="moveDocumentToFolder($event)"
+    (cancel)="showMoveModal.set(false)"
+  />
 
-          @for (f of myFolders(); track f.id) {
-            <div
-              class="folder-select-item"
-              (click)="moveDocumentToFolder(f.id)"
-            >
-              <mat-icon>folder</mat-icon>
-              <span>{{ f.name }}</span>
-            </div>
-          }
-        </div>
-        <div class="modal-actions">
-          <button (click)="showMoveModal.set(false)" class="btn-cancel">Cancel</button>
-        </div>
-      </div>
-    </div>
-  }
+  <!-- Reusable Share Document Modal -->
+  <app-share-modal
+    [isOpen]="showShareModal()"
+    itemType="document"
+    [itemTitle]="selectedDocForShare()?.title || ''"
+    [shareCode]="shareCode()"
+    [defaultAccessLevel]="defaultAccessLevel()"
+    [sharedWith]="selectedDocForShare()?.sharedWith || []"
+    (close)="closeShareModal()"
+    (copyCode)="copyShareCode()"
+    (regenerateCode)="regenerateShareCode()"
+    (updateDefaultAccess)="updateDefaultAccessLevel()"
+    (updateUserAccess)="updateSharedAccessLevel(selectedDocForShare()!.id, $event.userId, $event.accessLevel)"
+    (removeUser)="removeSharedAccess(selectedDocForShare()!.id, $event)"
+  />
 
-  <!-- Share Document Modal -->
-  @if (showShareModal()) {
-    <div class="modal-overlay" (click)="closeShareModal()">
-      <div class="modal" (click)="$event.stopPropagation()">
-        <h2>Share Document: {{ selectedDocForShare()?.title }}</h2>
-        <div class="share-code-section">
-          <p>Share this code with others to let them access your document:</p>
-          <div class="share-code-display">
-            <input type="text" [value]="shareCode()" readonly class="share-code-input" />
-            <button (click)="copyShareCode()" class="btn-copy">Copy Code</button>
-          </div>
-
-          <div class="default-access-level">
-            <label for="defaultAccessLevel"><strong>Default Access Level:</strong></label>
-            <select
-              id="defaultAccessLevel"
-              [ngModel]="defaultAccessLevel()"
-              (ngModelChange)="defaultAccessLevel.set($event)"
-              (change)="updateDefaultAccessLevel()"
-              class="access-select"
-            >
-              <option value="View">View Only</option>
-              <option value="Edit">Can Edit</option>
-            </select>
-            <p class="access-hint">
-              @if (defaultAccessLevel() === 'View') {
-                <span>📖 People using this code will have <strong>view-only</strong> access.</span>
-              } @else {
-                <span>✏️ People using this code will be able to <strong>view and edit</strong>.</span>
-              }
-            </p>
-          </div>
-
-          <button (click)="regenerateShareCode()" class="btn-regenerate">Generate New Code</button>
-        </div>
-
-        @if (selectedDocForShare()?.sharedWith?.length! > 0) {
-          <div class="shared-users">
-            <h3>Shared With:</h3>
-            @for (user of selectedDocForShare()?.sharedWith; track user.userId) {
-              <div class="user-item">
-                <div class="user-info">
-                  <span class="user-name">{{ user.userName }}</span>
-                  @if (editingAccessLevelFor() === user.userId) {
-                    <select
-                      [(ngModel)]="user.accessLevel"
-                      class="access-select-inline"
-                      (change)="updateSharedAccessLevel(selectedDocForShare()!.id, user.userId, user.accessLevel)"
-                    >
-                      <option value="View">View Only</option>
-                      <option value="Edit">Can Edit</option>
-                    </select>
-                  } @else {
-                    <span class="access-badge" [class.edit-access]="user.accessLevel === 'Edit'">
-                      {{ user.accessLevel === 'Edit' ? '✏️ Can Edit' : '📖 View Only' }}
-                    </span>
-                    <button (click)="editingAccessLevelFor.set(user.userId)" class="btn-change-access" title="Change access level">
-                      Change
-                    </button>
-                  }
-                </div>
-                <button (click)="removeSharedAccess(selectedDocForShare()!.id, user.userId)" class="btn-remove">
-                  Remove
-                </button>
-              </div>
-            }
-          </div>
-        }
-
-        <button (click)="closeShareModal()" class="btn-close">Close</button>
-      </div>
-    </div>
-  }
-
-  <!-- Delete Confirmation Modal -->
-  @if (showDeleteConfirm()) {
-    <div class="modal-overlay" (click)="showDeleteConfirm.set(false)">
-      <div class="modal-small" (click)="$event.stopPropagation()">
-        <h2>Delete Document?</h2>
-        <p>This action cannot be undone.</p>
-        <div class="modal-actions">
-          <button (click)="showDeleteConfirm.set(false)" class="btn-cancel">Cancel</button>
-          <button (click)="deleteDocument()" class="btn-delete">Delete</button>
-        </div>
-      </div>
-    </div>
-  }
+  <!-- Reusable Delete Confirmation Modal -->
+  <app-confirm-delete-modal
+    [isOpen]="showDeleteConfirm()"
+    itemType="document"
+    [itemName]="getDeleteDocTitle()"
+    warningText="This action cannot be undone and will remove the document for all collaborators."
+    (confirm)="deleteDocument()"
+    (cancel)="showDeleteConfirm.set(false)"
+  />
 
   <!-- Custom Right-Click Context Menu -->
   @if (contextMenu(); as ctx) {

@@ -49,10 +49,13 @@ The `livesync-realtime` microservice handles low-latency room-based document edi
 1. **Write-Behind Stream Publisher (`publishSaveEvent`)**:
    - Publishes dirty document snapshots to Redis Stream `livesync:stream:document-saves` for asynchronous persistence into PostgreSQL by `livesync-api`.
 
-2. **Periodic PostgreSQL Flusher**:
+2. **Operation Log Compaction & Snapshot Checkpointing**:
+   - Automatically takes a snapshot checkpoint and prunes historical operations older than `serverRevision - 200` every 100 revisions, bounding Redis memory consumption while keeping optimal resync buffers.
+
+3. **Periodic PostgreSQL Flusher**:
    - Runs every 60 seconds to detect unsaved active document modifications in Redis and push them to the Redis stream and PostgreSQL.
 
-3. **Stale Connection Sweeper**:
+4. **Stale Connection Sweeper**:
    - Runs every 30 seconds to clean up orphaned socket connections across server replicas and flush closing rooms.
 
 ---

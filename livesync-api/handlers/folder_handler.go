@@ -45,6 +45,9 @@ func (h *FolderHandler) RegisterRoutes(r chi.Router) {
 				r.Put("/", h.Update)
 				r.Delete("/", h.Delete)
 				r.Post("/generate-share-code", h.GenerateShareCode)
+				r.Delete("/shared/{sharedUserId}", h.RemoveShare)
+				r.Put("/shared/{sharedUserId}/access-level", h.UpdateShareAccessLevel)
+				r.Put("/share-code-access-level", h.UpdateShareCodeAccessLevel)
 			})
 		})
 	})
@@ -252,4 +255,65 @@ func (h *FolderHandler) AddShared(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Folder joined successfully"})
+}
+
+func (h *FolderHandler) RemoveShare(w http.ResponseWriter, r *http.Request) {
+	userId, _ := security.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+	sharedUserId := chi.URLParam(r, "sharedUserId")
+
+	removed, err := h.folderService.RemoveShare(r.Context(), id, userId, sharedUserId)
+	if err != nil || !removed {
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "Share record not found or access denied."})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *FolderHandler) UpdateShareAccessLevel(w http.ResponseWriter, r *http.Request) {
+	userId, _ := security.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+	sharedUserId := chi.URLParam(r, "sharedUserId")
+
+	var req models.UpdateAccessLevelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || (req.AccessLevel != "View" && req.AccessLevel != "Edit") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid access level. Must be 'View' or 'Edit'"})
+		return
+	}
+
+	updated, err := h.folderService.UpdateShareAccess(r.Context(), id, userId, sharedUserId, req.AccessLevel)
+	if err != nil {
+		writeJSON(w, http.StatusForbidden, map[string]string{"message": "Only the folder owner can change access levels"})
+		return
+	}
+	if !updated {
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "Share not found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Access level updated successfully"})
+}
+
+func (h *FolderHandler) UpdateShareCodeAccessLevel(w http.ResponseWriter, r *http.Request) {
+	userId, _ := security.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+
+	var req models.UpdateAccessLevelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || (req.AccessLevel != "View" && req.AccessLevel != "Edit") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid access level. Must be 'View' or 'Edit'"})
+		return
+	}
+
+	updated, err := h.folderService.UpdateCodeAccess(r.Context(), id, userId, req.AccessLevel)
+	if err != nil {
+		writeJSON(w, http.StatusForbidden, map[string]string{"message": "Only the folder owner can change access levels"})
+		return
+	}
+	if !updated {
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "Folder not found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Share code access level updated successfully"})
 }

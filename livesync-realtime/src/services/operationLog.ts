@@ -1,6 +1,12 @@
 import Redis from 'ioredis';
 import type { Operation } from '../models/operation';
 
+export interface DocumentSnapshot {
+  revision: number;
+  content: string;
+  timestamp: number;
+}
+
 export interface IOperationLog {
   appendOperation(documentId: string, operation: Operation): Promise<void>;
   appendOperationAtomically(documentId: string, operation: Omit<Operation, 'serverRevision'>): Promise<Operation>;
@@ -8,11 +14,15 @@ export interface IOperationLog {
   getAllOperations(documentId: string): Promise<Operation[]>;
   getCurrentRevision(documentId: string): Promise<number>;
   deleteOperations(documentId: string): Promise<void>;
+  saveSnapshot(documentId: string, revision: number, content: string): Promise<void>;
+  getSnapshot(documentId: string): Promise<DocumentSnapshot | null>;
+  pruneOperationsOlderThan(documentId: string, minKeepRevision: number): Promise<number>;
 }
 
 export class RedisOperationLog implements IOperationLog {
   private static readonly OperationLogKeyPrefix = 'doc:operations:';
   private static readonly CurrentRevisionKeyPrefix = 'doc:revision:';
+  private static readonly SnapshotKeyPrefix = 'doc:snapshot:';
 
   constructor(private readonly redis: Redis) {}
 
@@ -22,6 +32,10 @@ export class RedisOperationLog implements IOperationLog {
 
   private getCurrentRevisionKey(documentId: string): string {
     return `${RedisOperationLog.CurrentRevisionKeyPrefix}${documentId}`;
+  }
+
+  private getSnapshotKey(documentId: string): string {
+    return `${RedisOperationLog.SnapshotKeyPrefix}${documentId}`;
   }
 
   public async appendOperation(documentId: string, operation: Operation): Promise<void> {
@@ -134,7 +148,51 @@ export class RedisOperationLog implements IOperationLog {
 
     const operationKey = this.getOperationLogKey(documentId);
     const revisionKey = this.getCurrentRevisionKey(documentId);
+    const snapshotKey = this.getSnapshotKey(documentId);
 
-    await this.redis.del(operationKey, revisionKey);
+    await this.redis.del(operationKey, revisionKey, snapshotKey);
+  }
+
+  public async saveSnapshot(documentId: string, revision: number, content: string): Promise<void> {
+    if (!documentId || !documentId.trim()) {
+      throw new Error('Document ID cannot be null or empty');
+    }
+
+    const snapshotKey = this.getSnapshotKey(documentId);
+    const data: DocumentSnapshot = {
+      revision,
+      content,
+      timestamp: Date.now(),
+    };
+
+    await this.redis.set(snapshotKey, JSON.stringify(data));
+  }
+
+  public async getSnapshot(documentId: string): Promise<DocumentSnapshot | null> {
+    if (!documentId || !documentId.trim()) {
+      throw new Error('Document ID cannot be null or empty');
+    }
+
+    const snapshotKey = this.getSnapshotKey(documentId);
+    const data = await this.redis.get(snapshotKey);
+    if (!data) return null;
+
+    try {
+      return JSON.parse(data) as DocumentSnapshot;
+    } catch {
+      return null;
+    }
+  }
+
+  public async pruneOperationsOlderThan(documentId: string, minKeepRevision: number): Promise<number> {
+    if (!documentId || !documentId.trim()) {
+      throw new Error('Document ID cannot be null or empty');
+    }
+    if (minKeepRevision <= 0) return 0;
+
+    const operationKey = this.getOperationLogKey(documentId);
+    // Remove all operations with revision < minKeepRevision
+    const removedCount = await this.redis.zremrangebyscore(operationKey, '-inf', `(${minKeepRevision}`);
+    return removedCount;
   }
 }
