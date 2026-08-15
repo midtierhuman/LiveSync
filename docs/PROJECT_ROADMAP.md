@@ -77,8 +77,13 @@ Status: All Milestones Completed ✅ 🎉
   - [x] Project Hub quick actions: "+ New Project Workspace", "+ New File" (with folder selector), and "🔗 Join via Share Code".
 - [x] **Phase 2: IDE Workspace Routing & Complete File/Folder Edit Suite (`/workspace/:projectName`)**
   - [x] Dedicated IDE route (`/workspace/:projectName?id=...`) with VS Code sidebar solution explorer and multi-tab editor canvas.
-  - [x] Real-time Project Scope Switcher in sidebar top dropdown with dynamic route URL synchronization.
+  - [x] Natural hierarchy sidebar layout:
+    - [x] **Row 1 (Top of Sidebar)**: Project Workspace Scope Switcher with real-time route URL synchronization.
+    - [x] **Row 2**: File & Folder Creation Action Toolbar (`+ New File`, `+ New Folder`, Expand All, Collapse All, Refresh).
+    - [x] **Row 3**: Real-time Workspace Search & Filter strip.
+    - [x] **Row 4+**: Recursive Collapsible Tree with drag-and-drop, context menus, and inline rename/duplicate/delete/move actions.
   - [x] Comprehensive IDE Renaming & Editing Suite:
+    - [x] Strict Project-Scoped Creation: When an active project is scoped in the IDE, destination options for new files/folders/moves are strictly confined to the active project root and its subfolders (preventing leakage across unrelated projects).
     - [x] Project & Subfolder Renaming (sidebar action button + context menu + dynamic URL update if active scoped project).
     - [x] File Renaming (sidebar action button + context menu + open tab title synchronization).
     - [x] Duplicate File (`Duplicate File` action creating deep-copy in the same folder and auto-opening it).

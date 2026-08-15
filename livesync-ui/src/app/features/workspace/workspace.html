@@ -68,29 +68,7 @@
         </div>
       } @else {
         <section class="vs-explorer">
-          <!-- Explorer Header Bar -->
-          <div class="explorer-header">
-            <span class="explorer-label">EXPLORER</span>
-            <div class="explorer-actions">
-              <button (click)="openCreateInFolder(currentFolderId(), 'file')" matTooltip="New File">
-                <mat-icon>note_add</mat-icon>
-              </button>
-              <button (click)="openCreateFolderModal()" matTooltip="New Folder">
-                <mat-icon>create_new_folder</mat-icon>
-              </button>
-              <button (click)="expandAllFolders()" matTooltip="Expand All">
-                <mat-icon>unfold_more</mat-icon>
-              </button>
-              <button (click)="collapseAllFolders()" matTooltip="Collapse All">
-                <mat-icon>unfold_less</mat-icon>
-              </button>
-              <button (click)="loadWorkspace()" matTooltip="Refresh">
-                <mat-icon>refresh</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <!-- Real-Time Project Scope Switcher -->
+          <!-- Row 1: Top Project Workspace Selector -->
           <div class="workspace-scope-bar">
             <div class="scope-info" [class.focused]="scopedProject() !== null">
               <mat-icon class="scope-icon">{{ scopedProject() ? 'inventory_2' : 'workspaces' }}</mat-icon>
@@ -99,6 +77,7 @@
                   class="scope-select"
                   [ngModel]="scopedProject()?.id || 'all'"
                   (ngModelChange)="onScopeChange($event)"
+                  matTooltip="Switch Active Project Scope"
                 >
                   <option value="all">🌐 All Projects (Multi-Root)</option>
                   <optgroup label="My Projects">
@@ -124,6 +103,28 @@
                   <mat-icon>close</mat-icon>
                 </button>
               }
+            </div>
+          </div>
+
+          <!-- Row 2: Explorer Action Toolbar (Create New Files / Folders) -->
+          <div class="explorer-header">
+            <span class="explorer-label">FILES & FOLDERS</span>
+            <div class="explorer-actions">
+              <button (click)="openCreateInFolder(scopedProject()?.id || currentFolderId(), 'file')" matTooltip="New File in Current Project">
+                <mat-icon>note_add</mat-icon>
+              </button>
+              <button (click)="openCreateInFolder(scopedProject()?.id || currentFolderId(), 'folder')" matTooltip="New Folder in Current Project">
+                <mat-icon>create_new_folder</mat-icon>
+              </button>
+              <button (click)="expandAllFolders()" matTooltip="Expand All Folders">
+                <mat-icon>unfold_more</mat-icon>
+              </button>
+              <button (click)="collapseAllFolders()" matTooltip="Collapse All Folders">
+                <mat-icon>unfold_less</mat-icon>
+              </button>
+              <button (click)="loadWorkspace()" matTooltip="Refresh Explorer">
+                <mat-icon>refresh</mat-icon>
+              </button>
             </div>
           </div>
 
@@ -424,7 +425,7 @@
     [isOpen]="showMoveModal()"
     itemType="document"
     [itemName]="selectedDocForMove()?.title || ''"
-    [availableFolders]="myFolders()"
+    [availableFolders]="moveFolderOptions()"
     (selectFolder)="moveDocumentToFolder($event)"
     (cancel)="showMoveModal.set(false)"
   />

@@ -128,14 +128,58 @@ export class Workspace implements OnInit {
   dragOverFolderId = signal<string | null>(null);
 
   availableFolderOptions = computed<TargetFolderOption[]>(() => {
+    const scoped = this.scopedProject();
+    if (scoped) {
+      const list: TargetFolderOption[] = [
+        { id: scoped.id, name: `${scoped.name} (Project Root)`, isShared: Boolean(scoped.isShared) },
+      ];
+
+      const addSubs = (parentId: string, prefix: string) => {
+        const subs = this.getSubfoldersOf(parentId);
+        for (const s of subs) {
+          const path = prefix ? `${prefix}/${s.name}` : s.name;
+          list.push({ id: s.id, name: path, isShared: Boolean(s.isShared) });
+          addSubs(s.id, path);
+        }
+      };
+
+      addSubs(scoped.id, '');
+      return list;
+    }
+
     const list: TargetFolderOption[] = [];
-    for (const f of this.myFolders()) {
-      list.push({ id: f.id, name: f.name, isShared: false });
-    }
-    for (const sf of this.sharedFolderTree()) {
-      list.push({ id: sf.id, name: sf.name, isShared: true });
-    }
+    const addAll = (folderList: FolderDto[], isShared: boolean, prefix = '') => {
+      for (const f of folderList) {
+        const label = prefix ? `${prefix}/${f.name}` : f.name;
+        list.push({ id: f.id, name: label, isShared });
+        const subs = this.getSubfoldersOf(f.id);
+        if (subs && subs.length > 0) {
+          addAll(subs, isShared, label);
+        }
+      }
+    };
+
+    addAll(this.myFolders().filter((f) => !f.parentFolderId), false);
+    addAll(this.sharedFolderTree(), true);
     return list;
+  });
+
+  moveFolderOptions = computed<FolderDto[]>(() => {
+    const scoped = this.scopedProject();
+    if (scoped) {
+      const list: FolderDto[] = [{ ...scoped, name: `${scoped.name} (Project Root)` }];
+      const addSubs = (parentId: string, prefix: string) => {
+        const subs = this.getSubfoldersOf(parentId);
+        for (const s of subs) {
+          const path = prefix ? `${prefix}/${s.name}` : s.name;
+          list.push({ ...s, name: path });
+          addSubs(s.id, path);
+        }
+      };
+      addSubs(scoped.id, '');
+      return list;
+    }
+    return this.myFolders();
   });
 
   ngOnInit() {
