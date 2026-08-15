@@ -80,14 +80,14 @@ export class Workspace implements OnInit {
     effect(() => {
       const fsChange = this.liveTerminalService.onFileSystemChange();
       if (fsChange) {
-        void this.loadWorkspace();
+        void this.loadWorkspace(true);
       }
     });
 
     effect(() => {
       const wsChange = this.realtimeService.onWorkspaceChange();
       if (wsChange) {
-        void this.loadWorkspace();
+        void this.loadWorkspace(true);
         if (wsChange.action === 'rename' && wsChange.itemId && wsChange.name) {
           this.openTabs.update((tabs) =>
             tabs.map((t) => (t.id === wsChange.itemId ? { ...t, title: wsChange.name! } : t))
@@ -527,8 +527,10 @@ export class Workspace implements OnInit {
     this.router.navigate(['/dashboard']);
   }
 
-  async loadWorkspace() {
-    this.isLoading.set(true);
+  async loadWorkspace(silent: boolean = false) {
+    if (!silent) {
+      this.isLoading.set(true);
+    }
     try {
       const [folders, docs, sharedDocs, sharedFolds] = await Promise.all([
         this.folderService.getMyFolders(),
@@ -572,7 +574,9 @@ export class Workspace implements OnInit {
     } catch (error) {
       console.error('Error loading workspace:', error);
     } finally {
-      this.isLoading.set(false);
+      if (!silent) {
+        this.isLoading.set(false);
+      }
     }
   }
 

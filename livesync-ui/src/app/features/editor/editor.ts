@@ -420,6 +420,10 @@ export class Editor implements OnInit {
       const isEditable = (accessLevel === 'Edit' || accessLevel === 'Owner') && doc.permission !== 'View';
       this.updateReadOnlyState(isEditable);
 
+      if (doc.title) {
+        this.liveTerminalService.syncFiles({ [doc.title]: content });
+      }
+
       await this.loadExecutionLanguages();
     } catch (loadError) {
       console.error('Error loading document:', loadError);
