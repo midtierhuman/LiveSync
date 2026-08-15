@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren } from '@angular/core';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
@@ -65,6 +65,23 @@ export class Workspace implements OnInit {
   private readonly folderService = inject(FolderService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+  private activeCleanupResizer?: (() => void) | null;
+
+  // Activity Bar & Sidebar View State
+  activeSidebarView = signal<'explorer' | 'packages' | 'ai' | 'comments'>('explorer');
+  isSidebarOpen = signal<boolean>(true);
+  isDarkMode = signal<boolean>(true);
+
+  // Editor instances access
+  readonly editorInstances = viewChildren(Editor);
+
+  readonly activeEditorInstance = computed(() => {
+    const tabs = this.openTabs();
+    const activeId = this.activeTabId();
+    const instances = this.editorInstances();
+    return instances.find(inst => inst.documentId() === activeId) || instances[0] || null;
+  });
 
   // Explorer resize state
   explorerWidth = signal<number>(this.getSavedExplorerWidth());
@@ -184,10 +201,24 @@ export class Workspace implements OnInit {
 
   readonly entrypointMap = signal<Record<string, string>>({});
 
+  private updateExpandedFolders(exp: Set<string>) {
+    this.expandedFolderIds.set(exp);
+    try {
+      sessionStorage.setItem('livesync_expanded_folders', JSON.stringify(Array.from(exp)));
+    } catch {}
+  }
+
   ngOnInit() {
     try {
       const saved = localStorage.getItem('livesync_entrypoints');
       if (saved) this.entrypointMap.set(JSON.parse(saved));
+    } catch {}
+
+    try {
+      const savedExp = sessionStorage.getItem('livesync_expanded_folders');
+      if (savedExp) {
+        this.expandedFolderIds.set(new Set(JSON.parse(savedExp)));
+      }
     } catch {}
 
     this.loadWorkspace().then(() => {
@@ -196,6 +227,12 @@ export class Workspace implements OnInit {
         const folderId = this.route.snapshot.queryParams['id'];
         this.resolveScopedProject(projectName, folderId);
       });
+    });
+
+    this.destroyRef.onDestroy(() => {
+      if (this.activeCleanupResizer) {
+        this.activeCleanupResizer();
+      }
     });
   }
 
@@ -217,7 +254,7 @@ export class Workspace implements OnInit {
       this.scopedProject.set(match);
       const exp = new Set(this.expandedFolderIds());
       exp.add(match.id);
-      this.expandedFolderIds.set(exp);
+      this.updateExpandedFolders(exp);
 
       if (prevId !== match.id) {
         this.alignTabsWithProject(match);
@@ -411,7 +448,7 @@ export class Workspace implements OnInit {
   }
 
   collapseAllFolders() {
-    this.expandedFolderIds.set(new Set());
+    this.updateExpandedFolders(new Set());
   }
 
   expandAllFolders() {
@@ -423,7 +460,7 @@ export class Workspace implements OnInit {
       }
     };
     addF(this.getExplorerRootFolders());
-    this.expandedFolderIds.set(all);
+    this.updateExpandedFolders(all);
   }
 
   getExplorerRootFolders(): FolderDto[] {
@@ -626,7 +663,7 @@ export class Workspace implements OnInit {
         }
       }
     }
-    this.expandedFolderIds.set(exp);
+    this.updateExpandedFolders(exp);
   }
 
   getSubfoldersOf(folderId: string): FolderDto[] {
@@ -1266,6 +1303,30 @@ export class Workspace implements OnInit {
     this.resizeStartX = event.clientX;
     this.resizeStartWidth = this.explorerWidth();
     document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (moveEvent: MouseEvent) => {
+      if (!this.isResizing) return;
+      const nextWidth = Math.min(
+        Math.max(this.resizeStartWidth + (moveEvent.clientX - this.resizeStartX), EXPLORER_MIN_WIDTH),
+        EXPLORER_MAX_WIDTH,
+      );
+      this.explorerWidth.set(nextWidth);
+    };
+
+    const onEnd = () => {
+      this.isResizing = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      localStorage.setItem(EXPLORER_WIDTH_STORAGE_KEY, String(this.explorerWidth()));
+      this.activeCleanupResizer = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+    };
+
+    this.activeCleanupResizer = onEnd;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
   }
 
   startExplorerTouchResize(event: TouchEvent) {
@@ -1273,30 +1334,27 @@ export class Workspace implements OnInit {
     this.isResizing = true;
     this.resizeStartX = event.touches[0].clientX;
     this.resizeStartWidth = this.explorerWidth();
-  }
 
-  @HostListener('window:mousemove', ['$event'])
-  onWindowMouseMove(event: MouseEvent) {
-    if (!this.isResizing) return;
-    const nextWidth = Math.min(Math.max(this.resizeStartWidth + (event.clientX - this.resizeStartX), EXPLORER_MIN_WIDTH), EXPLORER_MAX_WIDTH);
-    this.explorerWidth.set(nextWidth);
-  }
+    const onTouchMove = (moveEvent: TouchEvent) => {
+      if (!this.isResizing || !moveEvent.touches.length) return;
+      const nextWidth = Math.min(
+        Math.max(this.resizeStartWidth + (moveEvent.touches[0].clientX - this.resizeStartX), EXPLORER_MIN_WIDTH),
+        EXPLORER_MAX_WIDTH,
+      );
+      this.explorerWidth.set(nextWidth);
+    };
 
-  @HostListener('window:touchmove', ['$event'])
-  onWindowTouchMove(event: TouchEvent) {
-    if (!this.isResizing || !event.touches.length) return;
-    const nextWidth = Math.min(Math.max(this.resizeStartWidth + (event.touches[0].clientX - this.resizeStartX), EXPLORER_MIN_WIDTH), EXPLORER_MAX_WIDTH);
-    this.explorerWidth.set(nextWidth);
-  }
-
-  @HostListener('window:mouseup')
-  @HostListener('window:touchend')
-  onWindowMouseUp() {
-    if (this.isResizing) {
+    const onTouchEnd = () => {
       this.isResizing = false;
-      document.body.style.cursor = '';
       localStorage.setItem(EXPLORER_WIDTH_STORAGE_KEY, String(this.explorerWidth()));
-    }
+      this.activeCleanupResizer = null;
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+
+    this.activeCleanupResizer = onTouchEnd;
+    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchend', onTouchEnd);
   }
 
   onExplorerResizeKeydown(event: KeyboardEvent) {
@@ -1309,5 +1367,25 @@ export class Workspace implements OnInit {
       this.explorerWidth.set(Math.min(this.explorerWidth() + 10, EXPLORER_MAX_WIDTH));
       localStorage.setItem(EXPLORER_WIDTH_STORAGE_KEY, String(this.explorerWidth()));
     }
+  }
+
+  toggleSidebarView(view: 'explorer' | 'packages' | 'ai' | 'comments'): void {
+    if (this.activeSidebarView() === view && this.isSidebarOpen()) {
+      this.isSidebarOpen.set(false);
+    } else {
+      this.activeSidebarView.set(view);
+      this.isSidebarOpen.set(true);
+    }
+  }
+
+  toggleTerminalInActiveEditor(): void {
+    const active = this.activeEditorInstance();
+    if (active) {
+      active.toggleTerminalPanel();
+    }
+  }
+
+  toggleTheme(): void {
+    this.isDarkMode.update((v) => !v);
   }
 }

@@ -48,15 +48,6 @@ export class EditorHub {
     socket.on('RequestMissedOperations', (arg1: any, arg2?: any) => this.handleRequestMissedOperations(socket, arg1, arg2));
     socket.on('requestMissedOperations', (arg1: any, arg2?: any) => this.handleRequestMissedOperations(socket, arg1, arg2));
 
-    socket.on('GetRevisionHistory', (arg: any) => {
-      const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || '');
-      return this.handleGetRevisionHistory(socket, docId);
-    });
-    socket.on('getRevisionHistory', (arg: any) => {
-      const docId = typeof arg === 'string' ? arg : (arg?.documentId || arg?.fileId || '');
-      return this.handleGetRevisionHistory(socket, docId);
-    });
-
     socket.on('SendCursorPosition', (arg1: any, arg2?: any) => this.handleSendCursorPosition(socket, arg1, arg2));
     socket.on('sendCursorPosition', (arg1: any, arg2?: any) => this.handleSendCursorPosition(socket, arg1, arg2));
 
@@ -449,36 +440,6 @@ export class EditorHub {
     } catch (error: any) {
       console.error(`Error sending missed operations for document ${documentId}:`, error);
       socket.emit('Error', `Failed to retrieve missed operations: ${error.message}`);
-    }
-  }
-
-  private async handleGetRevisionHistory(socket: Socket, documentId: string): Promise<void> {
-    if (!documentId || !documentId.trim()) {
-      socket.emit('Error', 'Document ID is required.');
-      return;
-    }
-
-    try {
-      const accessLevel = await this.state.getAccess(socket.id, documentId);
-      if (!accessLevel) {
-        socket.emit('Error', 'Join the document before requesting revision history.');
-        return;
-      }
-
-      const operationLog = this.state.getOperationLog();
-      const ops = await operationLog.getOperationsSince(documentId, 0);
-      const currentRevision = await operationLog.getCurrentRevision(documentId);
-      const content = (await this.state.getContent(documentId)) || '';
-
-      socket.emit('ReceiveRevisionHistory', {
-        documentId,
-        currentRevision,
-        content,
-        operations: ops,
-      });
-    } catch (error: any) {
-      console.error(`Error retrieving revision history for document ${documentId}:`, error);
-      socket.emit('Error', `Failed to retrieve revision history: ${error.message}`);
     }
   }
 

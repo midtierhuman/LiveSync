@@ -27,7 +27,6 @@ The `livesync-realtime` microservice handles low-latency room-based document edi
 | `SendContentUpdate` (`{ documentId, content }`) | `ReceiveContentUpdate` (`{ documentId, content }`) | Full document snapshot sync for major replaces. |
 | `SendOperation` (`{ documentId, operation }`) | `ReceiveOperation` (`Operation`) | Atomic transformation against concurrent edits and broadcast to room. |
 | `RequestMissedOperations` (`{ documentId, fromRevision }`) | `ReceiveOperation`, `ResyncComplete` | Catch-up sync mechanism for reconnected clients. |
-| `GetRevisionHistory` (`documentId`) | `ReceiveRevisionHistory` | Full operation log for time-travel playback and diff calculation. |
 
 ### Cursor Tracking & Presence
 | Client Emit | Server Emit | Description |

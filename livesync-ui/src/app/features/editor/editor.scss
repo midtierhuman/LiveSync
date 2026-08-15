@@ -23,138 +23,6 @@
   background: #f7f9fc;
 }
 
-.editor-toolbar {
-  padding: 0 16px !important;
-  height: 56px !important;
-  min-height: 56px !important;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-  z-index: 10;
-  flex-shrink: 0;
-}
-
-.toolbar-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  gap: 12px;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.document-title {
-  font-weight: 600;
-  font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.connection-badge,
-.view-only-badge,
-.active-users {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.connection-badge.connected {
-  background-color: rgba(76, 175, 80, 0.18);
-  color: #4caf50;
-}
-
-.connection-badge.disconnected,
-.connection-badge.error {
-  background-color: rgba(244, 67, 54, 0.18);
-  color: #f44336;
-}
-
-.connection-badge.reconnecting {
-  background-color: rgba(255, 193, 7, 0.18);
-  color: #ffc107;
-}
-
-.connection-badge .status-icon,
-.view-only-badge mat-icon,
-.active-users mat-icon {
-  width: 16px;
-  height: 16px;
-  font-size: 16px;
-}
-
-.view-only-badge {
-  background-color: rgba(255, 152, 0, 0.18);
-  color: #ff9800;
-  border: 1px solid rgba(255, 152, 0, 0.35);
-}
-
-.active-users {
-  background-color: rgba(33, 150, 243, 0.2);
-  color: #2196f3;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  button {
-    transition: transform 0.2s ease;
-
-    &:hover {
-      transform: translateY(-1px);
-    }
-  }
-}
-
-
-.execution-language-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-right: 6px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  font-size: 12px;
-
-  select {
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.2);
-    color: #ffffff;
-    font-size: 12px;
-    padding: 2px 6px;
-    min-width: 92px;
-    outline: none;
-  }
-}
-
-.editor-wrapper.light-theme .execution-language-select {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1f2937;
-
-  select {
-    border-color: rgba(0, 0, 0, 0.25);
-    background: #ffffff;
-    color: #1f2937;
-  }
-}
-
 .permission-revoked-banner {
   display: flex;
   align-items: center;
@@ -456,140 +324,6 @@ button.active-mode {
   background: rgba(255, 183, 77, 0.2) !important;
 }
 
-.time-travel-bar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 16px;
-  background: #161b22;
-  border-top: 2px solid #388bfd;
-  color: #c9d1d9;
-
-  .time-travel-controls {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-
-    .speed-selector {
-      display: flex;
-      gap: 2px;
-      margin-left: 8px;
-
-      button {
-        background: #21262d;
-        border: 1px solid #30363d;
-        color: #8b949e;
-        border-radius: 4px;
-        font-size: 11px;
-        padding: 2px 6px;
-        cursor: pointer;
-
-        &.active {
-          background: #388bfd;
-          color: #ffffff;
-          border-color: #388bfd;
-        }
-      }
-    }
-  }
-
-  .time-travel-scrubber {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-
-    input[type='range'] {
-      flex: 1;
-      accent-color: #388bfd;
-      cursor: pointer;
-    }
-
-    .revision-counter {
-      font-family: monospace;
-      font-size: 12px;
-      white-space: nowrap;
-      color: #58a6ff;
-    }
-  }
-
-  .time-travel-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    button.active-diff {
-      color: #7ee787;
-    }
-  }
-}
-
-.visual-diff-panel {
-  flex-shrink: 0;
-  max-height: 200px;
-  background: #0d1117;
-  border-top: 1px solid #30363d;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  display: flex;
-  flex-direction: column;
-
-  .diff-header {
-    padding: 6px 14px;
-    background: #161b22;
-    border-bottom: 1px solid #30363d;
-    color: #58a6ff;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .diff-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 6px 0;
-
-    .diff-line {
-      display: flex;
-      align-items: center;
-      padding: 2px 14px;
-      white-space: pre-wrap;
-
-      .line-no {
-        width: 32px;
-        color: #484f58;
-        user-select: none;
-      }
-
-      .diff-prefix {
-        width: 16px;
-        font-weight: bold;
-      }
-
-      .diff-text {
-        flex: 1;
-      }
-
-      &.added {
-        background: rgba(46, 160, 67, 0.15);
-        color: #7ee787;
-        .diff-prefix { color: #3fb950; }
-      }
-
-      &.removed {
-        background: rgba(248, 81, 73, 0.15);
-        color: #ff7b72;
-        .diff-prefix { color: #f85149; }
-      }
-
-      &.unchanged {
-        color: #8b949e;
-      }
-    }
-  }
-}
 /* Package Manager Toolbar Button & Modal Styles */
 .package-manager-btn {
   height: 28px !important;
@@ -1661,16 +1395,85 @@ button.active-mode {
 }
 
 .editor-statusbar {
-  height: 28px;
-  min-height: 28px;
+  height: 24px;
+  min-height: 24px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 12px;
-  font-size: 12px;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 11px;
   background: #007acc;
   color: #ffffff;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
+  user-select: none;
+  z-index: 5;
+  flex-shrink: 0;
+
+  .statusbar-left,
+  .statusbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #8b949e;
+    }
+
+    &.connected .status-dot {
+      background: #4ade80;
+      box-shadow: 0 0 5px #4ade80;
+    }
+
+    &.disconnected .status-dot,
+    &.error .status-dot {
+      background: #f85149;
+    }
+
+    &.reconnecting .status-dot {
+      background: #fbbf24;
+    }
+
+    mat-icon {
+      font-size: 12px;
+      width: 12px;
+      height: 12px;
+      opacity: 0.9;
+    }
+  }
+
+  .status-item {
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0.95;
+  }
+
+  .language-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: default;
+    user-select: none;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
 }
 
 .terminal-resize-handle {
@@ -2213,78 +2016,22 @@ button.active-mode {
 }
 
 @media (max-width: 768px) {
-  .editor-toolbar {
-    height: auto !important;
-    min-height: 48px !important;
-    padding: 6px 10px !important;
+  .editor-action-strip {
+    height: auto;
+    min-height: 32px;
+    padding: 4px 8px;
     flex-wrap: wrap;
-    gap: 6px;
-    overflow-x: auto;
-  }
-
-  .toolbar-left {
-    gap: 8px;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .document-title {
-    max-width: 120px;
-    font-size: 13px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .connection-badge span,
-  .active-users span,
-  .view-only-badge span {
-    display: none;
-  }
-
-  .toolbar-right {
     gap: 4px;
-    overflow-x: auto;
-    max-width: 100%;
-    padding-bottom: 2px;
-
-    button {
-      height: 32px;
-      padding: 0 8px;
-      font-size: 12px;
-    }
   }
 
-  .execution-language-select {
-    margin-right: 4px;
-    padding: 2px 6px;
-
-    span {
-      display: none;
-    }
-
-    select {
-      min-width: 80px;
-      font-size: 12px;
-    }
+  .strip-left .standalone-doc-title {
+    max-width: 120px;
   }
 
   .editor-statusbar {
-    gap: 8px;
-    padding: 0 8px;
-    font-size: 11px;
+    padding: 0 6px;
+    font-size: 10px;
     overflow-x: auto;
-    white-space: nowrap;
-  }
-}
-
-@media (max-width: 520px) {
-  .editor-toolbar {
-    padding: 4px 6px !important;
-  }
-
-  .document-title {
-    max-width: 80px;
   }
 }
 

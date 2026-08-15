@@ -62,10 +62,9 @@ import {
 import { FolderService } from '../../services/folder.service';
 import { AuthService } from '../../services/auth.service';
 import { LiveTerminalService } from '../../services/live-terminal.service';
-import { TimeTravelService } from '../../services/time-travel.service';
 import { PackageManagerService, PackageItem } from '../../services/package-manager.service';
-
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 
 export interface ExecutionLanguageOption {
   name: string;
@@ -86,12 +85,12 @@ export interface ChatMessage {
 @Component({
   selector: 'app-editor',
   standalone: true,
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule, FormsModule],
+  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule, MatDividerModule, FormsModule],
   templateUrl: './editor.html',
   styleUrl: './editor.scss',
   // Scope these services to each Editor instance so every open tab gets isolated
-  // realtime, terminal, time-travel, and package manager state.
-  providers: [LiveTerminalService, TimeTravelService, PackageManagerService],
+  // realtime, terminal, and package manager state.
+  providers: [LiveTerminalService, PackageManagerService],
 })
 export class Editor implements OnInit {
   readonly documentId = input<string>('');
@@ -103,7 +102,6 @@ export class Editor implements OnInit {
 
   readonly realtimeService = inject(RealtimeService);
   public readonly liveTerminalService = inject(LiveTerminalService);
-  public readonly timeTravelService = inject(TimeTravelService);
   public readonly packageManagerService = inject(PackageManagerService);
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
@@ -111,7 +109,7 @@ export class Editor implements OnInit {
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  private activeCleanupResizer?: () => void;
+  private activeCleanupResizer?: (() => void) | null;
 
   readonly isTerminalOpen = signal<boolean>(false);
 
@@ -212,6 +210,27 @@ export class Editor implements OnInit {
   readonly permissionRevokedMessage = signal<string>('');
   readonly showPermissionBanner = signal(false);
   readonly currentLanguage = signal('plaintext');
+  readonly currentLanguageDisplayName = computed(() => {
+    const lang = (this.currentLanguage() || '').toLowerCase();
+    const title = (this.docTitle() || '').toLowerCase();
+
+    if (lang === 'typescript' || title.endsWith('.ts') || title.endsWith('.tsx')) return 'TypeScript';
+    if (lang === 'javascript' || title.endsWith('.js') || title.endsWith('.jsx') || title.endsWith('.mjs')) return 'JavaScript';
+    if (lang === 'python' || title.endsWith('.py')) return 'Python';
+    if (lang === 'go' || title.endsWith('.go')) return 'Go';
+    if (lang === 'json' || title.endsWith('.json')) return 'JSON';
+    if (lang === 'html' || title.endsWith('.html') || title.endsWith('.htm')) return 'HTML';
+    if (lang === 'css' || title.endsWith('.css') || title.endsWith('.scss')) return 'CSS';
+    if (lang === 'markdown' || title.endsWith('.md')) return 'Markdown';
+    if (lang === 'rust' || title.endsWith('.rs')) return 'Rust';
+    if (lang === 'c' || lang === 'cpp' || title.endsWith('.c') || title.endsWith('.cpp') || title.endsWith('.h')) return 'C++';
+    if (lang === 'java' || title.endsWith('.java')) return 'Java';
+    if (lang === 'sql' || title.endsWith('.sql')) return 'SQL';
+    if (lang === 'yaml' || title.endsWith('.yaml') || title.endsWith('.yml')) return 'YAML';
+    if (lang === 'xml' || title.endsWith('.xml')) return 'XML';
+    if (lang === 'shell' || title.endsWith('.sh') || title.endsWith('.bash')) return 'Shell Script';
+    return lang && lang !== 'plaintext' ? lang.charAt(0).toUpperCase() + lang.slice(1) : 'Plain Text';
+  });
   readonly cursorPosition = signal('Ln 1, Col 1');
   readonly isWordWrapEnabled = signal(false);
   readonly lastSaved = signal<Date | null>(null);
@@ -225,6 +244,7 @@ export class Editor implements OnInit {
   private isUpdatingFromRemote = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastJoinedDocumentId: string | null = null;
 
   private editorView: EditorView | null = null;
   private languageCompartment = new Compartment();
@@ -259,6 +279,10 @@ export class Editor implements OnInit {
       if (this.saveDebounceTimer) {
         clearTimeout(this.saveDebounceTimer);
         this.saveDebounceTimer = null;
+        const currentDocId = this.docId();
+        if (currentDocId && this.isEditable()) {
+          void this.saveToBackend(this.codeSignal());
+        }
       }
       if (this.cursorThrottleTimer) {
         clearTimeout(this.cursorThrottleTimer);
@@ -268,9 +292,14 @@ export class Editor implements OnInit {
         this.activeCleanupResizer();
       }
 
-      const currentDocId = this.docId();
-      if (currentDocId) {
-        void this.realtimeService.leaveDocument(currentDocId);
+      if (this.lastJoinedDocumentId) {
+        void this.realtimeService.leaveDocument(this.lastJoinedDocumentId);
+        this.lastJoinedDocumentId = null;
+      } else {
+        const currentDocId = this.docId();
+        if (currentDocId) {
+          void this.realtimeService.leaveDocument(currentDocId);
+        }
       }
 
       this.editorView?.destroy();
@@ -326,14 +355,6 @@ export class Editor implements OnInit {
     });
 
     effect(() => {
-      const snapContent = this.timeTravelService.currentSnapshotContent();
-      const isActive = this.timeTravelService.isTimeTravelActive();
-      if (isActive && snapContent !== undefined && this.editorView) {
-        this.updateEditorDocument(snapContent);
-      }
-    });
-
-    effect(() => {
       const isOpen = this.isPackageManagerOpen();
       this.selectedExecutionLanguage();
 
@@ -347,17 +368,34 @@ export class Editor implements OnInit {
     effect(() => {
       const currentDocId = this.docId();
       const loadedDocId = this.document()?.id;
-      const isActive = this.isActive();
       const isLoading = this.isLoading();
 
       if (!currentDocId || loadedDocId !== currentDocId || isLoading) {
         return;
       }
 
-      if (isActive) {
+      // Join realtime document once when loaded; stay joined while tab exists in openTabs
+      if (this.lastJoinedDocumentId !== currentDocId) {
+        if (this.lastJoinedDocumentId) {
+          void this.realtimeService.leaveDocument(this.lastJoinedDocumentId);
+        }
+        this.lastJoinedDocumentId = currentDocId;
         void this.joinRealtimeDocument(currentDocId);
-      } else {
-        void this.leaveRealtimeDocument(currentDocId);
+      }
+    });
+
+    effect(() => {
+      const active = this.isActive();
+      const currentDocId = this.docId();
+
+      if (active && currentDocId) {
+        this.realtimeService.setCurrentDocumentId(currentDocId);
+        setTimeout(() => {
+          this.editorView?.requestMeasure();
+          if (this.isTerminalOpen()) {
+            this.liveTerminalService.fit();
+          }
+        }, 30);
       }
     });
 
@@ -392,7 +430,16 @@ export class Editor implements OnInit {
       this.document.set(doc);
       this.docTitle.set(doc.title);
 
-      const content = doc.content || '// Start typing to collaborate...\n';
+      let content = doc.content || '// Start typing to collaborate...\n';
+
+      // Restore unsaved local draft if available from a previous network disruption
+      try {
+        const localDraft = localStorage.getItem(`livesync_draft_${id}`);
+        if (localDraft && localDraft.trim() !== '' && localDraft !== content) {
+          content = localDraft;
+        }
+      } catch {}
+
       this.codeSignal.set(content);
 
       const language = this.detectLanguage(doc.title || id, content);
@@ -429,11 +476,15 @@ export class Editor implements OnInit {
       return null;
     }
 
+    if (word.text.length < 2 && !context.explicit) {
+      return null;
+    }
+
     const anyWordResult = await completeAnyWord(context);
     const wordOptions = anyWordResult && 'options' in anyWordResult ? anyWordResult.options : [];
 
     const languageData = context.state.languageDataAt<CompletionSource>('autocomplete', context.pos);
-    let langOptions: any[] = [];
+    const langOptions: any[] = [];
     for (const source of languageData) {
       try {
         const res = await source(context);
@@ -447,6 +498,13 @@ export class Editor implements OnInit {
 
     const combinedMap = new Map<string, any>();
 
+    for (const opt of langOptions) {
+      const label = typeof opt === 'string' ? opt : opt.label;
+      if (label && !combinedMap.has(label)) {
+        combinedMap.set(label, typeof opt === 'string' ? { label, type: 'keyword' } : opt);
+      }
+    }
+
     for (const opt of wordOptions) {
       const label = typeof opt === 'string' ? opt : opt.label;
       if (label && label.length > 1 && !combinedMap.has(label)) {
@@ -455,13 +513,6 @@ export class Editor implements OnInit {
           type: 'variable',
           boost: 1,
         });
-      }
-    }
-
-    for (const opt of langOptions) {
-      const label = typeof opt === 'string' ? opt : opt.label;
-      if (label && !combinedMap.has(label)) {
-        combinedMap.set(label, typeof opt === 'string' ? { label, type: 'keyword' } : opt);
       }
     }
 
@@ -724,6 +775,19 @@ export class Editor implements OnInit {
   }
 
   private scheduleDebounce(value: string) {
+    const currentDocId = this.docId();
+    if (currentDocId) {
+      try {
+        localStorage.setItem(`livesync_draft_${currentDocId}`, value);
+      } catch {}
+    }
+
+    // Proactively sync live buffer to workspace terminal disk
+    const docTitle = this.document()?.title || this.docTitle();
+    if (docTitle) {
+      this.liveTerminalService.syncFiles({ [docTitle]: value });
+    }
+
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
@@ -767,9 +831,14 @@ export class Editor implements OnInit {
       });
       this.lastSaved.set(new Date());
 
+      // Save acknowledged by server: clear local draft item
+      try {
+        localStorage.removeItem(`livesync_draft_${currentDocId}`);
+      } catch {}
+
       // Silently sync saved file to live workspace terminal on disk
-      const docTitle = this.document()?.title;
-      if (docTitle && this.liveTerminalService.isConnected()) {
+      const docTitle = this.document()?.title || this.docTitle();
+      if (docTitle) {
         this.liveTerminalService.syncFiles({ [docTitle]: content });
       }
     } catch (saveError: any) {
@@ -1018,7 +1087,7 @@ export class Editor implements OnInit {
     const currentDoc = this.document();
     const filesSnapshot: Record<string, string> = {};
     const lockedFiles: string[] = [];
-    const entrypoint = currentDoc?.title || 'main.py';
+    const activeDocTitle = currentDoc?.title || this.docTitle() || 'main.py';
 
     if (currentDoc?.folderId) {
       try {
@@ -1041,12 +1110,12 @@ export class Editor implements OnInit {
       }
     }
 
-    if (Object.keys(filesSnapshot).length === 0) {
-      filesSnapshot[entrypoint] = this.codeSignal();
-      if (!this.isEditable()) {
-        lockedFiles.push(entrypoint);
-      }
+    // Always ensure the active editor document is present in the files snapshot
+    filesSnapshot[activeDocTitle] = this.codeSignal();
+    if (!this.isEditable() && !lockedFiles.includes(activeDocTitle)) {
+      lockedFiles.push(activeDocTitle);
     }
+
     return { files: filesSnapshot, lockedFiles };
   }
 
@@ -1102,12 +1171,14 @@ export class Editor implements OnInit {
 
     const onEnd = () => {
       this.isResizingTerminal = false;
+      this.activeCleanupResizer = null;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onEnd);
       document.removeEventListener('touchmove', onMove);
       document.removeEventListener('touchend', onEnd);
     };
 
+    this.activeCleanupResizer = onEnd;
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onEnd);
     document.addEventListener('touchmove', onMove, { passive: true });
@@ -1186,10 +1257,13 @@ export class Editor implements OnInit {
     const replacement = content.slice(start, endContent);
 
     this.isUpdatingFromRemote = true;
-    view.dispatch({
-      changes: { from: start, to: endCurrent, insert: replacement },
-    });
-    this.isUpdatingFromRemote = false;
+    try {
+      view.dispatch({
+        changes: { from: start, to: endCurrent, insert: replacement },
+      });
+    } finally {
+      this.isUpdatingFromRemote = false;
+    }
   }
 
   private async getFormatterConfig(
@@ -1376,30 +1450,6 @@ export class Editor implements OnInit {
       }
     }
     return fallback;
-  }
-
-  readonly showVisualDiff = signal<boolean>(false);
-
-  startTimeTravelSession(): void {
-    if (this.timeTravelService.isTimeTravelActive()) {
-      this.exitTimeTravelSession();
-    } else {
-      this.timeTravelService.startSession(this.codeSignal());
-    }
-  }
-
-  exitTimeTravelSession(): void {
-    this.timeTravelService.exitSession();
-    this.updateEditorDocument(this.codeSignal());
-  }
-
-  seekRevision(event: Event): void {
-    const val = parseInt((event.target as HTMLInputElement).value, 10);
-    this.timeTravelService.seekTo(val);
-  }
-
-  toggleVisualDiff(): void {
-    this.showVisualDiff.update((v) => !v);
   }
 
   readonly showAiDrawer = signal<boolean>(false);

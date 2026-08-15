@@ -9,33 +9,30 @@
 
 | ID | Category | Summary | Service Scope | Priority | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **PERF-01** | ⚡ Optimization | O(N²) Line Diff in Time-Travel Timeline Scrubber | `livesync-ui` | Medium | ⏳ Pending |
-| **PERF-02** | ⚡ Optimization | Data Loss Prevention on Editor Tab Close / Debounced Save Unmount | `livesync-ui` | High | ⏳ Pending |
+| **PERF-01** | ⚡ Optimization | O(N²) Line Diff in Time-Travel Timeline Scrubber | `livesync-ui` | Medium | 🚫 Deprecated / Removed |
+| **PERF-02** | ⚡ Optimization | Data Loss Prevention on Editor Tab Close / Debounced Save Unmount | `livesync-ui` | High | ✅ Done |
 | **FEAT-01** | 🚀 Feature | True Workspace Terminal & Background Process Mode | `livesync-ui`, `livesync-gateway` | Low | ✅ Done |
 | **FEAT-02** | 🚀 Feature | Smart Project Entrypoints & Auto-Dependency Resolver | `livesync-ui`, `livesync-gateway` | High | ✅ Done |
+| **FEAT-03** | 🚀 Feature | VS Code-Style Inline File/Folder Creation with Deep Path Parsing | `livesync-ui` | High | 🔄 In Progress |
+| **FEAT-04** | 🚀 Feature | Bi-Directional `fsnotify` Terminal Disk Watcher & Real-time Tree Sync | `livesync-gateway`, `livesync-api` | High | ⏳ Pending |
+| **FEAT-05** | 🚀 Feature | Path-Aware Virtual Filesystem (VFS) Indexer | `livesync-ui`, `livesync-ai` | Medium | ⏳ Pending |
+| **FEAT-06** | 🚀 Feature | Directory Drag-and-Drop Upload & Project ZIP Export | `livesync-ui`, `livesync-api` | Medium | ⏳ Pending |
 
 ---
 
 ## Detailed Task Breakdown
 
-### ⚡ PERF-01: O(N²) Line Diff Optimization in Time-Travel Timeline Scrubber
+### ⚡ PERF-01: Time-Travel Timeline Scrubber (DEPRECATED & REMOVED 🚫)
 
-#### Problem Statement
-`TimeTravelService.computeLineDiff` currently performs array inclusion checks (`prevLines.includes(currLines[j])`) inside a `while` loop during timeline scrubbing ([`time-travel.service.ts:L206`](file:///D:/Projects/LiveSync/livesync-ui/src/app/services/time-travel.service.ts#L206)). For large files (1,000+ lines), this quadratic $O(N^2)$ lookup causes noticeable UI frame drops/freezing when dragging the timeline slider.
-
-#### Action Items & Requirements
-- [ ] **O(N) Set Lookup (`time-travel.service.ts`):** Pre-convert `prevLines` into a `Set<string>` before the diff loop to achieve $O(1)$ set lookups per line iteration.
-- [ ] **Myers Diff Integration (Optional):** Replace simple line comparison with a lightweight Myers diff algorithm for accurate inline visual diff rendering.
+#### Status
+Removed in favor of full collaborative cloud IDE workflow with PTY terminal, package management, and undo/redo stacks.
 
 ---
 
-### ⚡ PERF-02: Data Loss Prevention on Editor Tab Close / Unmount
+### ⚡ PERF-02: Data Loss Prevention on Editor Tab Close / Unmount (COMPLETED ✅)
 
-#### Problem Statement
-When navigating away or closing an editor tab in `editor.ts`, `onDestroy` cancels the `saveDebounceTimer` with `clearTimeout(this.saveDebounceTimer)`. Any unsaved edits typed within the 2-second debounce window are silently discarded rather than being saved to the backend before destruction.
-
-#### Action Items & Requirements
-- [ ] **Synchronous Flush on Destroy (`editor.ts`):** Implement a `flushPendingSave()` helper function. Call `flushPendingSave()` inside `onDestroy` so pending content edits are flushed to `documentService.updateContent()` before CodeMirror instance destruction.
+#### Implemented Fixes
+- [x] **Flush on Destroy (`editor.ts`):** `onDestroy` immediately flushes any pending debounced edits to `documentService.updateContent()` before CodeMirror instance destruction.
 
 ---
 

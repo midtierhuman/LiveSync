@@ -22,6 +22,7 @@ export class LiveTerminalService {
   private currentProjectId: string = 'default';
   private resizeObserver: ResizeObserver | null = null;
   private pendingCommands: PendingCommand[] = [];
+  private pendingSyncFiles: { files: Record<string, string>; lockedFiles?: string[] } | null = null;
 
   readonly isConnected = signal<boolean>(false);
   readonly terminalStatus = signal<string>('Idle');
@@ -137,7 +138,7 @@ export class LiveTerminalService {
 
     // Resize event
     this.term.onResize((size) => {
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN && size.cols > 0 && size.rows > 0) {
         this.socket.send(
           JSON.stringify({
             action: 'resize',
@@ -171,7 +172,14 @@ export class LiveTerminalService {
 
   fit() {
     try {
-      if (this.fitAddon && this.term && this.term.element && this.term.element.offsetParent !== null) {
+      if (
+        this.fitAddon &&
+        this.term &&
+        this.term.element &&
+        this.term.element.offsetParent !== null &&
+        this.term.element.clientWidth > 0 &&
+        this.term.element.clientHeight > 0
+      ) {
         this.fitAddon.fit();
       }
     } catch {
@@ -198,7 +206,7 @@ export class LiveTerminalService {
 
     if (this.socket) {
       if (this.socket.readyState === WebSocket.OPEN) {
-        if (this.term) {
+        if (this.term && (this.term.cols || 0) > 0 && (this.term.rows || 0) > 0) {
           this.fit();
           this.socket.send(
             JSON.stringify({
@@ -237,7 +245,7 @@ export class LiveTerminalService {
         this.terminalStatus.set('Connected');
 
         // Send initial resize to sync PTY geometry
-        if (this.term) {
+        if (this.term && (this.term.cols || 0) > 0 && (this.term.rows || 0) > 0) {
           this.fit();
           this.socket?.send(
             JSON.stringify({
@@ -246,6 +254,13 @@ export class LiveTerminalService {
               rows: this.term.rows || 24,
             }),
           );
+        }
+
+        // Flush any pending file synchronization
+        if (this.pendingSyncFiles) {
+          const { files, lockedFiles } = this.pendingSyncFiles;
+          this.pendingSyncFiles = null;
+          this.syncFiles(files, lockedFiles);
         }
 
         // Flush queued commands with files snapshots
@@ -285,15 +300,24 @@ export class LiveTerminalService {
   }
 
   syncFiles(files: Record<string, string>, lockedFiles?: string[]) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(
-        JSON.stringify({
-          action: 'sync_files',
-          files,
-          lockedFiles: lockedFiles || [],
-        }),
-      );
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      this.pendingSyncFiles = {
+        files: { ...this.pendingSyncFiles?.files, ...files },
+        lockedFiles: lockedFiles || this.pendingSyncFiles?.lockedFiles || [],
+      };
+      if (!this.socket || this.socket.readyState === WebSocket.CLOSED) {
+        this.connect();
+      }
+      return;
     }
+
+    this.socket.send(
+      JSON.stringify({
+        action: 'sync_files',
+        files,
+        lockedFiles: lockedFiles || [],
+      }),
+    );
   }
 
   runCommand(command: string, files?: Record<string, string>) {

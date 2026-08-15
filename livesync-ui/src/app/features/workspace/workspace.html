@@ -57,108 +57,169 @@
     </div>
   </header>
 
-  <!-- IDE Body: Sidebar Dock (Left) + Editor Canvas (Right) -->
+  <!-- IDE Body: Activity Bar (Far Left) + Sidebar Dock (Left) + Editor Canvas (Right) -->
   <div class="workspace-body">
+    <!-- 1. VS Code Activity Bar (Far-Left Navigation Strip) -->
+    <nav class="activity-bar">
+      <div class="activity-top">
+        <button
+          class="activity-icon-btn"
+          [class.active]="isSidebarOpen() && activeSidebarView() === 'explorer'"
+          (click)="toggleSidebarView('explorer')"
+          matTooltip="Explorer (Files & Folders)"
+        >
+          <mat-icon>folder</mat-icon>
+        </button>
 
-    <!-- Fixed-Width VS Code Sidebar Dock -->
-    <aside class="sidebar-dock" [style.width.px]="explorerWidth()">
-      @if (isLoading()) {
-        <div class="sidebar-loading">
-          <span class="spinner">⚡</span> Loading workspace...
-        </div>
-      } @else {
-        <section class="vs-explorer">
-          <!-- Row 1: Top Project Workspace Selector -->
-          <div class="workspace-scope-bar">
-            <div class="scope-info" [class.focused]="scopedProject() !== null">
-              <mat-icon class="scope-icon">{{ scopedProject() ? 'inventory_2' : 'workspaces' }}</mat-icon>
-              <div class="scope-dropdown-container">
-                <select
-                  class="scope-select"
-                  [ngModel]="scopedProject()?.id || 'all'"
-                  (ngModelChange)="onScopeChange($event)"
-                  matTooltip="Switch Active Project Scope"
-                >
-                  <option value="all">🌐 All Projects (Multi-Root)</option>
-                  <optgroup label="My Projects">
-                    @for (f of myFolders(); track f.id) {
-                      <option [value]="f.id">📦 {{ f.name }}</option>
-                    }
-                  </optgroup>
-                  @if (sharedFolderTree().length > 0) {
-                    <optgroup label="Shared Projects">
-                      @for (sf of sharedFolderTree(); track sf.id) {
-                        <option [value]="sf.id">👥 {{ sf.name }}</option>
+        <button
+          class="activity-icon-btn"
+          [class.active]="isSidebarOpen() && activeSidebarView() === 'packages'"
+          (click)="toggleSidebarView('packages')"
+          matTooltip="Package Hub (npm / PyPI)"
+        >
+          <mat-icon>inventory_2</mat-icon>
+        </button>
+
+        <button
+          class="activity-icon-btn"
+          [class.active]="isSidebarOpen() && activeSidebarView() === 'ai'"
+          (click)="toggleSidebarView('ai')"
+          matTooltip="AI Code Assistant"
+        >
+          <mat-icon>psychology</mat-icon>
+        </button>
+
+        <button
+          class="activity-icon-btn"
+          [class.active]="isSidebarOpen() && activeSidebarView() === 'comments'"
+          (click)="toggleSidebarView('comments')"
+          matTooltip="Code Comments"
+        >
+          <mat-icon>chat_bubble_outline</mat-icon>
+        </button>
+      </div>
+
+      <div class="activity-bottom">
+        <button
+          class="activity-icon-btn"
+          (click)="toggleTerminalInActiveEditor()"
+          matTooltip="Toggle Terminal (Ctrl+`)"
+        >
+          <mat-icon>terminal</mat-icon>
+        </button>
+
+        <button
+          class="activity-icon-btn"
+          (click)="toggleTheme()"
+          matTooltip="Toggle Theme"
+        >
+          <mat-icon>{{ isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+      </div>
+    </nav>
+
+    <!-- 2. Multi-View VS Code Sidebar Dock -->
+    @if (isSidebarOpen()) {
+      <aside class="sidebar-dock" [style.width.px]="explorerWidth()">
+        <!-- VIEW 1: EXPLORER -->
+        @if (activeSidebarView() === 'explorer') {
+          @if (isLoading()) {
+            <div class="sidebar-loading">
+              <span class="spinner">⚡</span> Loading workspace...
+            </div>
+          } @else {
+            <section class="vs-explorer">
+              <!-- Row 1: Top Project Workspace Selector -->
+              <div class="workspace-scope-bar">
+                <div class="scope-info" [class.focused]="scopedProject() !== null">
+                  <mat-icon class="scope-icon">{{ scopedProject() ? 'inventory_2' : 'workspaces' }}</mat-icon>
+                  <div class="scope-dropdown-container">
+                    <select
+                      class="scope-select"
+                      [ngModel]="scopedProject()?.id || 'all'"
+                      (ngModelChange)="onScopeChange($event)"
+                      matTooltip="Switch Active Project Scope"
+                    >
+                      <option value="all">🌐 All Projects (Multi-Root)</option>
+                      <optgroup label="My Projects">
+                        @for (f of myFolders(); track f.id) {
+                          <option [value]="f.id">📦 {{ f.name }}</option>
+                        }
+                      </optgroup>
+                      @if (sharedFolderTree().length > 0) {
+                        <optgroup label="Shared Projects">
+                          @for (sf of sharedFolderTree(); track sf.id) {
+                            <option [value]="sf.id">👥 {{ sf.name }}</option>
+                          }
+                        </optgroup>
                       }
-                    </optgroup>
+                    </select>
+                  </div>
+                  @if (scopedProject()) {
+                    <button
+                      class="btn-reset-scope"
+                      (click)="onScopeChange('all')"
+                      matTooltip="Show All Projects"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
                   }
-                </select>
+                </div>
               </div>
-              @if (scopedProject()) {
-                <button
-                  class="btn-reset-scope"
-                  (click)="onScopeChange('all')"
-                  matTooltip="Show All Projects"
-                >
-                  <mat-icon>close</mat-icon>
-                </button>
-              }
-            </div>
-          </div>
 
-          <!-- Row 2: Explorer Action Toolbar (Create New Files / Folders) -->
-          <div class="explorer-header">
-            <span class="explorer-label">FILES & FOLDERS</span>
-            <div class="explorer-actions">
-              <button (click)="openCreateInFolder(scopedProject()?.id || currentFolderId(), 'file')" matTooltip="New File in Current Project">
-                <mat-icon>note_add</mat-icon>
-              </button>
-              <button (click)="openCreateInFolder(scopedProject()?.id || currentFolderId(), 'folder')" matTooltip="New Folder in Current Project">
-                <mat-icon>create_new_folder</mat-icon>
-              </button>
-              <button (click)="expandAllFolders()" matTooltip="Expand All Folders">
-                <mat-icon>unfold_more</mat-icon>
-              </button>
-              <button (click)="collapseAllFolders()" matTooltip="Collapse All Folders">
-                <mat-icon>unfold_less</mat-icon>
-              </button>
-              <button (click)="loadWorkspace()" matTooltip="Refresh Explorer">
-                <mat-icon>refresh</mat-icon>
-              </button>
-            </div>
-          </div>
+              <!-- Row 2: Explorer Action Toolbar (Create New Files / Folders) -->
+              <div class="explorer-header">
+                <span class="explorer-label">FILES & FOLDERS</span>
+                <div class="explorer-actions">
+                  <button (click)="openCreateInFolder(scopedProject()?.id || currentFolderId(), 'file')" matTooltip="New File in Current Project">
+                    <mat-icon>note_add</mat-icon>
+                  </button>
+                  <button (click)="openCreateInFolder(scopedProject()?.id || currentFolderId(), 'folder')" matTooltip="New Folder in Current Project">
+                    <mat-icon>create_new_folder</mat-icon>
+                  </button>
+                  <button (click)="expandAllFolders()" matTooltip="Expand All Folders">
+                    <mat-icon>unfold_more</mat-icon>
+                  </button>
+                  <button (click)="collapseAllFolders()" matTooltip="Collapse All Folders">
+                    <mat-icon>unfold_less</mat-icon>
+                  </button>
+                  <button (click)="loadWorkspace()" matTooltip="Refresh Explorer">
+                    <mat-icon>refresh</mat-icon>
+                  </button>
+                </div>
+              </div>
 
-          <!-- Sidebar Search Strip -->
-          <div class="explorer-search">
-            <mat-icon>search</mat-icon>
-            <input
-              type="text"
-              placeholder="Search files & folders..."
-              [value]="searchQuery()"
-              (input)="searchQuery.set($any($event.target).value)"
-            />
-          </div>
+              <!-- Sidebar Search Strip -->
+              <div class="explorer-search">
+                <mat-icon>search</mat-icon>
+                <input
+                  type="text"
+                  placeholder="Search files & folders..."
+                  [value]="searchQuery()"
+                  (input)="searchQuery.set($any($event.target).value)"
+                />
+              </div>
 
-          <!-- Workspace Section Header -->
-          <div class="section-header"
-            (dragover)="onDragOver($event, null)"
-            (dragenter)="onDragEnter($event, null)"
-            (dragleave)="onDragLeave($event, null)"
-            (drop)="onDrop($event, null)"
-            [class.drag-over]="dragOverFolderId() === 'root'"
-          >
-            <mat-icon class="section-chevron">expand_more</mat-icon>
-            <span class="section-label">{{ scopedProject() ? ('PROJECT: ' + scopedProject()?.name) : 'WORKSPACE (ALL PROJECTS)' }}</span>
-            <span class="section-badge">{{ getExplorerRootCount() }}</span>
-          </div>
+              <!-- Workspace Section Header -->
+              <div class="section-header"
+                (dragover)="onDragOver($event, null)"
+                (dragenter)="onDragEnter($event, null)"
+                (dragleave)="onDragLeave($event, null)"
+                (drop)="onDrop($event, null)"
+                [class.drag-over]="dragOverFolderId() === 'root'"
+              >
+                <mat-icon class="section-chevron">expand_more</mat-icon>
+                <span class="section-label">{{ scopedProject() ? ('PROJECT: ' + scopedProject()?.name) : 'WORKSPACE (ALL PROJECTS)' }}</span>
+                <span class="section-badge">{{ getExplorerRootCount() }}</span>
+              </div>
 
-          <!-- Scrollable Tree Body -->
-          <div class="explorer-tree">
+              <!-- Scrollable Tree Body -->
+              <div class="explorer-tree">
 
-            <!-- Recursive Folder Tree Template -->
-            <ng-template #folderTreeNode let-folder="folder" let-depth="depth">
-              <div class="tree-row folder-row" [class.structural]="folder.isStructural" [class.shared-row]="!isManageableExplorerFolder(folder)"
-                [style.paddingLeft.px]="depth * 12 + 8"
+                <!-- Recursive Folder Tree Template -->
+                <ng-template #folderTreeNode let-folder="folder" let-depth="depth">
+                  <div class="tree-row folder-row" [class.structural]="folder.isStructural" [class.shared-row]="!isManageableExplorerFolder(folder)"
+                    [style.paddingLeft.px]="depth * 12 + 8"
                 [class.expanded]="isFolderExpanded(folder.id)"
                 [class.drag-over]="dragOverFolderId() === folder.id"
                 [draggable]="isManageableExplorerFolder(folder)"
@@ -310,6 +371,212 @@
           </div>
         </section>
       }
+    }
+
+      <!-- VIEW 2: PACKAGES -->
+      @if (activeSidebarView() === 'packages') {
+        <section class="vs-sidebar-panel vs-packages-panel">
+          <div class="panel-header">
+            <span class="panel-title"><mat-icon>inventory_2</mat-icon> PACKAGE HUB</span>
+            <button class="btn-panel-action" (click)="activeEditorInstance()?.openPackageManagerModal()" matTooltip="Open Full Package Modal">
+              <mat-icon>open_in_new</mat-icon>
+            </button>
+          </div>
+
+          <div class="panel-body packages-sidebar-body">
+            <div class="sidebar-search-strip">
+              <mat-icon>search</mat-icon>
+              <input
+                type="text"
+                placeholder="Search npm / PyPI packages..."
+                [value]="activeEditorInstance()?.packageSearchInput() || ''"
+                (input)="activeEditorInstance()?.onSearchPackageInput($any($event.target).value)"
+                (keyup.enter)="activeEditorInstance()?.installTargetPackage()"
+              />
+            </div>
+
+            <!-- Search Results or Popular Packages List -->
+            <div class="packages-list">
+              @if (activeEditorInstance()?.packageManagerService?.searchResults()?.length) {
+                @for (pkg of activeEditorInstance()?.packageManagerService?.searchResults(); track pkg.name) {
+                  <div class="package-list-item">
+                    <div class="pkg-info">
+                      <span class="pkg-name">{{ pkg.name }}</span>
+                      <span class="pkg-ver">{{ pkg.version }}</span>
+                      <p class="pkg-desc">{{ pkg.description }}</p>
+                    </div>
+                    <button
+                      class="btn-install-sm"
+                      (click)="activeEditorInstance()?.installTargetPackage(pkg.name)"
+                      [disabled]="activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name)"
+                    >
+                      {{ activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name) ? 'Installing...' : 'Install' }}
+                    </button>
+                  </div>
+                }
+              } @else if (activeEditorInstance()?.packageManagerService?.popularPackages()?.length) {
+                <div class="section-label">Popular Packages</div>
+                @for (pkg of activeEditorInstance()?.packageManagerService?.popularPackages(); track pkg.name) {
+                  <div class="package-list-item">
+                    <div class="pkg-info">
+                      <span class="pkg-name">{{ pkg.name }}</span>
+                      <span class="pkg-ver">{{ pkg.version }}</span>
+                      <p class="pkg-desc">{{ pkg.description }}</p>
+                    </div>
+                    <button
+                      class="btn-install-sm"
+                      (click)="activeEditorInstance()?.installTargetPackage(pkg.name)"
+                      [disabled]="activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name)"
+                    >
+                      {{ activeEditorInstance()?.packageManagerService?.isPackageInstalling(pkg.name) ? 'Installing...' : 'Install' }}
+                    </button>
+                  </div>
+                }
+              } @else {
+                <div class="empty-packages-state">
+                  <p>Search packages above to install into current workspace.</p>
+                </div>
+              }
+            </div>
+
+            <!-- Installed Packages -->
+            @if (activeEditorInstance()?.packageManagerService?.installedPackages()?.length) {
+              <div class="section-label installed-label">Installed in Workspace</div>
+              <div class="installed-list">
+                @for (pkg of activeEditorInstance()?.packageManagerService?.installedPackages(); track pkg.name) {
+                  <div class="installed-item">
+                    <span class="installed-name">{{ pkg.name }} ({{ pkg.version }})</span>
+                    <button class="btn-uninstall-sm" (click)="activeEditorInstance()?.uninstallTargetPackage(pkg.name)" matTooltip="Uninstall">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- VIEW 3: AI ASSISTANT -->
+      @if (activeSidebarView() === 'ai') {
+        <section class="vs-sidebar-panel vs-ai-panel">
+          <div class="panel-header">
+            <span class="panel-title"><mat-icon>psychology</mat-icon> AI PAIR ASSISTANT</span>
+            <div class="panel-actions">
+              <button class="btn-panel-action" (click)="activeEditorInstance()?.clearChatHistory()" matTooltip="Clear Chat">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+              <button class="btn-panel-action" (click)="activeEditorInstance()?.refreshAiAnalysis()" [disabled]="activeEditorInstance()?.isAiLoading()" matTooltip="Re-run">
+                <mat-icon [class.spinning]="activeEditorInstance()?.isAiLoading()">refresh</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-body ai-sidebar-body">
+            <div class="quick-prompt-buttons">
+              <button (click)="activeEditorInstance()?.runAiAnalysis('explain')">💡 Explain</button>
+              <button (click)="activeEditorInstance()?.runAiAnalysis('refactor')">⚡ Refactor</button>
+              <button (click)="activeEditorInstance()?.runAiAnalysis('generate-tests')">🛠️ Tests</button>
+              <button (click)="activeEditorInstance()?.runAiAnalysis('complexity')">⏱️ Big-O</button>
+            </div>
+
+            <div class="ai-chat-stream">
+              @for (msg of activeEditorInstance()?.chatMessages(); track msg.id) {
+                <div class="chat-bubble" [class.user-bubble]="msg.sender === 'user'" [class.ai-bubble]="msg.sender === 'ai'">
+                  <div class="bubble-header">
+                    <strong>{{ msg.sender === 'user' ? 'You' : 'AI Assistant' }}</strong>
+                    <span class="bubble-time">{{ msg.timestamp }}</span>
+                  </div>
+                  <div class="bubble-text">{{ msg.text }}</div>
+                  @if (msg.generatedCode) {
+                    <div class="generated-code-box">
+                      <pre><code>{{ msg.generatedCode }}</code></pre>
+                      <div class="code-actions">
+                        <button class="btn-apply-code" (click)="activeEditorInstance()?.applyMessageCode(msg.generatedCode, msg.action)">
+                          <mat-icon>check</mat-icon> Apply to Editor
+                        </button>
+                        <button class="btn-copy-code" (click)="activeEditorInstance()?.copyMessageText(msg.id, msg.generatedCode)">
+                          <mat-icon>content_copy</mat-icon> Copy
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @empty {
+                <div class="ai-empty-hint">
+                  <mat-icon>smart_toy</mat-icon>
+                  <p>Ask anything about this document or select a starter action above.</p>
+                </div>
+              }
+            </div>
+
+            <div class="ai-prompt-input-row">
+              <textarea
+                placeholder="Ask AI about code or request changes..."
+                [value]="activeEditorInstance()?.userCustomPrompt() || ''"
+                (input)="activeEditorInstance()?.userCustomPrompt?.set($any($event.target).value)"
+                (keydown)="activeEditorInstance()?.handleChatKeyDown($event)"
+                rows="2"
+              ></textarea>
+              <button class="btn-send-prompt" (click)="activeEditorInstance()?.sendCustomAiPrompt()" [disabled]="activeEditorInstance()?.isAiLoading()">
+                <mat-icon>send</mat-icon>
+              </button>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- VIEW 4: COMMENTS -->
+      @if (activeSidebarView() === 'comments') {
+        <section class="vs-sidebar-panel vs-comments-panel">
+          <div class="panel-header">
+            <span class="panel-title"><mat-icon>chat_bubble_outline</mat-icon> THREADED COMMENTS</span>
+          </div>
+
+          <div class="panel-body comments-sidebar-body">
+            <div class="add-comment-quick">
+              <label>Line {{ activeEditorInstance()?.selectedLineForComment() || 1 }}</label>
+              <textarea
+                placeholder="Type comment..."
+                [value]="activeEditorInstance()?.newCommentText() || ''"
+                (input)="activeEditorInstance()?.newCommentText?.set($any($event.target).value)"
+                rows="2"
+              ></textarea>
+              <button
+                class="btn-post-comment"
+                (click)="activeEditorInstance()?.addCommentOnCurrentLine()"
+                [disabled]="!activeEditorInstance()?.newCommentText()?.trim()"
+              >
+                Post Comment
+              </button>
+            </div>
+
+            <div class="comments-stream">
+              @for (comment of activeEditorInstance()?.comments(); track comment.id) {
+                <div class="comment-card" [class.resolved]="comment.resolved">
+                  <div class="comment-card-header">
+                    <span class="author">{{ comment.authorName }}</span>
+                    <button class="line-badge" (click)="activeEditorInstance()?.scrollToCommentLine(comment.lineNumber)">
+                      L{{ comment.lineNumber }}
+                    </button>
+                  </div>
+                  <p class="comment-text">{{ comment.text }}</p>
+                  <div class="comment-card-actions">
+                    <button (click)="activeEditorInstance()?.toggleResolveComment(comment.id)">
+                      {{ comment.resolved ? 'Reopen' : 'Resolve' }}
+                    </button>
+                    <button class="delete-btn" (click)="activeEditorInstance()?.deleteComment(comment.id)">Delete</button>
+                  </div>
+                </div>
+              } @empty {
+                <div class="empty-comments-hint">
+                  <p>No comments on this document.</p>
+                </div>
+              }
+            </div>
+          </div>
+        </section>
+      }
 
       <!-- Explorer Horizontal Resizer Handle -->
       <div
@@ -324,6 +591,7 @@
         (keydown)="onExplorerResizeKeydown($event)"
       ></div>
     </aside>
+  }
 
     <!-- Main Workspace Center Area (Right): Tabbed Editor Canvas -->
     <main class="workspace-content editor-workspace">

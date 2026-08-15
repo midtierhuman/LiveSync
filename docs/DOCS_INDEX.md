@@ -14,5 +14,7 @@ Welcome to the technical documentation for **LiveSync** — a high-performance r
 | **[REALTIME_COLLABORATION_SERVICE.md](./REALTIME_COLLABORATION_SERVICE.md)** | Node.js + Socket.IO realtime engine, CRDT conflict resolution, presence tracking, and Redis event streaming. |
 | **[GO_API_SERVICE.md](./GO_API_SERVICE.md)** | Go 1.26 core REST API, PostgreSQL storage, user authentication, folder hierarchy, and Redis Stream write-behind consumer. |
 | **[CONFLICT_RESOLUTION_DESIGN.md](./CONFLICT_RESOLUTION_DESIGN.md)** | CRDT and Operational Transformation (OT) conflict resolution algorithms and multi-cursor state sync. |
+| **[VIRTUAL_FILESYSTEM_AND_DISK_SYNC.md](./VIRTUAL_FILESYSTEM_AND_DISK_SYNC.md)** | Virtual Filesystem (VFS) architecture, deep path resolution, and terminal bi-directional disk synchronization. |
+| **[PENDING_TASKS.md](./PENDING_TASKS.md)** | Active feature backlog, performance optimizations, bug tracking, and implementation status. |
 | **[TESTING_GUIDE.md](./TESTING_GUIDE.md)** | Complete testing and build verification commands for Angular, Go Gateway, Go API, Python AI, and Node.js Realtime services. |
 | **[PROJECT_ROADMAP.md](./PROJECT_ROADMAP.md)** | Feature milestones, completed architectural decoupling, and roadmap progress. |

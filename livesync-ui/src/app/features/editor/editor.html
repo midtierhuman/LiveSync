@@ -1,132 +1,4 @@
 <div class="editor-wrapper" [class.light-theme]="!isDarkMode()">
-  <mat-toolbar color="primary" class="editor-toolbar">
-    <div class="toolbar-content">
-      <div class="toolbar-left">
-        <span class="document-title">{{ docTitle() || docId() }}</span>
-
-        @if (!isEditable()) {
-          <div class="view-only-badge">
-            <mat-icon>visibility</mat-icon>
-            <span>View Only</span>
-          </div>
-        }
-
-        <div class="connection-badge" [class]="realtimeService.connectionState()">
-          <mat-icon class="status-icon">
-            @if (realtimeService.connectionState() === 'connected') {
-              check_circle
-            } @else {
-              radio_button_unchecked
-            }
-          </mat-icon>
-          <span>{{ realtimeService.connectionState() }}</span>
-        </div>
-
-        @if (activeUserCount() > 0) {
-          <div class="active-users">
-            <mat-icon>people</mat-icon>
-            <span>{{ activeUserCount() }} active</span>
-          </div>
-        }
-      </div>
-
-      <div class="toolbar-right">
-        <label class="execution-language-select" matTooltip="Execution language">
-          <span>Lang</span>
-          <select
-            [ngModel]="selectedExecutionLanguage()"
-            (ngModelChange)="setExecutionLanguage($event)"
-            [disabled]="isLoadingExecutionLanguages()"
-          >
-            @for (language of executionLanguages(); track language.name) {
-              <option [value]="language.name">{{ language.displayName }}</option>
-            }
-          </select>
-        </label>
-        <button
-          mat-button
-          class="package-manager-btn"
-          (click)="openPackageManagerModal()"
-          matTooltip="Manage & Install Packages (pip / npm)"
-        >
-          <mat-icon>inventory_2</mat-icon>
-          <span>Packages</span>
-        </button>
-        <button
-          mat-button
-          class="terminal-toggle-btn"
-          [class.active-mode]="isTerminalOpen()"
-          (click)="toggleTerminalPanel()"
-          matTooltip="Toggle Workspace Terminal (Ctrl+`)"
-        >
-          <mat-icon>terminal</mat-icon>
-          <span>Terminal</span>
-        </button>
-        <button mat-icon-button (click)="formatCode()" matTooltip="Format (Alt+Shift+F)">
-          <mat-icon>auto_fix_high</mat-icon>
-        </button>
-        <button mat-icon-button (click)="toggleWordWrap()" matTooltip="Toggle Word Wrap">
-          <mat-icon>{{ isWordWrapEnabled() ? 'wrap_text' : 'notes' }}</mat-icon>
-        </button>
-        <button mat-icon-button (click)="downloadCode()" matTooltip="Download">
-          <mat-icon>download</mat-icon>
-        </button>
-        <button mat-icon-button (click)="toggleTheme()" matTooltip="Toggle Theme">
-          <mat-icon>{{ isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
-        </button>
-        <button mat-icon-button (click)="copyCode()" matTooltip="Copy Code">
-          <mat-icon>content_copy</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          (click)="startTimeTravelSession()"
-          [class.active-mode]="timeTravelService.isTimeTravelActive()"
-          matTooltip="Time-Travel Replay & Revision Diff"
-        >
-          <mat-icon>history</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          (click)="toggleAiDrawer()"
-          [class.active-mode]="showAiDrawer()"
-          matTooltip="AI Code Assistant & Suggestions"
-        >
-          <mat-icon>psychology</mat-icon>
-        </button>
-
-        <!-- Active Collaborators Follow Mode Avatars -->
-        <div class="collaborator-avatars">
-          @for (collaborator of activeCollaborators(); track collaborator.userId) {
-            <button
-              class="collaborator-badge"
-              [class.following]="realtimeService.followedUserId() === collaborator.userId"
-              [style.borderColor]="collaborator.color"
-              (click)="toggleFollowUser(collaborator.userId)"
-              [matTooltip]="(realtimeService.followedUserId() === collaborator.userId ? 'Unfollow ' : 'Follow Mode: ') + (collaborator.userName || 'Collaborator')"
-            >
-              <span class="user-avatar" [style.backgroundColor]="collaborator.color">
-                {{ (collaborator.userName || 'C').substring(0, 1).toUpperCase() }}
-              </span>
-              @if (realtimeService.followedUserId() === collaborator.userId) {
-                <span class="eye-icon">👁️</span>
-              }
-            </button>
-          }
-        </div>
-
-        <button
-          mat-icon-button
-          (click)="toggleCommentsSidebar()"
-          [matTooltip]="'Threaded Code Comments (' + comments().length + ')'"
-        >
-          <mat-icon>chat_bubble_outline</mat-icon>
-          @if (comments().length > 0) {
-            <span class="comment-count-badge">{{ comments().length }}</span>
-          }
-        </button>
-      </div>
-    </div>
-  </mat-toolbar>
 
   @if (showPermissionBanner()) {
     <div class="permission-revoked-banner">
@@ -431,74 +303,34 @@
     </section>
   }
 
-  <!-- Time-Travel Replay Bar -->
-  @if (timeTravelService.isTimeTravelActive()) {
-    <section class="time-travel-bar">
-      <div class="time-travel-controls">
-        <button mat-icon-button (click)="timeTravelService.stepBackward()" [disabled]="timeTravelService.currentRevisionIndex() <= 0" matTooltip="Step Back">
-          <mat-icon>skip_previous</mat-icon>
-        </button>
-        <button mat-icon-button (click)="timeTravelService.togglePlay()" matTooltip="Play/Pause Timeline">
-          <mat-icon>{{ timeTravelService.isPlaying() ? 'pause' : 'play_arrow' }}</mat-icon>
-        </button>
-        <button mat-icon-button (click)="timeTravelService.stepForward()" [disabled]="timeTravelService.currentRevisionIndex() >= timeTravelService.totalRevisions() - 1" matTooltip="Step Forward">
-          <mat-icon>skip_next</mat-icon>
-        </button>
+  <footer class="editor-statusbar" [class.light]="!isDarkMode()">
+    <div class="statusbar-left">
+      <div class="status-chip connection-chip" [class]="realtimeService.connectionState()" [matTooltip]="'Realtime status: ' + realtimeService.connectionState()">
+        <span class="status-dot"></span>
+        <span class="status-label">{{ realtimeService.connectionState() }}</span>
+      </div>
 
-        <div class="speed-selector">
-          <button [class.active]="timeTravelService.playbackSpeed() === 1" (click)="timeTravelService.setSpeed(1)">1x</button>
-          <button [class.active]="timeTravelService.playbackSpeed() === 2" (click)="timeTravelService.setSpeed(2)">2x</button>
-          <button [class.active]="timeTravelService.playbackSpeed() === 5" (click)="timeTravelService.setSpeed(5)">5x</button>
+      @if (activeUserCount() > 0) {
+        <div class="status-chip users-chip" matTooltip="Active collaborators in this file">
+          <mat-icon>people</mat-icon>
+          <span>{{ activeUserCount() }} active</span>
         </div>
-      </div>
+      }
 
-      <div class="time-travel-scrubber">
-        <input
-          type="range"
-          min="0"
-          [max]="timeTravelService.totalRevisions() > 0 ? timeTravelService.totalRevisions() - 1 : 0"
-          [value]="timeTravelService.currentRevisionIndex()"
-          (input)="seekRevision($event)"
-        />
-        <span class="revision-counter">
-          Rev {{ timeTravelService.currentRevisionIndex() + 1 }} / {{ timeTravelService.totalRevisions() }}
-        </span>
+      <div class="status-chip save-chip">
+        <mat-icon class="save-icon">{{ isSaving() ? 'sync' : 'check_circle' }}</mat-icon>
+        <span>{{ saveStatus() }}</span>
       </div>
+    </div>
 
-      <div class="time-travel-actions">
-        <button mat-button (click)="toggleVisualDiff()" [class.active-diff]="showVisualDiff()">
-          <mat-icon>difference</mat-icon> {{ showVisualDiff() ? 'Hide Diff' : 'Visual Diff' }}
-        </button>
-        <button mat-icon-button (click)="exitTimeTravelSession()" matTooltip="Exit Time-Travel">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-    </section>
-  }
-
-  <!-- Visual Revision Line Diff Panel -->
-  @if (timeTravelService.isTimeTravelActive() && showVisualDiff()) {
-    <section class="visual-diff-panel">
-      <div class="diff-header">
-        <span><mat-icon>difference</mat-icon> Revision Visual Line Diff</span>
-      </div>
-      <div class="diff-body">
-        @for (line of timeTravelService.diffLines(); track $index) {
-          <div class="diff-line" [class]="line.type">
-            <span class="line-no">{{ line.lineNumber }}</span>
-            <span class="diff-prefix">{{ line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ' }}</span>
-            <span class="diff-text">{{ line.text }}</span>
-          </div>
-        }
-      </div>
-    </section>
-  }
-
-  <div class="editor-statusbar" [class.light]="!isDarkMode()">
-    <span class="status-item">{{ currentLanguage() }}</span>
-    <span class="status-item">{{ cursorPosition() }}</span>
-    <span class="status-item">{{ saveStatus() }}</span>
-  </div>
+    <div class="statusbar-right">
+      <span class="status-item cursor-pos">{{ cursorPosition() }}</span>
+      <span class="status-item encoding">UTF-8</span>
+      <span class="status-item language-label" matTooltip="Language Mode">
+        {{ currentLanguageDisplayName() }}
+      </span>
+    </div>
+  </footer>
 
   <!-- Package Manager Modal Overlay -->
   @if (isPackageManagerOpen()) {

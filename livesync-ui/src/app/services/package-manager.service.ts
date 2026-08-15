@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom, Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { firstValueFrom, Subject, from, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { appEndpoints } from '../app-endpoints';
 import { AuthService } from './auth.service';
 
@@ -80,7 +80,14 @@ export class PackageManagerService {
       .pipe(
         debounceTime(250),
         distinctUntilChanged((prev, curr) => prev.query === curr.query && prev.language === curr.language),
-        switchMap(({ query, language }) => this.executeSearch(query, language)),
+        switchMap(({ query, language }) =>
+          from(this.executeSearch(query, language)).pipe(
+            catchError((err) => {
+              console.warn('Package search query error:', err);
+              return of([] as CatalogPackage[]);
+            }),
+          ),
+        ),
       )
       .subscribe({
         next: (results) => {
