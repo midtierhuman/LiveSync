@@ -92,6 +92,8 @@ graph TD
 ## ⚡ Inter-Service Communication Protocol
 
 ### 1. Client to Go Gateway (`livesync-gateway`)
+- `POST /api/workspaces/:id/sync` -> Atomic disk workspace synchronization decoupled from terminal streams with transient SHA-256 hash `fsnotify` suppression.
+- `GET /api/workspaces/:id/sync` -> Retrieves workspace disk file manifest and content hashes.
 - `WS /api/terminal/ws?projectId=...` -> Interactive workspace PTY shell session streaming (`powershell.exe` on Windows / `/bin/bash` in Docker) anchored in `./workspaces/{projectId}` with active `fsnotify` disk watching.
 - `GET /api/execution/languages` -> Fetches supported polyglot execution runtimes.
 - `POST /api/ai/analyze` -> Triggers AI code analysis (Explain, Refactor, Unit Tests, Suggest, Big-O Complexity).

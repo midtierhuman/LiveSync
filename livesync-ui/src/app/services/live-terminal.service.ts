@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { appEndpoints } from '../app-endpoints';
 import { AuthService } from './auth.service';
+import { WorkspaceSyncService } from './workspace-sync.service';
 
 interface PendingCommand {
   command: string;
@@ -14,6 +15,7 @@ interface PendingCommand {
 })
 export class LiveTerminalService {
   private readonly authService = inject(AuthService);
+  private readonly workspaceSyncService = inject(WorkspaceSyncService);
   private readonly destroyRef = inject(DestroyRef);
 
   private socket: WebSocket | null = null;
@@ -374,14 +376,17 @@ export class LiveTerminalService {
   }
 
   syncFiles(files: Record<string, string>, lockedFiles?: string[]) {
+    // 1. Atomic REST disk sync with transient fsnotify self-change suppression
+    this.workspaceSyncService.syncWorkspace(this.currentProjectId, files, lockedFiles).catch((err) => {
+      console.warn('[LiveTerminalService] Atomic workspace sync warning:', err);
+    });
+
+    // 2. Pass to websocket stream if connected or queue for connect
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       this.pendingSyncFiles = {
         files: { ...this.pendingSyncFiles?.files, ...files },
         lockedFiles: lockedFiles || this.pendingSyncFiles?.lockedFiles || [],
       };
-      if (!this.socket || this.socket.readyState === WebSocket.CLOSED) {
-        this.connect();
-      }
       return;
     }
 

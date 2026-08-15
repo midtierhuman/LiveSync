@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { LiveTerminalService } from './live-terminal.service';
 import { AuthService } from './auth.service';
+import { WorkspaceSyncService } from './workspace-sync.service';
 
 describe('LiveTerminalService', () => {
   let service: LiveTerminalService;
@@ -10,12 +12,19 @@ describe('LiveTerminalService', () => {
     originalWebSocket = window.WebSocket;
 
     TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
       providers: [
         LiveTerminalService,
         {
           provide: AuthService,
           useValue: {
             token: () => 'test-terminal-token',
+          },
+        },
+        {
+          provide: WorkspaceSyncService,
+          useValue: {
+            syncWorkspace: jasmine.createSpy('syncWorkspace').and.returnValue(Promise.resolve({ status: 'ok' })),
           },
         },
       ],

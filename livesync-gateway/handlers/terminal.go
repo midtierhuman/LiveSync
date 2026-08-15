@@ -309,6 +309,14 @@ func startWorkspaceWatcher(ctx context.Context, wsDir string, c *SafeWSConn) {
 				}
 			}
 
+			cleanSlashRel := filepath.ToSlash(relPath)
+			if !isDir && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
+				if GetGlobalSuppressionRegistry().IsSuppressed(wsDir, cleanSlashRel) {
+					// Suppress self-change: this file was written by our atomic sync engine
+					continue
+				}
+			}
+
 			eventKind := "write"
 			if event.Has(fsnotify.Create) {
 				eventKind = "create"
@@ -388,32 +396,6 @@ func sanitizeWorkspaceID(raw string) string {
 }
 
 func syncWorkspaceFiles(wsDir string, files map[string]string, lockedFiles []string) {
-	lockedMap := make(map[string]bool)
-	for _, f := range lockedFiles {
-		if f != "" {
-			lockedMap[filepath.Clean(f)] = true
-		}
-	}
-
-	for relPath, content := range files {
-		if relPath == "" {
-			continue
-		}
-		cleanedRel := filepath.Clean(relPath)
-		if strings.HasPrefix(cleanedRel, "..") {
-			continue
-		}
-		targetPath := filepath.Join(wsDir, cleanedRel)
-		_ = os.MkdirAll(filepath.Dir(targetPath), 0755)
-
-		// If the file was previously read-only, temporarily allow write to sync canonical content
-		_ = os.Chmod(targetPath, 0644)
-		_ = os.WriteFile(targetPath, []byte(content), 0644)
-
-		// Enforce OS read-only permissions if file is locked
-		if lockedMap[cleanedRel] {
-			_ = os.Chmod(targetPath, 0444)
-		}
-	}
+	_, _, _ = SyncWorkspaceAtomicWithRegistry(wsDir, files, lockedFiles, GetGlobalSuppressionRegistry())
 }
 

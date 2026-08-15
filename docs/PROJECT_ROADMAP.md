@@ -10,7 +10,7 @@
 ### **Milestone 12: Advanced Workspace Search, Diagnostics & High-Performance Architecture** (ACTIVE 🔄)
 - [x] **ARCH-01: Persistent In-Memory Terminal Dock & Zero-Teardown PTY Session** (`livesync-ui`)
   - Retain `xterm.js` instance, DOM attachment, and WebSocket stream in memory across panel toggles, ensuring running processes (`npm run dev`, `python -i`), scrollback history, and shell state are 100% preserved with zero re-render delay.
-- [ ] **ARCH-02: Dedicated REST / gRPC Workspace Atomic Sync Engine & Self-Change Suppression** (`livesync-gateway`, `livesync-ui`)
+- [x] **ARCH-02: Dedicated REST / gRPC Workspace Atomic Sync Engine & Self-Change Suppression** (`livesync-gateway`, `livesync-ui`)
   - Dedicated `/api/workspaces/:id/sync` atomic disk mirroring with transient hash-based `fsnotify` self-change suppression to decouple filesystem synchronization from raw terminal keystroke WebSocket streams.
 - [ ] **FEAT-08: Workspace-Wide Multi-File Search & Replace (`Ctrl+Shift+F`)** (`livesync-ui`, `livesync-gateway`)
   - Full project ripgrep/regex search with multi-file match previews and batch replace across documents.

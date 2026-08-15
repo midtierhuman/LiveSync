@@ -27,11 +27,11 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Handlers
 	execHandler := handlers.NewExecutionHandler(cfg, aiClient.Client)
 	aiHandler := handlers.NewAIHandler(cfg, aiClient.Client)
 	termHandler := handlers.NewTerminalHandler(cfg)
 	pkgHandler := handlers.NewPackagesHandler(cfg)
+	wsSyncHandler := handlers.NewWorkspaceSyncHandler(cfg)
 
 	// Routes
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +44,7 @@ func main() {
 	mux.HandleFunc("/api/ai/analyze", middleware.JWTAuth(cfg, aiHandler.AnalyzeCode))
 	mux.HandleFunc("/api/ai/models", middleware.JWTAuth(cfg, aiHandler.ListModels))
 	mux.HandleFunc("/api/packages/", middleware.JWTAuth(cfg, pkgHandler.SearchPackages))
+	mux.HandleFunc("/api/workspaces/", middleware.JWTAuth(cfg, wsSyncHandler.HandleWorkspaceSync))
 	mux.HandleFunc("/api/terminal/ws", middleware.JWTAuth(cfg, termHandler.ServeWS))
 
 	handler := middleware.CORS(cfg, mux)
