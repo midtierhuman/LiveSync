@@ -668,12 +668,6 @@ export class EditorHub {
     if (data.documentId) {
       this.io.to(`document:${data.documentId}`).emit('ReceivePermissionUpdated', payload);
       this.io.to(`document:${data.documentId}`).emit('permissionUpdated', payload);
-      this.io.to(data.documentId).emit('ReceivePermissionUpdated', payload);
-      this.io.to(data.documentId).emit('permissionUpdated', payload);
     }
-
-    // 4. Global broadcast fallback
-    socket.broadcast.emit('ReceivePermissionUpdated', payload);
-    socket.broadcast.emit('permissionUpdated', payload);
   }
 }

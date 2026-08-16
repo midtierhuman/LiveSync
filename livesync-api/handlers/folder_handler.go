@@ -42,6 +42,7 @@ func (h *FolderHandler) RegisterRoutes(r chi.Router) {
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", h.Get)
+				r.Get("/access", h.GetAccess)
 				r.Put("/", h.Update)
 				r.Delete("/", h.Delete)
 				r.Post("/generate-share-code", h.GenerateShareCode)
@@ -122,6 +123,21 @@ func (h *FolderHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, folder)
+}
+
+func (h *FolderHandler) GetAccess(w http.ResponseWriter, r *http.Request) {
+	userId, _ := security.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+
+	access, err := h.folderService.GetAccessLevel(r.Context(), id, userId)
+	if err != nil || access == "" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "Folder not found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"accessLevel": access,
+	})
 }
 
 func (h *FolderHandler) Create(w http.ResponseWriter, r *http.Request) {

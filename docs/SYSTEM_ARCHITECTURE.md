@@ -91,10 +91,13 @@ graph TD
 
 ## ⚡ Inter-Service Communication Protocol
 
-### 1. Client to Go Gateway (`livesync-gateway`)
-- `POST /api/workspaces/:id/sync` -> Atomic disk workspace synchronization decoupled from terminal streams with transient SHA-256 hash `fsnotify` suppression.
-- `GET /api/workspaces/:id/sync` -> Retrieves workspace disk file manifest and content hashes.
-- `WS /api/terminal/ws?projectId=...` -> Interactive workspace PTY shell session streaming (`powershell.exe` on Windows / `/bin/bash` in Docker) anchored in `./workspaces/{projectId}` with active `fsnotify` disk watching.
+### 1. Client to Go Gateway (`livesync-gateway`) & Zero-Trust Authentication
+- All Gateway endpoints enforce cryptographic JWT validation (`HS256`), issuer & audience verification, and caller identity extraction (`UserClaims`).
+- `POST /api/workspaces/:id/sync` -> Verified atomic disk workspace synchronization decoupled from terminal streams with transient SHA-256 hash `fsnotify` suppression (requires active `Edit` workspace permission).
+- `GET /api/workspaces/:id/sync` -> Retrieves workspace disk file manifest and content hashes (requires active `View`/`Edit` workspace permission).
+- `GET /api/workspaces/:id/search` -> High-speed workspace-wide regex/whole-word multi-file search (requires `View`/`Edit` permission).
+- `POST /api/workspaces/:id/replace` -> Atomic multi-file and single-match replace (requires `Edit` permission).
+- `WS /api/terminal/ws?projectId=...` -> Interactive workspace PTY shell session streaming (`powershell.exe` on Windows / `/bin/bash` in Docker) anchored in `./workspaces/{projectId}` with active `fsnotify` disk watching and permission evaluation.
 - `GET /api/execution/languages` -> Fetches supported polyglot execution runtimes.
 - `POST /api/ai/analyze` -> Triggers AI code analysis (Explain, Refactor, Unit Tests, Suggest, Big-O Complexity).
 - `GET /api/ai/models` -> Returns active local and cloud LLM models.

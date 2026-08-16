@@ -69,6 +69,7 @@ The `livesync-api` microservice is built with **Go 1.26** and **chi v5**. It ser
 | `GET` | `/api/folders/shared-with-me` | Returns folders shared with the user |
 | `GET` | `/api/folders/shared-with-me/details` | Returns folders shared with the user including nested contents |
 | `GET` | `/api/folders/{id}` | Fetches folder contents (subfolders and files) |
+| `GET` | `/api/folders/{id}/access` | Returns user access level (`View` / `Edit`) for folder / workspace |
 | `GET` | `/api/folders/share/{code}` | Retrieves folder by share code |
 | `POST` | `/api/folders` | Creates a new folder or nested subfolder |
 | `PUT` | `/api/folders/{id}` | Renames folder |

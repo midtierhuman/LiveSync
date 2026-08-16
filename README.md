@@ -53,7 +53,7 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 | Service | Technology | Role | Port |
 | :--- | :--- | :--- | :--- |
 | **`livesync-ui`** | Angular 22, CodeMirror 6, xterm.js | Single-page reactive editor & terminal | `4200` (Dev) / `4000` (Prod) |
-| **`livesync-gateway`** | Go 1.26, PTY, gRPC client | API Gateway, live PTY shell, package search | `8081` |
+| **`livesync-gateway`** | Go 1.26, PTY, gRPC client | Zero-trust API Gateway, live PTY shell, JWT authorization, package search | `8081` |
 | **`livesync-ai`** | Python 3.14, Native gRPC | AI Pair Assistant, AST Big-O analyzer, LLM proxy | `50051` (gRPC) |
 | **`livesync-api`** | Go 1.26, Chi, pgxpool | Auth, user sessions, document/folder CRUD, Redis Stream consumer | `8080` (Internal) |
 | **`livesync-realtime`** | Node.js 24, Socket.IO 4.8 | CRDT room broadcasting, cursor sync & Redis Stream publisher | `5000` |

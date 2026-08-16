@@ -11,6 +11,7 @@ import {
   DestroyRef,
   HostListener,
   input,
+  untracked,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -297,19 +298,21 @@ export class Editor implements OnInit {
     effect(() => {
       const perm = this.realtimeService.onPermissionUpdated();
       if (!perm) return;
-      const myId = this.authService.user()?.id;
-      if (perm.targetUserId === myId) {
-        const isMyDoc = !perm.documentId || perm.documentId === this.docId();
-        if (isMyDoc) {
-          if (perm.accessLevel === 'View' || perm.accessLevel === 'Viewer' || perm.accessLevel === 'Revoked') {
-            this.handlePermissionRevoked();
-          } else if (perm.accessLevel === 'Edit' || perm.accessLevel === 'Editor') {
-            this.updateReadOnlyState(true);
-            this.accessLevel.set('Edit');
-            this.showPermissionBanner.set(false);
+      untracked(() => {
+        const myId = this.authService.user()?.id;
+        if (perm.targetUserId === myId) {
+          const isMyDoc = !perm.documentId || perm.documentId === this.docId();
+          if (isMyDoc) {
+            if (perm.accessLevel === 'View' || perm.accessLevel === 'Viewer' || perm.accessLevel === 'Revoked') {
+              this.handlePermissionRevoked();
+            } else if (perm.accessLevel === 'Edit' || perm.accessLevel === 'Editor') {
+              this.updateReadOnlyState(true);
+              this.accessLevel.set('Edit');
+              this.showPermissionBanner.set(false);
+            }
           }
         }
-      }
+      });
     });
 
     effect(() => {

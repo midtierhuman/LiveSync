@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/livesync/livesync-gateway/config"
+	"github.com/livesync/livesync-gateway/middleware"
 )
 
 // SuppressionEntry holds the expected content hash and expiration for self-change suppression.
@@ -193,6 +194,18 @@ func (h *WorkspaceSyncHandler) HandleWorkspaceSync(w http.ResponseWriter, r *htt
 			projectID = "default"
 		}
 
+		tokenStr := middleware.GetUserToken(r.Context())
+		accessLevel, accessErr := middleware.VerifyWorkspaceAccess(r.Context(), h.cfg, projectID, tokenStr)
+		if accessErr != nil || (accessLevel != "Edit" && accessLevel != "Owner" && accessLevel != "Admin") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "Forbidden: Insufficient permissions to sync workspace",
+				"code":  "FORBIDDEN",
+			})
+			return
+		}
+
 		safeID := sanitizeWorkspaceID(projectID)
 		workspaceDir := filepath.Join(".", "workspaces", safeID)
 		absWsDir, err := filepath.Abs(workspaceDir)
@@ -230,6 +243,19 @@ func (h *WorkspaceSyncHandler) HandleWorkspaceSync(w http.ResponseWriter, r *htt
 		if projectID == "" {
 			projectID = "default"
 		}
+
+		tokenStr := middleware.GetUserToken(r.Context())
+		accessLevel, accessErr := middleware.VerifyWorkspaceAccess(r.Context(), h.cfg, projectID, tokenStr)
+		if accessErr != nil || accessLevel == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "Forbidden: Insufficient permissions to read workspace",
+				"code":  "FORBIDDEN",
+			})
+			return
+		}
+
 		safeID := sanitizeWorkspaceID(projectID)
 		workspaceDir := filepath.Join(".", "workspaces", safeID)
 		absWsDir, _ := filepath.Abs(workspaceDir)

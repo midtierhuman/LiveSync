@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Port               string
+	APIBaseURL         string
 	AIGRPCURL          string
 	SandboxBaseURL     string
 	SandboxGRPCURL     string
@@ -20,19 +21,21 @@ type Config struct {
 
 func LoadConfig() *Config {
 	port := getEnv("PORT", "8081")
-	sandboxURL := getEnv("LIVESYNC_SANDBOX_BASE_URL", "http://127.0.0.1:8080")
+	apiURL := getEnv("LIVESYNC_API_BASE_URL", getEnv("API_BASE_URL", getEnv("LIVESYNC_SANDBOX_BASE_URL", "http://127.0.0.1:8080")))
+	sandboxURL := getEnv("LIVESYNC_SANDBOX_BASE_URL", apiURL)
 	aiGRPCURL := getEnv("LIVESYNC_AI_GRPC_URL", getEnv("LIVESYNC_SANDBOX_GRPC_URL", "127.0.0.1:50051"))
 	localLLMURL := getEnv("LOCAL_LLM_URL", "http://127.0.0.1:8080")
 	localLLMModel := getEnv("LOCAL_LLM_MODEL", "Qwen2.5-Coder-14B-Instruct-Q4_K_M")
 	jwtSecret := getEnv("LIVESYNC_JWT_SECRET", "LiveSync-Development-Only-Secret-Change-Me!")
-	jwtIssuer := getEnv("JWT_ISSUER", "LiveSyncAuthAPI")
-	jwtAudience := getEnv("JWT_AUDIENCE", "LiveSyncClient")
+	jwtIssuer := getEnv("LIVESYNC_JWT_ISSUER", getEnv("JWT_ISSUER", "LiveSyncAuthAPI"))
+	jwtAudience := getEnv("LIVESYNC_JWT_AUDIENCE", getEnv("JWT_AUDIENCE", "LiveSyncClient"))
 
 	corsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:4200,http://localhost:4000,http://localhost:5038")
 	origins := parseCORS(corsStr)
 
 	return &Config{
 		Port:               port,
+		APIBaseURL:         strings.TrimRight(apiURL, "/"),
 		AIGRPCURL:          aiGRPCURL,
 		SandboxBaseURL:     strings.TrimRight(sandboxURL, "/"),
 		SandboxGRPCURL:     aiGRPCURL,

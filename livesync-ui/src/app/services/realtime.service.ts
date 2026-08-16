@@ -323,13 +323,23 @@ export class RealtimeService {
       }
     });
 
-    this.socket.on('ReceivePermissionUpdated', (data: PermissionUpdatedEvent) => {
+    const handlePerm = (data: PermissionUpdatedEvent) => {
+      const current = this.onPermissionUpdated();
+      if (
+        current &&
+        current.targetUserId === data.targetUserId &&
+        current.accessLevel === data.accessLevel &&
+        current.workspaceId === data.workspaceId &&
+        current.documentId === data.documentId &&
+        current.timestamp === data.timestamp
+      ) {
+        return;
+      }
       this.onPermissionUpdated.set(data);
-    });
+    };
 
-    this.socket.on('permissionUpdated', (data: PermissionUpdatedEvent) => {
-      this.onPermissionUpdated.set(data);
-    });
+    this.socket.on('ReceivePermissionUpdated', handlePerm);
+    this.socket.on('permissionUpdated', handlePerm);
   }
 
   getOrCreateDocumentState(docId: string): DocumentRealtimeState {

@@ -15,6 +15,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/fsnotify/fsnotify"
 	"github.com/livesync/livesync-gateway/config"
+	"github.com/livesync/livesync-gateway/middleware"
 )
 
 type TerminalHandler struct {
@@ -65,6 +66,30 @@ func (s *SafeWSConn) Read(ctx context.Context) (websocket.MessageType, []byte, e
 }
 
 func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
+	// Determine workspace folder from query parameters
+	projectID := r.URL.Query().Get("projectId")
+	if projectID == "" {
+		projectID = r.URL.Query().Get("folderId")
+	}
+	if projectID == "" {
+		projectID = r.URL.Query().Get("sessionId")
+	}
+	if projectID == "" {
+		projectID = "workspace_default"
+	}
+
+	tokenStr := middleware.GetUserToken(r.Context())
+	accessLevel, accessErr := middleware.VerifyWorkspaceAccess(r.Context(), h.cfg, projectID, tokenStr)
+	if accessErr != nil || accessLevel == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Forbidden: Insufficient permissions to access workspace terminal",
+			"code":  "FORBIDDEN",
+		})
+		return
+	}
+
 	rawConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		InsecureSkipVerify: true,
 	})
@@ -77,18 +102,6 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-
-	// Determine workspace folder from query parameters
-	projectID := r.URL.Query().Get("projectId")
-	if projectID == "" {
-		projectID = r.URL.Query().Get("folderId")
-	}
-	if projectID == "" {
-		projectID = r.URL.Query().Get("sessionId")
-	}
-	if projectID == "" {
-		projectID = "workspace_default"
-	}
 
 	safeID := sanitizeWorkspaceID(projectID)
 	workspaceDir := filepath.Join(".", "workspaces", safeID)

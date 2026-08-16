@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/livesync/livesync-gateway/config"
+	"github.com/livesync/livesync-gateway/middleware"
 )
 
 // SearchMatch represents a single text occurrence within a file.
@@ -93,6 +94,18 @@ func (h *WorkspaceSearchHandler) HandleSearch(w http.ResponseWriter, r *http.Req
 	projectID := extractProjectIDFromRequest(r)
 	if projectID == "" {
 		projectID = "default"
+	}
+
+	tokenStr := middleware.GetUserToken(r.Context())
+	accessLevel, accessErr := middleware.VerifyWorkspaceAccess(r.Context(), h.cfg, projectID, tokenStr)
+	if accessErr != nil || accessLevel == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Forbidden: Insufficient permissions to search workspace",
+			"code":  "FORBIDDEN",
+		})
+		return
 	}
 
 	query := r.URL.Query().Get("query")
@@ -254,6 +267,18 @@ func (h *WorkspaceSearchHandler) HandleReplace(w http.ResponseWriter, r *http.Re
 	}
 	if projectID == "" {
 		projectID = "default"
+	}
+
+	tokenStr := middleware.GetUserToken(r.Context())
+	accessLevel, accessErr := middleware.VerifyWorkspaceAccess(r.Context(), h.cfg, projectID, tokenStr)
+	if accessErr != nil || (accessLevel != "Edit" && accessLevel != "Owner" && accessLevel != "Admin") {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Forbidden: Insufficient permissions to replace content in workspace",
+			"code":  "FORBIDDEN",
+		})
+		return
 	}
 
 	if req.Query == "" {

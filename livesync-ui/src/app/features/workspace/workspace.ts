@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren, viewChild, ElementRef, effect } from '@angular/core';
+import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren, viewChild, ElementRef, effect, untracked } from '@angular/core';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
@@ -80,59 +80,79 @@ export class Workspace implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private activeCleanupResizer?: (() => void) | null;
+  private lastHandledPermTimestamp = 0;
+  private lastJoinedWorkspaceId: string | null = null;
 
   constructor() {
     effect(() => {
       const fsChange = this.liveTerminalService.onFileSystemChange();
       if (fsChange) {
-        void this.loadWorkspace(true);
+        untracked(() => {
+          void this.loadWorkspace(true);
+        });
       }
     });
 
     effect(() => {
       const wsChange = this.realtimeService.onWorkspaceChange();
       if (wsChange) {
-        void this.loadWorkspace(true);
-        if (wsChange.action === 'rename' && wsChange.itemId && wsChange.name) {
-          this.openTabs.update((tabs) =>
-            tabs.map((t) => (t.id === wsChange.itemId ? { ...t, title: wsChange.name! } : t))
-          );
-        }
+        untracked(() => {
+          void this.loadWorkspace(true);
+          if (wsChange.action === 'rename' && wsChange.itemId && wsChange.name) {
+            this.openTabs.update((tabs) =>
+              tabs.map((t) => (t.id === wsChange.itemId ? { ...t, title: wsChange.name! } : t))
+            );
+          }
+        });
       }
     });
 
     effect(() => {
       const perm = this.realtimeService.onPermissionUpdated();
       if (!perm) return;
-      const myId = this.authService.user()?.id;
-      if (perm.targetUserId === myId) {
-        const scoped = this.scopedProject();
-        if (scoped && (!perm.workspaceId || perm.workspaceId === scoped.id)) {
-          this.scopedProject.set({ ...scoped, permission: perm.accessLevel });
+      untracked(() => {
+        if (perm.timestamp && perm.timestamp === this.lastHandledPermTimestamp) {
+          return;
         }
-        void this.loadWorkspace(true);
-      }
+        this.lastHandledPermTimestamp = perm.timestamp || Date.now();
+        const myId = this.authService.user()?.id;
+        if (perm.targetUserId === myId) {
+          const scoped = this.scopedProject();
+          if (scoped && (!perm.workspaceId || perm.workspaceId === scoped.id)) {
+            if (scoped.permission !== perm.accessLevel) {
+              this.scopedProject.set({ ...scoped, permission: perm.accessLevel });
+            }
+          }
+          void this.loadWorkspace(true);
+        }
+      });
     });
 
     effect(() => {
-      const proj = this.scopedProject();
-      if (proj?.id) {
-        void this.realtimeService.joinWorkspace(proj.id);
+      const projId = this.scopedProject()?.id;
+      if (projId && projId !== this.lastJoinedWorkspaceId) {
+        this.lastJoinedWorkspaceId = projId;
+        untracked(() => {
+          void this.realtimeService.joinWorkspace(projId);
+        });
       }
     });
 
     effect(() => {
       const view = this.activeSidebarView();
-      const tabId = this.activeTabId();
       if (view === 'packages') {
-        const lang = this.getCurrentWorkspaceLanguage();
-        void this.packageManagerService.fetchPopularPackages(lang);
-        void this.packageManagerService.fetchInstalledPackages(lang);
+        untracked(() => {
+          const lang = this.getCurrentWorkspaceLanguage();
+          void this.packageManagerService.fetchPopularPackages(lang);
+          void this.packageManagerService.fetchInstalledPackages(lang);
+        });
       } else if (view === 'search') {
-        const projId = this.scopedProject()?.id || '';
-        if (projId && this.searchService.query()) {
-          void this.searchService.search(projId);
-        }
+        untracked(() => {
+          const projId = this.scopedProject()?.id || '';
+          if (projId && this.searchService.query()) {
+            void this.searchService.search(projId);
+          }
+        });
       }
     });
   }

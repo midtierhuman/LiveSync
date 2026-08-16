@@ -8,12 +8,52 @@
 ## 🎯 Active Milestone
 
 ### **Milestone 14: Quality Assurance, Advanced Workspace Analytics & Production Hardening** (ACTIVE 🔄)
-- [ ] **SEC-04: Zero-Trust Gateway JWT Authentication & Universal Infrastructure Access Verification** (`livesync-gateway`, `livesync-api`, `livesync-realtime`)
+- [x] **SEC-04: Zero-Trust Gateway JWT Authentication & Universal Infrastructure Access Verification** (`livesync-gateway`, `livesync-api`, `livesync-realtime`)
   - Enforce strict cryptographically verified JWT bearer tokens and active workspace/document authorization checks across all Go Gateway endpoints (Terminal PTY WebSockets `/api/terminal/ws`, Workspace Atomic Sync `/api/workspaces/:id/sync`, Search `/api/workspaces/:id/search`, and Package Manager proxies). No gateway or backend infrastructure route is accessible without verified caller identity.
+- [x] **BUG-06: Collaborator Permission Update Infinite Signal Feedback Loop & Memory Leak Fix** (`livesync-ui`, `livesync-realtime`)
+  - Fix fatal circular reactive effect feedback loop in `WorkspaceComponent` (`scopedProject.set` triggering the same effect reading `scopedProject()`), wrap side-effects and reads in `untracked()`, deduplicate permission events, and prune duplicate multi-channel socket emission storms in `EditorHub`.
 - [ ] **PERF-05: Cache-Aside Redis ACL Engine & Fast-Path Permission Evaluation** (`livesync-api`, `livesync-realtime`)
   - Sub-millisecond $O(1)$ cached access evaluation with write-through invalidation on permission changes and in-memory socket ACL state management.
 - [ ] **FEAT-18: Collaborator Activity Timeline & Document Audit Logs** (`livesync-api`, `livesync-ui`)
   - Detailed historical audit trail of document permissions, collaborators added/removed, and version save snapshots.
+- [ ] **PERF-06: Angular Signal Lifecycle Audit & Comprehensive Client Memory Leak Prevention** (`livesync-ui`)
+  - Audit all subscriptions, effect loops, interval timers, resize observers, CodeMirror View plugin instances, and xterm.js terminal buffers across `livesync-ui` (`EditorComponent`, `WorkspaceComponent`, `LiveTerminalService`, `RealtimeService`) to ensure automatic teardown via `DestroyRef.onDestroy` / `takeUntilDestroyed` and zero zombie listeners.
+- [ ] **BUG-07: Realtime Disconnection Ghost Cursors & Orphan Socket Cleanup** (`livesync-realtime`, `livesync-ui`)
+  - Ensure clean collaborator teardown upon socket disconnect, tab closure, or navigation, preventing orphaned selection highlight ranges, stale collaborator counts, and ghost cursor states in Redis and UI.
+
+---
+
+## 🗺️ Future Milestones & Planned Work
+
+### **Milestone 15: Polyglot Codebase Hygiene, Dead Code Elimination & Architecture Streamlining** (PLANNED 📋)
+- [ ] **ARCH-08: Full Polyglot Dead Code Pruning & Deprecated API Cleanup** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
+  - Comprehensive static analysis and removal of unused struct fields, obsolete legacy endpoints, dead helper functions, unused npm/pip/go modules, orphaned component templates, and deprecated CSS rules across all 5 microservices.
+- [ ] **BUG-08: Concurrent PTY Stream Race Condition & Terminal Buffer Leak Fix** (`livesync-gateway`, `livesync-ui`)
+  - Memory-bounded scrollback buffer management, explicit PTY process kill signal propagation on WebSocket disconnect, and mutex-safe stdout/stderr I/O pumps to prevent dangling shell processes on the host.
+- [ ] **PERF-07: High-Concurrency Virtual Scroll & Large Directory Tree Windowing** (`livesync-ui`)
+  - DOM virtualization for large project file trees (1,000+ files) and high-throughput xterm.js backpressure control to prevent UI thread lockups during heavy logging output (e.g. `npm install`, `find /`).
+- [ ] **ARCH-09: Universal Error Boundary & Polyglot Microservice Health Telemetry** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
+  - RFC 7807 compliant structured JSON error formats across all microservices, graceful UI error boundaries for crash recovery, and unified `/health/readiness` & `/health/liveness` probes.
+- [ ] **BUG-09: Socket Room Auto-Pruning & Stale Document Memory Sweeper** (`livesync-realtime`)
+  - Garbage collect inactive Redis document state keys, expired cursor hashes, and orphaned room adapters when no users are connected.
+- [ ] **PERF-08: Monotonic Bundle Tree-Shaking & Lazy-Loading Optimizer** (`livesync-ui`)
+  - Modernize heavy CommonJS dependencies (`jszip`, `@xterm/xterm`, `@xterm/addon-fit`), convert to pure ESM imports, and optimize initial chunk payload below 250kB.
+
+---
+
+### **Milestone 16: Enterprise Resilience, End-to-End Stress Testing & Chaos Engineering** (PLANNED 📋)
+- [ ] **TEST-01: Multi-User High-Concurrency Chaos & CRDT Fuzzing Suite** (`livesync-realtime`, `livesync-ui`)
+  - Automated simulation of 50+ concurrent typing sessions, network jitter, simulated packet drops, and mathematical convergence validation.
+- [ ] **TEST-02: Terminal PTY Load & Memory Stress Test Matrix** (`livesync-gateway`)
+  - Automated stress tests allocating 100 concurrent PTY sessions, measuring CPU/RAM boundaries, and testing graceful process reaper under memory limits.
+- [ ] **PERF-09: Connection Pool Auto-Scaling & Postgres Read Replicas** (`livesync-api`)
+  - Dynamic `pgxpool` configuration with connection health checks, statement preparation caching, and automatic retry on transient connection dropouts.
+- [ ] **BUG-10: Rapid File Renaming & VFS Cache Invalidation Race Condition** (`livesync-ui`, `livesync-realtime`, `livesync-api`)
+  - Eliminate edge-case race conditions during rapid concurrent file renames and moves across multiple collaborators.
+- [ ] **SEC-05: Rate Limiting, Brute-Force Throttling & DDoS Protection** (`livesync-gateway`, `livesync-api`)
+  - IP and user-based Token Bucket rate limiting in Go Gateway and API for auth, search, package, and PTY endpoints.
+- [ ] **ARCH-10: Production Configuration Validator & Zero-Config Health Dashboard** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
+  - Comprehensive configuration boot validator catching missing secrets, port conflicts, and environment mismatches before starting services.
 
 ---
 
