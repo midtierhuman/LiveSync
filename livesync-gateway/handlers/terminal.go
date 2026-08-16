@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -177,11 +178,14 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	var shellArgs []string
 	if runtime.GOOS == "windows" {
 		shellCmd = "powershell.exe"
-		shellArgs = []string{"-NoLogo", "-NoExit", "-Command", "function prompt { 'developer@livesync:~/" + displayPath + "$ ' }"}
+		// Ensure PowerShell strictly sets its location to targetDir upon launch
+		initScript := fmt.Sprintf("Set-Location -LiteralPath '%s'; function prompt { 'developer@livesync:~/%s$ ' }", strings.ReplaceAll(targetDir, "'", "''"), displayPath)
+		shellArgs = []string{"-NoLogo", "-NoExit", "-Command", initScript}
 	} else {
 		shellCmd = "/bin/bash"
 		rcPath := filepath.Join(workspaceDir, ".livesync_bashrc")
 		rcContent := "if [ -f ~/.bashrc ]; then . ~/.bashrc; elif [ -f /etc/bash.bashrc ]; then . /etc/bash.bashrc; fi\n" +
+			"cd \"" + strings.ReplaceAll(targetDir, "\"", "\\\"") + "\"\n" +
 			"export PS1='\\[\\033[01;32m\\]developer@livesync\\[\\033[00m\\]:\\[\\033[01;34m\\]~/" + displayPath + "\\[\\033[00m\\]$ '\n"
 		_ = os.WriteFile(rcPath, []byte(rcContent), 0644)
 		shellArgs = []string{"--rcfile", rcPath}

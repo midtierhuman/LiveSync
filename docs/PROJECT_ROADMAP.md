@@ -26,20 +26,20 @@
 ## 🗺️ Future Milestones & Planned Work
 
 ### **Milestone 15: Polyglot Codebase Hygiene, Dead Code Elimination & Architecture Streamlining** (PLANNED 📋)
+- [x] **BUG-11: Integrated Terminal Root Working Directory Anchoring & Top Bar Run Control Consolidation** (`livesync-ui`, `livesync-gateway`)
+  - Enforce explicit shell working directory initialization (`Set-Location` in Windows ConPTY and `cd` in Unix bash) anchored to `./workspaces/{projectId}`, ensure reactive VFS re-indexing matches scoped project root, synchronize workspace file snapshots before execution, and remove redundant top-bar execution buttons in favor of the unified Run & Debug sidebar dock.
+- [x] **BUG-12: Standardized POSIX Bash Environment Variable Exports & Execution Launcher Hardening** (`livesync-ui`)
+  - Standardize all run configuration and environment variable exports to POSIX-compliant Bash syntax (`export KEY="VALUE"; <cmd>`), eliminating PowerShell syntax leakage (`$env:`) in Linux containers and ensuring seamless execution across all shell environments.
 - [ ] **BUG-07: Realtime Disconnection Ghost Cursors & Orphan Socket Cleanup** (`livesync-realtime`, `livesync-ui`)
   - Ensure clean collaborator teardown upon socket disconnect, tab closure, or navigation, preventing orphaned selection highlight ranges, stale collaborator counts, and ghost cursor states in Redis and UI.
 - [ ] **ARCH-08: Full Polyglot Dead Code Pruning & Deprecated API Cleanup** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
   - Comprehensive static analysis and removal of unused struct fields, obsolete legacy endpoints, dead helper functions, unused npm/pip/go modules, orphaned component templates, and deprecated CSS rules across all 5 microservices.
-- [ ] **BUG-08: Concurrent PTY Stream Race Condition & Terminal Buffer Leak Fix** (`livesync-gateway`, `livesync-ui`)
+- [ ] **BUG-09: Concurrent PTY Stream Race Condition & Terminal Buffer Leak Fix** (`livesync-gateway`, `livesync-ui`)
   - Memory-bounded scrollback buffer management, explicit PTY process kill signal propagation on WebSocket disconnect, and mutex-safe stdout/stderr I/O pumps to prevent dangling shell processes on the host.
 - [ ] **PERF-07: High-Concurrency Virtual Scroll & Large Directory Tree Windowing** (`livesync-ui`)
   - DOM virtualization for large project file trees (1,000+ files) and high-throughput xterm.js backpressure control to prevent UI thread lockups during heavy logging output (e.g. `npm install`, `find /`).
 - [ ] **ARCH-09: Universal Error Boundary & Polyglot Microservice Health Telemetry** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
   - RFC 7807 compliant structured JSON error formats across all microservices, graceful UI error boundaries for crash recovery, and unified `/health/readiness` & `/health/liveness` probes.
-- [ ] **BUG-09: Socket Room Auto-Pruning & Stale Document Memory Sweeper** (`livesync-realtime`)
-  - Garbage collect inactive Redis document state keys, expired cursor hashes, and orphaned room adapters when no users are connected.
-- [ ] **PERF-08: Monotonic Bundle Tree-Shaking & Lazy-Loading Optimizer** (`livesync-ui`)
-  - Modernize heavy CommonJS dependencies (`jszip`, `@xterm/xterm`, `@xterm/addon-fit`), convert to pure ESM imports, and optimize initial chunk payload below 250kB.
 
 ---
 

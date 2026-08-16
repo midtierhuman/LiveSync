@@ -16,7 +16,7 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
    - Cross-platform true OS interactive pseudo-terminal allocation:
      - **Windows**: Native Windows ConPTY (`CreatePseudoConsole`, `ResizePseudoConsole`, `ClosePseudoConsole` via `golang.org/x/sys/windows`) running `powershell.exe -NoLogo`, with graceful fallback.
      - **Linux/macOS/Docker**: Unix PTY (`github.com/creack/pty`) running `/bin/bash` or `/bin/sh`.
-   - Anchored to project-scoped workspace folders (`./workspaces/{projectId}`).
+   - Anchored to project-scoped workspace folders (`./workspaces/{projectId}`) with explicit shell startup directory anchoring (`Set-Location` in PowerShell on Windows and `cd` in Linux/macOS bash) to ensure interactive sessions and run scripts always execute in the project root.
    - **Clean Workspace Presentation**: Automatically configures human-friendly shell prompts (`developer@livesync:~/{projectName}$`) and workspace welcome headers (`Workspace: ~/{projectName}`) while keeping raw storage UUIDs strictly isolated to server-side directories.
    - Automatically synchronizes project files on disk before executing run commands (`python <entrypoint>`, `node <entrypoint>`, `go run <entrypoint>`).
    - Enforces OS Read-Only permissions (`chmod 0444`) on locked files (`lockedFiles: []string`), preventing unauthorized terminal modifications while permitting imports and execution.

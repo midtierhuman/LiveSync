@@ -196,7 +196,7 @@ export class RunConfigService {
 
     let executionCmd = fullCmd;
     if (envEntries.length > 0) {
-      const envExports = envEntries.map(([k, v]) => `$env:${k}="${v}"`).join('; ');
+      const envExports = envEntries.map(([k, v]) => `export ${k}="${v}"`).join('; ');
       executionCmd = `${envExports}; ${fullCmd}`;
     }
 

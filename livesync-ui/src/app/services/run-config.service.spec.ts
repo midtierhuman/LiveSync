@@ -77,4 +77,24 @@ describe('RunConfigService', () => {
     expect(mockLiveTerminal.createTab).not.toHaveBeenCalled();
     expect(mockLiveTerminal.switchTab).toHaveBeenCalledWith('tab-existing-run');
   });
+
+  it('should format environment variables using POSIX bash export syntax', async () => {
+    const profile: RunProfile = {
+      id: 'test-env',
+      name: 'Env Test',
+      language: 'node',
+      commandTemplate: 'node ${file}',
+      envVars: { NODE_ENV: 'production' },
+    };
+    service.addEnvVar('PORT', '8080');
+
+    await service.runProfile(profile, 'index.js');
+    await new Promise((r) => setTimeout(r, 250));
+
+    expect(mockLiveTerminal.runCommand).toHaveBeenCalled();
+    const calledCmd = (mockLiveTerminal.runCommand.calls.mostRecent().args[0] as string);
+    expect(calledCmd).toContain('export NODE_ENV="production"');
+    expect(calledCmd).toContain('export PORT="8080"');
+    expect(calledCmd).not.toContain('$env:');
+  });
 });

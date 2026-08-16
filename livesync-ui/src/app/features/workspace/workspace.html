@@ -23,49 +23,6 @@
     </div>
 
     <div class="header-right">
-      <!-- Execution & Run Configurations Header Bar (VS Code style) -->
-      <div class="run-header-controls">
-        <button
-          class="btn-run-play"
-          (click)="executeRunProfile()"
-          [disabled]="runConfigService.isRunning()"
-          matTooltip="Run with Selected Profile"
-        >
-          <mat-icon class="play-icon">play_arrow</mat-icon>
-          <span>Run</span>
-        </button>
-
-        <button
-          class="btn-run-profile-select"
-          [matMenuTriggerFor]="runProfileMenu"
-          matTooltip="Select Run Profile & Configuration"
-        >
-          <span class="selected-profile-label">{{ runConfigService.selectedProfile().name }}</span>
-          <mat-icon class="dropdown-chevron">arrow_drop_down</mat-icon>
-        </button>
-
-        <mat-menu #runProfileMenu="matMenu" class="run-profiles-dropdown">
-          <div class="menu-section-header">Preset Run Profiles</div>
-          @for (profile of runConfigService.profiles(); track profile.id) {
-            <button
-              mat-menu-item
-              [class.active-profile]="profile.id === runConfigService.selectedProfileId()"
-              (click)="runConfigService.selectProfile(profile.id)"
-            >
-              <mat-icon class="profile-type-icon">
-                {{ profile.language === 'python' ? 'code' : profile.language === 'node' ? 'javascript' : 'terminal' }}
-              </mat-icon>
-              <span>{{ profile.name }}</span>
-            </button>
-          }
-          <mat-divider></mat-divider>
-          <button mat-menu-item (click)="toggleSidebarView('run')">
-            <mat-icon>settings</mat-icon>
-            <span>Configure Run Environments...</span>
-          </button>
-        </mat-menu>
-      </div>
-
       @if (scopedProject(); as sp) {
         <button class="btn-share-project" (click)="openShareFolderModal(sp)" matTooltip="Share Project Workspace">
           <mat-icon>share</mat-icon>

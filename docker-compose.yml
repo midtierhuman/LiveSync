@@ -125,8 +125,10 @@ services:
       - "8081:8081"
     depends_on:
       - ai
+      - api
     environment:
       - PORT=8081
+      - LIVESYNC_API_BASE_URL=http://api:8080
       - LIVESYNC_AI_GRPC_URL=ai:50051
       - LIVESYNC_SANDBOX_GRPC_URL=ai:50051
       - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8080}

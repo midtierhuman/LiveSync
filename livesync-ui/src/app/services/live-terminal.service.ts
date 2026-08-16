@@ -553,6 +553,19 @@ export class LiveTerminalService {
     }
   }
 
+  setProject(projectId: string, projectName?: string): void {
+    if (projectName) {
+      this.currentProjectName = projectName;
+    }
+    if (projectId && projectId !== this.currentProjectId) {
+      this.currentProjectId = projectId;
+      this.destroyAllSessions();
+      if (this.hostContainer) {
+        this.createTab('Terminal 1');
+      }
+    }
+  }
+
   connect(projectId?: string, projectName?: string) {
     if (projectId) this.currentProjectId = projectId;
     if (projectName) this.currentProjectName = projectName;

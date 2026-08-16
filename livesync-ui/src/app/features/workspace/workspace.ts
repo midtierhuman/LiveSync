@@ -472,13 +472,59 @@ export class Workspace implements OnInit {
       exp.add(match.id);
       this.updateExpandedFolders(exp);
 
+      // Re-index VFS relative to the scoped project root folder
+      this.refreshVFSIndex();
+
       if (prevId !== match.id) {
         this.alignTabsWithProject(match);
+        this.reanchorTerminalToProject(match);
       } else if (this.openTabs().length === 0) {
         this.autoOpenProjectEntry(match);
+        this.reanchorTerminalToProject(match);
       }
     } else if (projectName === 'All-Projects') {
       this.scopedProject.set(null);
+      this.refreshVFSIndex();
+    }
+  }
+
+  private refreshVFSIndex(): void {
+    const folders = this.myFolders();
+    const sharedFolds = this.sharedFolders();
+    const tree = this.sharedFolderTree();
+    const docs = this.myDocuments();
+    const sharedDocs = this.sharedDocuments();
+
+    const allDocs: DocumentDto[] = [
+      ...docs,
+      ...sharedDocs.map(
+        (s) =>
+          ({
+            id: s.documentId,
+            title: s.documentTitle,
+            folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
+            ownerId: s.userId,
+            isShared: true,
+            defaultAccessLevel: s.accessLevel,
+            createdAt: s.sharedAt,
+            updatedAt: s.sharedAt,
+          }) as DocumentDto,
+      ),
+    ];
+
+    this.vfsService.updateVFSState(
+      [...folders, ...tree],
+      allDocs,
+      this.scopedProject()?.id || null,
+    );
+  }
+
+  private reanchorTerminalToProject(proj: FolderDto): void {
+    this.liveTerminalService.setProject(proj.id, proj.name);
+    if (this.isTerminalOpen()) {
+      this.attachWorkspaceTerminal();
+    } else {
+      this.syncAllWorkspaceFilesToDisk();
     }
   }
 
@@ -665,7 +711,7 @@ export class Workspace implements OnInit {
 
       // Update Virtual Filesystem (VFS) Path Index
       this.vfsService.updateVFSState(
-        [...folders, ...sharedFolds, ...tree],
+        [...folders, ...tree],
         allDocs,
         this.scopedProject()?.id || null,
       );
