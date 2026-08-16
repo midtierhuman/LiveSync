@@ -386,3 +386,12 @@ func SyncWorkspaceAtomicWithRegistry(wsDir string, files map[string]string, lock
 
 	return hashes, syncedCount, firstErr
 }
+
+// SyncIncrementalOverlays selectively applies dirty file overlays to an existing workspace
+// without rebuilding or touching unchanged files in the directory tree (ARCH-12).
+func SyncIncrementalOverlays(wsDir string, overlay map[string]string, lockedFiles []string, reg *SuppressionRegistry) (map[string]string, int, error) {
+	if len(overlay) == 0 {
+		return make(map[string]string), 0, nil
+	}
+	return SyncWorkspaceAtomicWithRegistry(wsDir, overlay, lockedFiles, reg)
+}

@@ -112,6 +112,16 @@ func (h *ExecutionHandler) RunCode(w http.ResponseWriter, r *http.Request) {
 		log.Printf("📂 [EXEC_WORKSPACE_READY] project=%s wsDir=%s files=%d", req.ProjectID, wsDir, fileCount)
 	}
 
+	// 3. Layer incremental dirty overlays over the materialized workspace (ARCH-12)
+	if len(req.Overlay) > 0 && wsDir != "" {
+		_, overlaidCount, overlayErr := SyncIncrementalOverlays(wsDir, req.Overlay, nil, GetGlobalSuppressionRegistry())
+		if overlayErr != nil {
+			log.Printf("⚠️ [EXEC_WARN] Failed to apply incremental overlays: %v", overlayErr)
+		} else {
+			log.Printf("⚡ [EXEC_OVERLAY_APPLIED] project=%s overlaidFiles=%d", req.ProjectID, overlaidCount)
+		}
+	}
+
 	// Generate execution ID
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)

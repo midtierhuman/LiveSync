@@ -159,3 +159,54 @@ func TestWorkspaceSyncHTTPHandler(t *testing.T) {
 		t.Errorf("Unexpected GET response: %+v", getResult)
 	}
 }
+
+func TestSyncIncrementalOverlays(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "ws_incr_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	reg := NewSuppressionRegistry()
+
+	// Initial files
+	initialFiles := map[string]string{
+		"file1.txt": "initial 1",
+		"file2.txt": "initial 2",
+	}
+	_, _, _ = SyncWorkspaceAtomicWithRegistry(tempDir, initialFiles, nil, reg)
+
+	// Incremental overlay modifying only file1.txt and adding file3.txt
+	overlay := map[string]string{
+		"file1.txt": "updated 1",
+		"file3.txt": "new 3",
+	}
+	hashes, count, err := SyncIncrementalOverlays(tempDir, overlay, nil, reg)
+	if err != nil {
+		t.Fatalf("unexpected error during incremental overlay: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 overlaid files, got %d", count)
+	}
+	if len(hashes) != 2 {
+		t.Fatalf("expected 2 hashes returned, got %d", len(hashes))
+	}
+
+	// Verify file1.txt updated
+	f1Data, _ := os.ReadFile(filepath.Join(tempDir, "file1.txt"))
+	if string(f1Data) != "updated 1" {
+		t.Errorf("expected file1.txt to be updated 1, got %s", string(f1Data))
+	}
+
+	// Verify file2.txt untouched
+	f2Data, _ := os.ReadFile(filepath.Join(tempDir, "file2.txt"))
+	if string(f2Data) != "initial 2" {
+		t.Errorf("expected file2.txt to be untouched initial 2, got %s", string(f2Data))
+	}
+
+	// Verify file3.txt created
+	f3Data, _ := os.ReadFile(filepath.Join(tempDir, "file3.txt"))
+	if string(f3Data) != "new 3" {
+		t.Errorf("expected file3.txt to be new 3, got %s", string(f3Data))
+	}
+}

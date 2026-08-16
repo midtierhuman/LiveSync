@@ -46,7 +46,7 @@
   - Decoupled execution capability from write/edit permissions (`VIEW`, `EDIT`, or `OWNER` can execute target project), while strictly preserving interactive terminal PTY access boundaries (prohibiting unauthenticated or view-only shell escapes).
 - [x] **PERF-10: Bulk Project Manifest & Zero-N+1 Workspace Materialization Engine** (`livesync-api`, `livesync-gateway`)
   - High-performance bulk metadata and content retrieval endpoint in `livesync-api` allowing Go Gateway to materialize initial project workspaces (`/workspaces/{projectId}`) in a single optimized query batch without N+1 database roundtrips.
-- [ ] **ARCH-12: Redis Hot-State Hydration & Incremental Workspace Synchronization Engine** (`livesync-gateway`, `livesync-realtime`)
+- [x] **ARCH-12: Redis Hot-State Hydration & Incremental Workspace Synchronization Engine** (`livesync-gateway`, `livesync-realtime`)
   - Server-side incremental workspace synchronization that overlays active Redis collaborative document state (`livesync:doc:{documentId}:content`) onto persistent PostgreSQL file trees, avoiding full disk reconstructions.
 - [ ] **SEC-06: Isolated Ephemeral Execution Sandboxing & Disposable Run Environments** (`livesync-gateway`)
   - Isolate code execution runs in ephemeral disposable workspaces (`/run/{executionId}` / copy-on-write sandboxes) to guarantee that build artifacts, dependency installations (`npm install`, `pip install`), and execution output never mutate the canonical collaborative workspace.
