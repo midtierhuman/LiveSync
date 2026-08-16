@@ -12,8 +12,8 @@
   - Complete VS Code-style context menu on folders & files with instant terminal opening anchored to subdirectories (`/api/terminal/ws?subDir=...`), tab auto-naming (`term: <folder>`), "Find in Folder" include filter linking, and clipboard relative path copying.
 - [x] **FEAT-15: Run & Debug Environment Profiles & Launch Configuration Hub** (`livesync-ui`, `livesync-gateway`)
   - Dedicated Run & Debug panel with preset runtime environments (Node.js, Python, Go, custom launch profiles), environment variable manager, header execution launcher (`▶ Run`), and execution monitor.
-- [ ] **FEAT-16: Dynamic Collaborator Access List & Real-Time Permission Synchronization** (`livesync-ui`, `livesync-realtime`, `livesync-api`)
-  - Live shared collaborator management list with on-the-fly role toggling (Viewer/Editor) and real-time Socket.IO permission push that instantly locks/unlocks collaborator editors.
+- [x] **FEAT-16: Dynamic Collaborator Access List & Real-Time Permission Synchronization** (`livesync-ui`, `livesync-realtime`, `livesync-api`)
+  - Live shared collaborator management list with on-the-fly role toggling (Viewer/Editor), access revocation, and real-time Socket.IO permission push (`UpdateCollaboratorPermission` -> `ReceivePermissionUpdated`) that instantly locks/unlocks collaborator editors without reloading.
 - [ ] **PERF-04: Multi-User Remote Selection Range Highlighting & CRDT Delta Sync** (`livesync-ui`, `livesync-realtime`)
   - Visual collaborator selection ranges in CodeMirror 6 with optimized CRDT byte-level delta replication.
 

@@ -101,6 +101,19 @@ export class Workspace implements OnInit {
     });
 
     effect(() => {
+      const perm = this.realtimeService.onPermissionUpdated();
+      if (!perm) return;
+      const myId = this.authService.user()?.id;
+      if (perm.targetUserId === myId) {
+        const scoped = this.scopedProject();
+        if (scoped && (!perm.workspaceId || perm.workspaceId === scoped.id)) {
+          this.scopedProject.set({ ...scoped, permission: perm.accessLevel });
+        }
+        void this.loadWorkspace(true);
+      }
+    });
+
+    effect(() => {
       const proj = this.scopedProject();
       if (proj?.id) {
         void this.realtimeService.joinWorkspace(proj.id);
@@ -1688,6 +1701,7 @@ export class Workspace implements OnInit {
 
     try {
       await this.folderService.updateSharedAccessLevel(folder.id, userId, accessLevel);
+      this.realtimeService.updateCollaboratorPermission(userId, accessLevel, folder.id, undefined);
       await this.loadWorkspace();
     } catch (error) {
       console.error('Error updating collaborator access level:', error);
@@ -1701,6 +1715,7 @@ export class Workspace implements OnInit {
 
     try {
       await this.folderService.removeSharedAccess(folder.id, userId);
+      this.realtimeService.updateCollaboratorPermission(userId, 'Revoked', folder.id, undefined);
       await this.loadWorkspace();
     } catch (error) {
       console.error('Error removing collaborator access:', error);
@@ -1774,6 +1789,7 @@ export class Workspace implements OnInit {
   async updateDocumentSharedAccessLevel(documentId: string, userId: string, accessLevel: string) {
     try {
       await this.documentService.updateSharedAccessLevel(documentId, userId, accessLevel);
+      this.realtimeService.updateCollaboratorPermission(userId, accessLevel, undefined, documentId);
       await this.loadWorkspace();
     } catch (error) {
       console.error('Error updating collaborator access level:', error);
@@ -1784,6 +1800,7 @@ export class Workspace implements OnInit {
   async removeDocumentSharedAccess(documentId: string, userId: string) {
     try {
       await this.documentService.removeSharedAccess(documentId, userId);
+      this.realtimeService.updateCollaboratorPermission(userId, 'Revoked', undefined, documentId);
       await this.loadWorkspace();
     } catch (error) {
       console.error('Error removing collaborator access:', error);

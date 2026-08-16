@@ -50,6 +50,11 @@ The `livesync-realtime` microservice handles low-latency room-based document edi
 | `LeaveWorkspace` (`workspaceId`) | `WorkspaceLeft` | Unsubscribes collaborator socket from the workspace room. |
 | `WorkspaceChange` (`data`) | `ReceiveWorkspaceChange` (`data`) | Broadcasts instant create, rename, move, and delete metadata mutations across all active collaborators' tree views and open tabs. |
 
+### 6. Real-Time Collaborator Permission Updates (Implemented - `FEAT-16`)
+| Client Emit | Server Emit | Description |
+| :--- | :--- | :--- |
+| `UpdateCollaboratorPermission` (`{ targetUserId, accessLevel, workspaceId, documentId }`) | `ReceivePermissionUpdated`, `permissionUpdated` | Broadcasts real-time permission modifications (`Viewer` vs `Editor` or revocation) to target collaborators, immediately toggling CodeMirror editor lock/unlock without page refresh. |
+
 ---
 
 ## 🧮 CRDT & Operational Transformation (OT) Design

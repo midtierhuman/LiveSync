@@ -82,6 +82,10 @@ export class EditorHub {
     socket.on('WorkspaceChange', (data: any) => this.handleWorkspaceChange(socket, data));
     socket.on('workspaceChange', (data: any) => this.handleWorkspaceChange(socket, data));
 
+    // Real-Time Collaborator Permission Updates (FEAT-16)
+    socket.on('UpdateCollaboratorPermission', (data: any) => this.handleUpdateCollaboratorPermission(socket, data));
+    socket.on('updateCollaboratorPermission', (data: any) => this.handleUpdateCollaboratorPermission(socket, data));
+
     socket.on('disconnect', () => this.handleDisconnect(socket));
   }
 
@@ -619,5 +623,27 @@ export class EditorHub {
 
     // Broadcast to other collaborators connected to the same workspace room
     socket.to(`workspace:${workspaceId}`).emit('ReceiveWorkspaceChange', payload);
+  }
+
+  private handleUpdateCollaboratorPermission(socket: Socket, data: any): void {
+    if (!data || !data.targetUserId) return;
+    const payload = {
+      targetUserId: data.targetUserId,
+      accessLevel: data.accessLevel || 'View',
+      workspaceId: data.workspaceId,
+      documentId: data.documentId,
+      senderSocketId: socket.id,
+      timestamp: Date.now(),
+    };
+
+    if (data.workspaceId) {
+      this.io.to(`workspace:${data.workspaceId}`).emit('ReceivePermissionUpdated', payload);
+      this.io.to(`workspace:${data.workspaceId}`).emit('permissionUpdated', payload);
+    }
+    if (data.documentId) {
+      this.io.to(`document:${data.documentId}`).emit('ReceivePermissionUpdated', payload);
+      this.io.to(`document:${data.documentId}`).emit('permissionUpdated', payload);
+    }
+    socket.broadcast.emit('ReceivePermissionUpdated', payload);
   }
 }

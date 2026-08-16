@@ -34,6 +34,8 @@ describe('Editor', () => {
       userLeft: signal(''),
       connectionState: signal('disconnected'),
       activeUserCount: signal(0),
+      onPermissionUpdated: signal(null),
+      updateCollaboratorPermission: jasmine.createSpy(),
       startConnection: jasmine.createSpy().and.resolveTo(),
       joinDocument: jasmine.createSpy().and.resolveTo(),
       leaveDocument: jasmine.createSpy().and.resolveTo(),

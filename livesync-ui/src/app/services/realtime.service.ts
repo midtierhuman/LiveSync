@@ -45,6 +45,15 @@ export interface WorkspaceChangeEvent {
   timestamp?: number;
 }
 
+export interface PermissionUpdatedEvent {
+  targetUserId: string;
+  accessLevel: string;
+  workspaceId?: string;
+  documentId?: string;
+  senderSocketId?: string;
+  timestamp: number;
+}
+
 export interface DocumentContentUpdate {
   content: string;
   timestamp: number;
@@ -75,6 +84,7 @@ export class RealtimeService {
   readonly currentDocumentId = signal<string | null>(null);
   readonly followedUserId = signal<string | null>(null);
   readonly onWorkspaceChange = signal<WorkspaceChangeEvent | null>(null);
+  readonly onPermissionUpdated = signal<PermissionUpdatedEvent | null>(null);
 
   private readonly documentStates = new Map<string, DocumentRealtimeState>();
   private readonly activeWorkspaceIds = new Set<string>();
@@ -299,6 +309,14 @@ export class RealtimeService {
         state.comments.update((prev) => prev.filter((c) => c.id !== data.commentId));
       }
     });
+
+    this.socket.on('ReceivePermissionUpdated', (data: PermissionUpdatedEvent) => {
+      this.onPermissionUpdated.set(data);
+    });
+
+    this.socket.on('permissionUpdated', (data: PermissionUpdatedEvent) => {
+      this.onPermissionUpdated.set(data);
+    });
   }
 
   getOrCreateDocumentState(docId: string): DocumentRealtimeState {
@@ -510,5 +528,16 @@ export class RealtimeService {
     const state = this.getOrCreateDocumentState(docId);
     state.comments.update((prev) => prev.filter((c) => c.id !== commentId));
     this.socket.emit('DeleteComment', { documentId: docId, fileId: docId, commentId });
+  }
+
+  updateCollaboratorPermission(targetUserId: string, accessLevel: string, workspaceId?: string, documentId?: string): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('UpdateCollaboratorPermission', {
+        targetUserId,
+        accessLevel,
+        workspaceId,
+        documentId,
+      });
+    }
   }
 }

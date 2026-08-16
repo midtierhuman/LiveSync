@@ -294,6 +294,24 @@ export class Editor implements OnInit {
 
   constructor() {
     effect(() => {
+      const perm = this.realtimeService.onPermissionUpdated();
+      if (!perm) return;
+      const myId = this.authService.user()?.id;
+      if (perm.targetUserId === myId) {
+        const isMyDoc = !perm.documentId || perm.documentId === this.docId();
+        if (isMyDoc) {
+          if (perm.accessLevel === 'View' || perm.accessLevel === 'Viewer' || perm.accessLevel === 'Revoked') {
+            this.handlePermissionRevoked();
+          } else if (perm.accessLevel === 'Edit' || perm.accessLevel === 'Editor') {
+            this.updateReadOnlyState(true);
+            this.accessLevel.set('Edit');
+            this.showPermissionBanner.set(false);
+          }
+        }
+      }
+    });
+
+    effect(() => {
       const currentDocId = this.docId();
       if (!currentDocId) return;
       const state = this.realtimeService.getOrCreateDocumentState(currentDocId);
