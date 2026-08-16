@@ -48,8 +48,8 @@
   - High-performance bulk metadata and content retrieval endpoint in `livesync-api` allowing Go Gateway to materialize initial project workspaces (`/workspaces/{projectId}`) in a single optimized query batch without N+1 database roundtrips.
 - [x] **ARCH-12: Redis Hot-State Hydration & Incremental Workspace Synchronization Engine** (`livesync-gateway`, `livesync-realtime`)
   - Server-side incremental workspace synchronization that overlays active Redis collaborative document state (`livesync:doc:{documentId}:content`) onto persistent PostgreSQL file trees, avoiding full disk reconstructions.
-- [ ] **SEC-06: Isolated Ephemeral Execution Sandboxing & Disposable Run Environments** (`livesync-gateway`)
-  - Isolate code execution runs in ephemeral disposable workspaces (`/run/{executionId}` / copy-on-write sandboxes) to guarantee that build artifacts, dependency installations (`npm install`, `pip install`), and execution output never mutate the canonical collaborative workspace.
+- [x] **SEC-06: Isolated Ephemeral Execution Sandboxing & Disposable Run Environments** (`livesync-gateway`)
+  - Isolated code execution runs in ephemeral disposable workspaces (`/run/{executionId}` / copy-on-write sandboxes) to guarantee that build artifacts, dependency installations (`npm install`, `pip install`), and execution output never mutate the canonical collaborative workspace.
 - [ ] **FEAT-19: Delta/Overlay Execution Protocol & Frontend Payload Optimization** (`livesync-ui`, `livesync-gateway`)
   - Refactor Angular execution client to send lightweight run requests (`{ projectId, entrypoint, revision, overlay }`) with only active dirty file overlays instead of transmitting full multi-megabyte project source trees on every run.
 - [ ] **TEST-03: Multi-User Execution Isolation & Comprehensive End-to-End Authorization Suite** (`livesync-gateway`, `livesync-api`, `livesync-ui`)

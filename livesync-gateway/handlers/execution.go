@@ -43,6 +43,7 @@ type RunExecutionResponse struct {
 	Status      string `json:"status"`
 	AccessLevel string `json:"accessLevel"`
 	Message     string `json:"message"`
+	SandboxDir  string `json:"sandboxDir,omitempty"`
 	DurationMs  int64  `json:"durationMs,omitempty"`
 }
 
@@ -131,13 +132,22 @@ func (h *ExecutionHandler) RunCode(w http.ResponseWriter, r *http.Request) {
 	log.Printf("🚀 [EXEC_AUTHORIZED] execId=%s user=%s project=%s access=%s entrypoint=%s overlayFiles=%d revision=%d",
 		execID, userID, req.ProjectID, accessLevel, req.Entrypoint, overlayCount, req.Revision)
 
+	// 4. Create isolated ephemeral execution sandbox (SEC-06)
+	sandboxDir, sbErr := CreateEphemeralSandbox(wsDir, execID, req.Overlay)
+	if sbErr != nil {
+		log.Printf("⚠️ [EXEC_WARN] Sandbox creation warning: %v", sbErr)
+	} else {
+		log.Printf("🛡️ [EXEC_SANDBOX_READY] execId=%s sandbox=%s", execID, sandboxDir)
+	}
+
 	durationMs := time.Since(startTime).Milliseconds()
 	resp := RunExecutionResponse{
 		ExecutionID: execID,
 		ProjectID:   req.ProjectID,
 		Status:      "Authorized",
 		AccessLevel: accessLevel,
-		Message:     "Execution authorized against project workspace",
+		Message:     "Execution authorized against isolated disposable sandbox",
+		SandboxDir:  sandboxDir,
 		DurationMs:  durationMs,
 	}
 
