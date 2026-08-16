@@ -189,6 +189,17 @@ export class RunConfigService {
     const fullCmd = this.buildExecutionCommand(profile, activeFilePath);
     const tabName = `run: ${profile.name.split(':')[0] || profile.name}`;
 
+    const envEntries = [
+      ...Object.entries(profile.envVars || {}),
+      ...this.customEnvVars().filter((v) => v.key.trim()).map((v) => [v.key.trim(), v.value.trim()]),
+    ];
+
+    let executionCmd = fullCmd;
+    if (envEntries.length > 0) {
+      const envExports = envEntries.map(([k, v]) => `$env:${k}="${v}"`).join('; ');
+      executionCmd = `${envExports}; ${fullCmd}`;
+    }
+
     const execResult: RunExecutionResult = {
       profileId: profile.id,
       profileName: profile.name,
@@ -199,24 +210,16 @@ export class RunConfigService {
     this.lastExecution.set(execResult);
     this.isRunning.set(true);
 
-    // 1. Create or switch to run terminal tab
-    const tabId = this.liveTerminalService.createTab(tabName);
+    // 1. Reuse existing run tab or create new
+    let tabId = this.liveTerminalService.findTabByName(tabName);
+    if (!tabId) {
+      tabId = this.liveTerminalService.createTab(tabName);
+    }
     this.liveTerminalService.switchTab(tabId);
 
-    // 2. Export environment variables if any
-    const envEntries = [
-      ...Object.entries(profile.envVars || {}),
-      ...this.customEnvVars().filter((v) => v.key.trim()).map((v) => [v.key.trim(), v.value.trim()]),
-    ];
-
-    if (envEntries.length > 0) {
-      const envExports = envEntries.map(([k, v]) => `$env:${k}="${v}"`).join('; ');
-      this.liveTerminalService.sendInput(`${envExports}\r\n`);
-    }
-
-    // 3. Execute command
+    // 2. Dispatch command and sync files
     setTimeout(() => {
-      this.liveTerminalService.runCommand(fullCmd, filesSnapshot);
+      this.liveTerminalService.runCommand(executionCmd, filesSnapshot);
       setTimeout(() => {
         this.isRunning.set(false);
         const duration = Date.now() - execResult.startTime;

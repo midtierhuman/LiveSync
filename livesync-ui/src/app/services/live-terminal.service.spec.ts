@@ -77,6 +77,11 @@ describe('LiveTerminalService (Multi-Terminal Tabs)', () => {
     service.switchTab(tab1Id);
     expect(service.activeTabId()).toBe(tab1Id);
 
+    // Find tab by name
+    expect(service.findTabByName('npm run dev')).toBe(tab2Id);
+    expect(service.findTabByName('NPM RUN DEV')).toBe(tab2Id);
+    expect(service.findTabByName('Nonexistent Tab')).toBeNull();
+
     // Close tab 2
     service.closeTab(tab2Id);
     expect(service.terminalTabs().length).toBe(1);

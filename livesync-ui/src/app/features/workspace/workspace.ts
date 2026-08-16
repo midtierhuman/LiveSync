@@ -2105,10 +2105,42 @@ export class Workspace implements OnInit {
     }
   }
 
+  collectWorkspaceFilesSnapshot(): Record<string, string> {
+    const proj = this.scopedProject();
+    const projId = proj?.id;
+    const vfs = this.vfsService.vfsIndex();
+    const docs = [
+      ...this.myDocuments(),
+      ...this.sharedDocuments().map((s) => ({
+        id: s.documentId,
+        title: s.documentTitle,
+        content: '',
+        folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
+      })),
+    ];
+
+    const filesMap: Record<string, string> = {};
+    for (const doc of docs) {
+      if (!projId || this.isDocumentInProject(doc.id, projId)) {
+        const relPath = vfs.docIdToPath.get(doc.id) || doc.title;
+        if (relPath) {
+          const activeInst = this.activeEditorInstance();
+          if (activeInst && activeInst.docId() === doc.id) {
+            filesMap[relPath] = activeInst.codeSignal() || doc.content || '';
+          } else {
+            filesMap[relPath] = doc.content || '';
+          }
+        }
+      }
+    }
+    return filesMap;
+  }
+
   async executeRunProfile(): Promise<void> {
     const activeId = this.activeTabId();
     const doc = this.myDocuments().find((d) => d.id === activeId);
     const activeFilePath = doc ? (this.getFileRelativePath(doc) || doc.title) : 'main';
+    const filesSnapshot = this.collectWorkspaceFilesSnapshot();
 
     if (!this.isTerminalOpen()) {
       this.isTerminalOpen.set(true);
@@ -2116,14 +2148,16 @@ export class Workspace implements OnInit {
         this.attachWorkspaceTerminal();
         void this.runConfigService.runProfile(
           this.runConfigService.selectedProfile(),
-          activeFilePath
+          activeFilePath,
+          filesSnapshot
         );
       }, 50);
     } else {
       this.attachWorkspaceTerminal();
       void this.runConfigService.runProfile(
         this.runConfigService.selectedProfile(),
-        activeFilePath
+        activeFilePath,
+        filesSnapshot
       );
     }
   }
@@ -2216,34 +2250,7 @@ export class Workspace implements OnInit {
   }
 
   syncAllWorkspaceFilesToDisk(): void {
-    const proj = this.scopedProject();
-    const projId = proj?.id;
-    const vfs = this.vfsService.vfsIndex();
-    const docs = [
-      ...this.myDocuments(),
-      ...this.sharedDocuments().map((s) => ({
-        id: s.documentId,
-        title: s.documentTitle,
-        content: '',
-        folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
-      })),
-    ];
-
-    const filesMap: Record<string, string> = {};
-    for (const doc of docs) {
-      if (!projId || this.isDocumentInProject(doc.id, projId)) {
-        const relPath = vfs.docIdToPath.get(doc.id) || doc.title;
-        if (relPath) {
-          const activeInst = this.activeEditorInstance();
-          if (activeInst && activeInst.docId() === doc.id) {
-            filesMap[relPath] = activeInst.codeSignal() || doc.content || '';
-          } else {
-            filesMap[relPath] = doc.content || '';
-          }
-        }
-      }
-    }
-
+    const filesMap = this.collectWorkspaceFilesSnapshot();
     if (Object.keys(filesMap).length > 0) {
       this.liveTerminalService.syncFiles(filesMap);
     }

@@ -185,17 +185,32 @@ export class LiveTerminalService {
     }
   }
 
+  findTabByName(name: string): string | null {
+    const target = name.trim().toLowerCase();
+    for (const [id, session] of this.sessions.entries()) {
+      if (session.name.trim().toLowerCase() === target) {
+        return id;
+      }
+    }
+    return null;
+  }
+
   createTab(customName?: string, subDir?: string): string {
     this.tabCounter++;
     const tabId = `term_tab_${Date.now()}_${this.tabCounter}`;
     const name = customName || `Terminal ${this.tabCounter}`;
+
+    // Hide all existing tab wrappers first to avoid layout conflicts
+    this.sessions.forEach((s) => {
+      s.wrapperEl.style.display = 'none';
+    });
 
     const wrapper = document.createElement('div');
     wrapper.id = `terminal-wrapper-${tabId}`;
     wrapper.className = 'terminal-tab-wrapper';
     wrapper.style.width = '100%';
     wrapper.style.height = '100%';
-    wrapper.style.display = 'none';
+    wrapper.style.display = 'block';
 
     if (this.hostContainer) {
       this.hostContainer.appendChild(wrapper);
@@ -281,7 +296,14 @@ export class LiveTerminalService {
     setTimeout(() => {
       this.fit(tabId);
       this.focus(tabId);
-    }, 30);
+      if (active?.term) {
+        try {
+          active.term.refresh(0, Math.max(0, active.term.rows - 1));
+        } catch {
+          // Safe refresh
+        }
+      }
+    }, 40);
   }
 
   closeTab(tabId: string): void {
@@ -373,11 +395,13 @@ export class LiveTerminalService {
           this.syncFiles(files, lockedFiles);
         }
 
-        // Flush queued commands
+        // Flush queued commands with shell prompt buffer
         if (this.pendingCommands.length > 0) {
           const cmds = [...this.pendingCommands];
           this.pendingCommands = [];
-          cmds.forEach(({ command, files }) => this.runCommand(command, files));
+          setTimeout(() => {
+            cmds.forEach(({ command, files }) => this.runCommand(command, files));
+          }, 300);
         }
       };
 

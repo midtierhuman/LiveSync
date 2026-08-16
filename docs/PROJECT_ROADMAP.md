@@ -14,18 +14,20 @@
   - Fix fatal circular reactive effect feedback loop in `WorkspaceComponent` (`scopedProject.set` triggering the same effect reading `scopedProject()`), wrap side-effects and reads in `untracked()`, deduplicate permission events, and prune duplicate multi-channel socket emission storms in `EditorHub`.
 - [x] **PERF-05: Cache-Aside Redis ACL Engine & Fast-Path Permission Evaluation** (`livesync-api`, `livesync-realtime`)
   - Sub-millisecond $\mathcal{O}(1)$ cached access evaluation with write-through invalidation on permission changes, fast-path mutation rejection with `PermissionDenied` socket events, and in-flight socket permission state synchronization.
+- [x] **BUG-08: Run & Debug Launch Terminal Blank Output & Asynchronous PTY Command Race Condition** (`livesync-ui`, `livesync-gateway`)
+  - Fix xterm.js DOM canvas zero-dimension initialization when spawning run tabs, prevent premature `run_command` and environment variable drops during shell ConPTY startup, automatically sync workspace files to disk before execution, and reuse existing run tabs.
 - [ ] **FEAT-18: Collaborator Activity Timeline & Document Audit Logs** (`livesync-api`, `livesync-ui`)
   - Detailed historical audit trail of document permissions, collaborators added/removed, and version save snapshots.
 - [ ] **PERF-06: Angular Signal Lifecycle Audit & Comprehensive Client Memory Leak Prevention** (`livesync-ui`)
   - Audit all subscriptions, effect loops, interval timers, resize observers, CodeMirror View plugin instances, and xterm.js terminal buffers across `livesync-ui` (`EditorComponent`, `WorkspaceComponent`, `LiveTerminalService`, `RealtimeService`) to ensure automatic teardown via `DestroyRef.onDestroy` / `takeUntilDestroyed` and zero zombie listeners.
-- [ ] **BUG-07: Realtime Disconnection Ghost Cursors & Orphan Socket Cleanup** (`livesync-realtime`, `livesync-ui`)
-  - Ensure clean collaborator teardown upon socket disconnect, tab closure, or navigation, preventing orphaned selection highlight ranges, stale collaborator counts, and ghost cursor states in Redis and UI.
 
 ---
 
 ## 🗺️ Future Milestones & Planned Work
 
 ### **Milestone 15: Polyglot Codebase Hygiene, Dead Code Elimination & Architecture Streamlining** (PLANNED 📋)
+- [ ] **BUG-07: Realtime Disconnection Ghost Cursors & Orphan Socket Cleanup** (`livesync-realtime`, `livesync-ui`)
+  - Ensure clean collaborator teardown upon socket disconnect, tab closure, or navigation, preventing orphaned selection highlight ranges, stale collaborator counts, and ghost cursor states in Redis and UI.
 - [ ] **ARCH-08: Full Polyglot Dead Code Pruning & Deprecated API Cleanup** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
   - Comprehensive static analysis and removal of unused struct fields, obsolete legacy endpoints, dead helper functions, unused npm/pip/go modules, orphaned component templates, and deprecated CSS rules across all 5 microservices.
 - [ ] **BUG-08: Concurrent PTY Stream Race Condition & Terminal Buffer Leak Fix** (`livesync-gateway`, `livesync-ui`)

@@ -12,8 +12,10 @@ describe('RunConfigService', () => {
       'switchTab',
       'sendInput',
       'runCommand',
+      'findTabByName',
     ]);
     mockLiveTerminal.createTab.and.returnValue('tab-run-1');
+    mockLiveTerminal.findTabByName.and.returnValue(null);
 
     TestBed.configureTestingModule({
       providers: [
@@ -65,5 +67,14 @@ describe('RunConfigService', () => {
 
     expect(mockLiveTerminal.createTab).toHaveBeenCalled();
     expect(mockLiveTerminal.switchTab).toHaveBeenCalledWith('tab-run-1');
+  });
+
+  it('should reuse existing tab when executing profile if tab already exists', async () => {
+    mockLiveTerminal.findTabByName.and.returnValue('tab-existing-run');
+    const profile = service.selectedProfile();
+    await service.runProfile(profile, 'app.js');
+
+    expect(mockLiveTerminal.createTab).not.toHaveBeenCalled();
+    expect(mockLiveTerminal.switchTab).toHaveBeenCalledWith('tab-existing-run');
   });
 });
