@@ -1723,7 +1723,22 @@ export class Workspace implements OnInit {
     try {
       await this.folderService.updateSharedAccessLevel(folder.id, userId, accessLevel);
       this.realtimeService.updateCollaboratorPermission(userId, accessLevel, folder.id, undefined);
-      await this.loadWorkspace();
+
+      const updatedSharedWith = (folder.sharedWith || []).map((user) =>
+        user.userId === userId ? { ...user, accessLevel } : user
+      );
+      const updatedFolder = { ...folder, sharedWith: updatedSharedWith };
+      this.selectedFolderForShare.set(updatedFolder);
+      this.myFolders.update((folders) =>
+        folders.map((f) => (f.id === folder.id ? updatedFolder : f))
+      );
+
+      await this.loadWorkspace(true);
+
+      const refreshed = this.myFolders().find((f) => f.id === folder.id);
+      if (refreshed) {
+        this.selectedFolderForShare.set(refreshed);
+      }
     } catch (error) {
       console.error('Error updating collaborator access level:', error);
       alert('Failed to update collaborator access level');
@@ -1737,7 +1752,20 @@ export class Workspace implements OnInit {
     try {
       await this.folderService.removeSharedAccess(folder.id, userId);
       this.realtimeService.updateCollaboratorPermission(userId, 'Revoked', folder.id, undefined);
-      await this.loadWorkspace();
+
+      const updatedSharedWith = (folder.sharedWith || []).filter((user) => user.userId !== userId);
+      const updatedFolder = { ...folder, sharedWith: updatedSharedWith };
+      this.selectedFolderForShare.set(updatedFolder);
+      this.myFolders.update((folders) =>
+        folders.map((f) => (f.id === folder.id ? updatedFolder : f))
+      );
+
+      await this.loadWorkspace(true);
+
+      const refreshed = this.myFolders().find((f) => f.id === folder.id);
+      if (refreshed) {
+        this.selectedFolderForShare.set(refreshed);
+      }
     } catch (error) {
       console.error('Error removing collaborator access:', error);
       alert('Failed to remove collaborator access');
@@ -1768,67 +1796,37 @@ export class Workspace implements OnInit {
     const doc = this.selectedDocForShare();
     if (!doc) return [];
 
-    const list: SharedCollaborator[] = [];
-    const seenUserIds = new Set<string>();
+    const map = new Map<string, SharedCollaborator>();
 
-    // 1. Explicit document-level collaborators (direct shares or overrides)
+    // 1. Add inherited collaborators from containing project/folder
+    if (doc.folderId) {
+      const folder = this.myFolders().find((f) => f.id === doc.folderId);
+      if (folder && folder.sharedWith) {
+        for (const user of folder.sharedWith) {
+          map.set(user.userId, {
+            userId: user.userId,
+            userName: user.userName,
+            accessLevel: user.accessLevel,
+            isInherited: true,
+            inheritedFrom: folder.name,
+          });
+        }
+      }
+    }
+
+    // 2. Overlay direct document-level permissions
     if (doc.sharedWith) {
-      for (const u of doc.sharedWith) {
-        list.push({
-          userId: u.userId,
-          userName: u.userName,
-          accessLevel: u.accessLevel,
+      for (const user of doc.sharedWith) {
+        map.set(user.userId, {
+          userId: user.userId,
+          userName: user.userName,
+          accessLevel: user.accessLevel,
           isInherited: false,
         });
-        seenUserIds.add(u.userId);
       }
     }
 
-    // 2. Ancestor folder hierarchy collaborators
-    let currFolderId = doc.folderId;
-    const allFolders = [...this.myFolders(), ...this.sharedFolderTree()];
-    const scopedProj = this.scopedProject();
-
-    while (currFolderId) {
-      const folder = allFolders.find((f) => f.id === currFolderId);
-      if (!folder) break;
-
-      if (folder.sharedWith) {
-        for (const u of folder.sharedWith) {
-          if (!seenUserIds.has(u.userId)) {
-            list.push({
-              userId: u.userId,
-              userName: u.userName,
-              accessLevel: u.accessLevel,
-              isInherited: true,
-              inheritedFrom: folder.name,
-            });
-            seenUserIds.add(u.userId);
-          }
-        }
-      }
-
-      if (scopedProj && folder.id === scopedProj.id) break;
-      currFolderId = folder.parentFolderId;
-    }
-
-    // 3. Scoped project collaborators (if root project folder is configured)
-    if (scopedProj && scopedProj.sharedWith) {
-      for (const u of scopedProj.sharedWith) {
-        if (!seenUserIds.has(u.userId)) {
-          list.push({
-            userId: u.userId,
-            userName: u.userName,
-            accessLevel: u.accessLevel,
-            isInherited: true,
-            inheritedFrom: scopedProj.name,
-          });
-          seenUserIds.add(u.userId);
-        }
-      }
-    }
-
-    return list;
+    return Array.from(map.values());
   }
 
   copyShareCode() {
@@ -1875,10 +1873,30 @@ export class Workspace implements OnInit {
   }
 
   async updateDocumentSharedAccessLevel(documentId: string, userId: string, accessLevel: string) {
+    const doc = this.selectedDocForShare();
     try {
       await this.documentService.updateSharedAccessLevel(documentId, userId, accessLevel);
       this.realtimeService.updateCollaboratorPermission(userId, accessLevel, undefined, documentId);
-      await this.loadWorkspace();
+
+      if (doc && doc.id === documentId) {
+        const updatedSharedWith = (doc.sharedWith || []).map((user) =>
+          user.userId === userId ? { ...user, accessLevel } : user
+        );
+        const updatedDoc = { ...doc, sharedWith: updatedSharedWith };
+        this.selectedDocForShare.set(updatedDoc);
+        this.myDocuments.update((docs) =>
+          docs.map((d) => (d.id === documentId ? updatedDoc : d))
+        );
+      }
+
+      await this.loadWorkspace(true);
+
+      if (doc) {
+        const refreshed = this.myDocuments().find((d) => d.id === documentId);
+        if (refreshed) {
+          this.selectedDocForShare.set(refreshed);
+        }
+      }
     } catch (error) {
       console.error('Error updating collaborator access level:', error);
       alert('Failed to update collaborator access level');
@@ -1886,10 +1904,28 @@ export class Workspace implements OnInit {
   }
 
   async removeDocumentSharedAccess(documentId: string, userId: string) {
+    const doc = this.selectedDocForShare();
     try {
       await this.documentService.removeSharedAccess(documentId, userId);
       this.realtimeService.updateCollaboratorPermission(userId, 'Revoked', undefined, documentId);
-      await this.loadWorkspace();
+
+      if (doc && doc.id === documentId) {
+        const updatedSharedWith = (doc.sharedWith || []).filter((user) => user.userId !== userId);
+        const updatedDoc = { ...doc, sharedWith: updatedSharedWith };
+        this.selectedDocForShare.set(updatedDoc);
+        this.myDocuments.update((docs) =>
+          docs.map((d) => (d.id === documentId ? updatedDoc : d))
+        );
+      }
+
+      await this.loadWorkspace(true);
+
+      if (doc) {
+        const refreshed = this.myDocuments().find((d) => d.id === documentId);
+        if (refreshed) {
+          this.selectedDocForShare.set(refreshed);
+        }
+      }
     } catch (error) {
       console.error('Error removing collaborator access:', error);
       alert('Failed to remove collaborator access');

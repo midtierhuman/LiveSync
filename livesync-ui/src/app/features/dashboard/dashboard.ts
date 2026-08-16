@@ -295,7 +295,19 @@ export class Dashboard implements OnInit {
 
     try {
       await this.folderService.updateSharedAccessLevel(folder.id, userId, accessLevel);
+      const updatedSharedWith = (folder.sharedWith || []).map((user) =>
+        user.userId === userId ? { ...user, accessLevel } : user
+      );
+      const updatedFolder = { ...folder, sharedWith: updatedSharedWith };
+      this.selectedFolderForShare.set(updatedFolder);
+      this.myFolders.update((folders) =>
+        folders.map((f) => (f.id === folder.id ? updatedFolder : f))
+      );
       await this.loadWorkspace();
+      const refreshed = this.myFolders().find((f) => f.id === folder.id);
+      if (refreshed) {
+        this.selectedFolderForShare.set(refreshed);
+      }
     } catch (error) {
       console.error('Error updating collaborator access level:', error);
       alert('Failed to update collaborator access level');
@@ -308,7 +320,17 @@ export class Dashboard implements OnInit {
 
     try {
       await this.folderService.removeSharedAccess(folder.id, userId);
+      const updatedSharedWith = (folder.sharedWith || []).filter((user) => user.userId !== userId);
+      const updatedFolder = { ...folder, sharedWith: updatedSharedWith };
+      this.selectedFolderForShare.set(updatedFolder);
+      this.myFolders.update((folders) =>
+        folders.map((f) => (f.id === folder.id ? updatedFolder : f))
+      );
       await this.loadWorkspace();
+      const refreshed = this.myFolders().find((f) => f.id === folder.id);
+      if (refreshed) {
+        this.selectedFolderForShare.set(refreshed);
+      }
     } catch (error) {
       console.error('Error removing collaborator access:', error);
       alert('Failed to remove collaborator access');
