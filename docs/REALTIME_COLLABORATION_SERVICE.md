@@ -30,10 +30,10 @@ The `livesync-realtime` microservice handles low-latency room-based document edi
 | `SendOperation` (`{ documentId, operation }`) | `ReceiveOperation` (`Operation`) | Atomic transformation against concurrent edits and broadcast to room. |
 | `RequestMissedOperations` (`{ documentId, fromRevision }`) | `ReceiveOperation`, `ResyncComplete` | Catch-up sync mechanism for reconnected clients. |
 
-### 3. Cursor Tracking & Presence
+### 3. Cursor Tracking & Presence (Updated - `PERF-04`)
 | Client Emit | Server Emit | Description |
 | :--- | :--- | :--- |
-| `SendCursorPosition` (`{ documentId, position, lineNumber, scrollLine, userName }`) | `ReceiveCursorUpdate` | Broadcasts collaborator cursor position, selection, and color scoped by `documentId`. |
+| `SendCursorPosition` (`{ documentId, position, selectionStart, selectionEnd, lineNumber, scrollLine, userName }`) | `ReceiveCursorUpdate` | Broadcasts collaborator cursor position, selection range boundaries, username, and assigned color scoped by `documentId` to render multi-user Caret and Selection highlights in CodeMirror 6. |
 
 ### 4. Inline Threaded Comments
 | Client Emit | Server Emit | Description |

@@ -7,6 +7,8 @@ export interface CollaboratorCursor {
   userId: string;
   position: number;
   color: string;
+  selectionStart?: number;
+  selectionEnd?: number;
   lineNumber?: number;
   scrollLine?: number;
   userName?: string;
@@ -447,6 +449,8 @@ export class RealtimeService {
   sendCursorPosition(
     docId: string,
     position: number,
+    selectionStart?: number,
+    selectionEnd?: number,
     lineNumber: number = 1,
     scrollLine: number = 1,
     userName: string = 'Collaborator',
@@ -455,6 +459,8 @@ export class RealtimeService {
       documentId: docId,
       fileId: docId,
       position,
+      selectionStart: selectionStart ?? position,
+      selectionEnd: selectionEnd ?? position,
       lineNumber,
       scrollLine,
       userName,

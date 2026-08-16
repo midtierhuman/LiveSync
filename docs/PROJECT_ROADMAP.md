@@ -14,8 +14,8 @@
   - Dedicated Run & Debug panel with preset runtime environments (Node.js, Python, Go, custom launch profiles), environment variable manager, header execution launcher (`▶ Run`), and execution monitor.
 - [x] **FEAT-16: Dynamic Collaborator Access List & Real-Time Permission Synchronization** (`livesync-ui`, `livesync-realtime`, `livesync-api`)
   - Live shared collaborator management list with on-the-fly role toggling (Viewer/Editor), access revocation, and real-time Socket.IO permission push (`UpdateCollaboratorPermission` -> `ReceivePermissionUpdated`) that instantly locks/unlocks collaborator editors without reloading.
-- [ ] **PERF-04: Multi-User Remote Selection Range Highlighting & CRDT Delta Sync** (`livesync-ui`, `livesync-realtime`)
-  - Visual collaborator selection ranges in CodeMirror 6 with optimized CRDT byte-level delta replication.
+- [x] **PERF-04: Multi-User Remote Selection Range Highlighting & CRDT Delta Sync** (`livesync-ui`, `livesync-realtime`)
+  - CodeMirror 6 remote presence StateField with colored remote carets, floating collaborator name tag badges, translucent multi-user text selection range highlights, and real-time range delta broadcasting.
 
 ---
 

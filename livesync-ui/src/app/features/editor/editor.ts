@@ -54,6 +54,7 @@ import { html } from '@codemirror/lang-html';
 import { markdown } from '@codemirror/lang-markdown';
 import { css } from '@codemirror/lang-css';
 import { FormsModule } from '@angular/forms';
+import { remotePresenceField, setRemoteCursorsEffect } from './remote-presence.extension';
 import { RealtimeService } from '../../services/realtime.service';
 import {
   DocumentDto,
@@ -343,6 +344,18 @@ export class Editor implements OnInit {
     });
 
     effect(() => {
+      const collaborators = this.activeCollaborators();
+      const currentDocId = this.docId();
+      const currentUserId = this.authService.user()?.id;
+      if (this.editorView && currentDocId) {
+        const otherCollaborators = collaborators.filter((c) => c.userId !== currentUserId);
+        this.editorView.dispatch({
+          effects: setRemoteCursorsEffect.of(otherCollaborators),
+        });
+      }
+    });
+
+    effect(() => {
       const selectedLanguage = this.selectedExecutionLanguage();
       if (selectedLanguage) {
         void this.refreshPackageManagerForCurrentLanguage();
@@ -547,6 +560,7 @@ export class Editor implements OnInit {
         this.wrapCompartment.of([]),
         this.themeCompartment.of(oneDark),
         this.editorThemeExtension(),
+        remotePresenceField,
         keymap.of([
           ...closeBracketsKeymap,
           ...defaultKeymap,
@@ -617,10 +631,19 @@ export class Editor implements OnInit {
   readonly replyDrafts = signal<{ [commentId: string]: string }>({});
 
   private cursorThrottleTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingCursorArgs: { pos: number; lineNumber: number; userName: string } | null = null;
+  private pendingCursorArgs: {
+    pos: number;
+    selStart: number;
+    selEnd: number;
+    lineNumber: number;
+    userName: string;
+  } | null = null;
 
   private updateCursorLabel(state: EditorState) {
-    const pos = state.selection.main.head;
+    const mainSel = state.selection.main;
+    const pos = mainSel.head;
+    const selStart = mainSel.from;
+    const selEnd = mainSel.to;
     const line = state.doc.lineAt(pos);
     const col = pos - line.from + 1;
     this.cursorPosition.set(`Ln ${line.number}, Col ${col}`);
@@ -630,6 +653,8 @@ export class Editor implements OnInit {
     if (currentDocId) {
       this.pendingCursorArgs = {
         pos,
+        selStart,
+        selEnd,
         lineNumber: line.number,
         userName: this.authService.user()?.userName || 'Collaborator',
       };
@@ -640,6 +665,8 @@ export class Editor implements OnInit {
             void this.realtimeService.sendCursorPosition(
               this.docId(),
               this.pendingCursorArgs.pos,
+              this.pendingCursorArgs.selStart,
+              this.pendingCursorArgs.selEnd,
               this.pendingCursorArgs.lineNumber,
               this.pendingCursorArgs.lineNumber,
               this.pendingCursorArgs.userName,

@@ -489,6 +489,8 @@ export class EditorHub {
         documentId,
         userId: socket.id,
         position: payload.position ?? 0,
+        selectionStart: payload.selectionStart ?? payload.position ?? 0,
+        selectionEnd: payload.selectionEnd ?? payload.position ?? 0,
         lineNumber: payload.lineNumber ?? 1,
         scrollLine: payload.scrollLine ?? 1,
         userName: payload.userName || 'Anonymous',
