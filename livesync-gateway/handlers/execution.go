@@ -104,6 +104,14 @@ func (h *ExecutionHandler) RunCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 2. Ensure workspace is materialized from PostgreSQL bulk manifest if not present (PERF-10)
+	wsDir, fileCount, matErr := MaterializeWorkspaceFromManifest(r.Context(), h.cfg, req.ProjectID, tokenStr, GetGlobalSuppressionRegistry())
+	if matErr != nil {
+		log.Printf("⚠️ [EXEC_WARN] Failed to materialize workspace for project %s: %v", req.ProjectID, matErr)
+	} else {
+		log.Printf("📂 [EXEC_WORKSPACE_READY] project=%s wsDir=%s files=%d", req.ProjectID, wsDir, fileCount)
+	}
+
 	// Generate execution ID
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)

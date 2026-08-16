@@ -846,6 +846,98 @@ func (s *FolderService) toDtoWithContents(ctx context.Context, f *models.Folder,
 	}, nil
 }
 
+func (s *FolderService) GetProjectManifest(ctx context.Context, folderId, userId string) (*models.ProjectManifestDto, error) {
+	rootFolder, err := s.getRawFolder(ctx, folderId)
+	if err != nil {
+		return nil, errors.New("project not found")
+	}
+
+	accessLevel, err := s.GetAccessLevel(ctx, folderId, userId)
+	if err != nil || accessLevel == "" {
+		return nil, errors.New("forbidden: no access to project")
+	}
+
+	query := `
+		WITH RECURSIVE folder_tree AS (
+			SELECT "Id", "Name", "ParentFolderId", '' AS "RelPath"
+			FROM "Folders"
+			WHERE "Id" = $1
+			UNION ALL
+			SELECT f."Id", f."Name", f."ParentFolderId",
+				CASE 
+					WHEN ft."RelPath" = '' THEN f."Name"
+					ELSE ft."RelPath" || '/' || f."Name"
+				END AS "RelPath"
+			FROM "Folders" f
+			INNER JOIN folder_tree ft ON f."ParentFolderId" = ft."Id"
+		)
+		SELECT 
+			d."Id" AS "DocId",
+			d."Title",
+			d."Content",
+			d."DefaultAccessLevel",
+			ft."RelPath",
+			COALESCE(sd."AccessLevel", '') AS "UserAccessLevel"
+		FROM folder_tree ft
+		INNER JOIN "Documents" d ON d."FolderId" = ft."Id"
+		LEFT JOIN "SharedDocuments" sd ON sd."DocumentId" = d."Id" AND sd."UserId" = $2
+		ORDER BY ft."RelPath", d."Title";
+	`
+
+	rows, err := s.db.Pool.Query(ctx, query, folderId, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var files []models.ProjectManifestFileDto
+	for rows.Next() {
+		var docId, title, content, defAccess, relPath, userAccess string
+		if err := rows.Scan(&docId, &title, &content, &defAccess, &relPath, &userAccess); err != nil {
+			return nil, err
+		}
+
+		filePath := title
+		if relPath != "" {
+			filePath = relPath + "/" + title
+		}
+
+		if s.documentService != nil && s.documentService.rdb != nil {
+			if hotContent, err := s.documentService.rdb.Get(ctx, "livesync:doc:"+docId+":content").Result(); err == nil && hotContent != "" {
+				content = hotContent
+			}
+		}
+
+		effectiveDocAccess := accessLevel
+		if userAccess != "" {
+			effectiveDocAccess = userAccess
+		}
+		isLocked := effectiveDocAccess == "View"
+
+		files = append(files, models.ProjectManifestFileDto{
+			Path:        filePath,
+			DocumentId:  docId,
+			Title:       title,
+			Content:     content,
+			IsLocked:    isLocked,
+			AccessLevel: effectiveDocAccess,
+		})
+	}
+
+	if files == nil {
+		files = []models.ProjectManifestFileDto{}
+	}
+
+	return &models.ProjectManifestDto{
+		ProjectID:   rootFolder.ID,
+		ProjectName: rootFolder.Name,
+		OwnerID:     rootFolder.OwnerID,
+		AccessLevel: accessLevel,
+		TotalFiles:  len(files),
+		Files:       files,
+	}, nil
+}
+
 func (s *FolderService) generateUniqueShareCode(ctx context.Context) string {
 	for {
 		code := generateRandomCode(10)

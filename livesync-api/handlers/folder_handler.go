@@ -46,6 +46,7 @@ func (h *FolderHandler) RegisterRoutes(r chi.Router) {
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", h.Get)
 				r.Get("/access", h.GetAccess)
+				r.Get("/manifest", h.GetManifest)
 				r.Get("/audit-logs", h.GetAuditLogs)
 				r.Put("/", h.Update)
 				r.Delete("/", h.Delete)
@@ -373,4 +374,23 @@ func (h *FolderHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, logs)
+}
+
+func (h *FolderHandler) GetManifest(w http.ResponseWriter, r *http.Request) {
+	userId, _ := security.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+
+	manifest, err := h.folderService.GetProjectManifest(r.Context(), id, userId)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "forbidden") {
+			writeJSON(w, http.StatusForbidden, map[string]string{"message": err.Error(), "code": "FORBIDDEN"})
+		} else if err.Error() == "project not found" {
+			writeJSON(w, http.StatusNotFound, map[string]string{"message": err.Error(), "code": "NOT_FOUND"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, manifest)
 }
