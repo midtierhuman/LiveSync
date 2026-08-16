@@ -18,9 +18,10 @@ import (
 const ShareChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type DocumentService struct {
-	db       *database.DB
-	rdb      *redis.Client
-	aclCache ACLEngine
+	db           *database.DB
+	rdb          *redis.Client
+	aclCache     ACLEngine
+	auditService *AuditService
 }
 
 func NewDocumentService(db *database.DB) *DocumentService {
@@ -36,6 +37,10 @@ func (s *DocumentService) SetRedisClient(rdb *redis.Client) {
 
 func (s *DocumentService) SetACLCache(acl ACLEngine) {
 	s.aclCache = acl
+}
+
+func (s *DocumentService) SetAuditService(audit *AuditService) {
+	s.auditService = audit
 }
 
 func (s *DocumentService) Find(ctx context.Context, id, userId string) (*models.DocumentDto, error) {
@@ -288,6 +293,16 @@ func (s *DocumentService) UpdateContent(ctx context.Context, id, userId string, 
 		return nil, err
 	}
 
+	if s.auditService != nil {
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			DocumentId: &doc.ID,
+			ProjectId:  doc.FolderID,
+			UserId:     userId,
+			ActionType: "DOCUMENT_SAVED",
+			Details:    "Saved document revision",
+		})
+	}
+
 	return s.toDto(ctx, doc, userId)
 }
 
@@ -306,6 +321,17 @@ func (s *DocumentService) UpdateContentInternal(ctx context.Context, id, content
 	tag, err := s.db.Pool.Exec(ctx, query, content, now, now, lastEditor, id)
 	if err != nil {
 		return false, err
+	}
+	if s.auditService != nil && tag.RowsAffected() > 0 {
+		var folderId *string
+		_ = s.db.Pool.QueryRow(ctx, `SELECT "FolderId" FROM "Documents" WHERE "Id" = $1;`, id).Scan(&folderId)
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			DocumentId: &id,
+			ProjectId:  folderId,
+			UserId:     lastEditor,
+			ActionType: "DOCUMENT_SAVED",
+			Details:    "Write-behind stream snapshot saved",
+		})
 	}
 	return tag.RowsAffected() > 0, nil
 }
@@ -421,6 +447,15 @@ func (s *DocumentService) AddShare(ctx context.Context, code, userId string) (bo
 		VALUES ($1, $2, $3, $4, $5);
 	`
 	_, err = s.db.Pool.Exec(ctx, query, shareID, doc.ID, userId, accessLevel, now)
+	if err == nil && s.auditService != nil {
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			DocumentId: &doc.ID,
+			ProjectId:  doc.FolderID,
+			UserId:     userId,
+			ActionType: "COLLABORATOR_JOINED",
+			Details:    "Collaborator joined document with access: " + accessLevel,
+		})
+	}
 	return err == nil, err
 }
 
@@ -439,6 +474,16 @@ func (s *DocumentService) RemoveShare(ctx context.Context, id, userId, sharedUse
 	}
 	if s.aclCache != nil {
 		_ = s.aclCache.InvalidateDocumentAccess(ctx, id, sharedUserId)
+	}
+	if s.auditService != nil {
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			DocumentId: &id,
+			ProjectId:  doc.FolderID,
+			UserId:     userId,
+			TargetUser: sharedUserId,
+			ActionType: "COLLABORATOR_REMOVED",
+			Details:    "Collaborator access revoked from document",
+		})
 	}
 	return tag.RowsAffected() > 0, nil
 }
@@ -467,6 +512,16 @@ func (s *DocumentService) UpdateShareAccess(ctx context.Context, id, userId, sha
 	}
 	if s.aclCache != nil {
 		_ = s.aclCache.SetDocumentAccess(ctx, id, sharedUserId, access, DefaultACLCacheTTL)
+	}
+	if s.auditService != nil {
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			DocumentId: &id,
+			ProjectId:  doc.FolderID,
+			UserId:     userId,
+			TargetUser: sharedUserId,
+			ActionType: "PERMISSION_UPDATED",
+			Details:    "Collaborator permission set to " + access,
+		})
 	}
 	return tag.RowsAffected() > 0, nil
 }

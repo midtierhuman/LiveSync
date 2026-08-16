@@ -301,4 +301,10 @@ export class DocumentService {
       throw error;
     }
   }
+
+  async getDocumentAuditLogs(documentId: string, limit = 50, offset = 0): Promise<any[]> {
+    return firstValueFrom(
+      this.http.get<any[]>(`${this.apiUrl}/${documentId}/audit-logs?limit=${limit}&offset=${offset}`)
+    );
+  }
 }

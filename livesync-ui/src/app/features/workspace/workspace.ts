@@ -1,7 +1,7 @@
 import { Component, HostListener, inject, signal, computed, OnInit, DestroyRef, viewChildren, viewChild, ElementRef, effect, untracked } from '@angular/core';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet, DatePipe } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,7 +14,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../services/auth.service';
 import { DocumentService, DocumentDto, SharedDocumentDto, FolderPathNode } from '../../services/document.service';
-import { FolderService, FolderDto, SharedFolderDto } from '../../services/folder.service';
+import { FolderService, FolderDto, SharedFolderDto, AuditLogDto } from '../../services/folder.service';
 import { LiveTerminalService } from '../../services/live-terminal.service';
 import { VFSService } from '../../services/vfs.service';
 import { RealtimeService } from '../../services/realtime.service';
@@ -46,6 +46,7 @@ const EXPLORER_DEFAULT_WIDTH = 260;
   imports: [
     RouterModule,
     FormsModule,
+    DatePipe,
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
@@ -80,6 +81,7 @@ export class Workspace implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private activeCleanupResizer?: (() => void) | null;
+  private activeCleanupTerminalResizer?: (() => void) | null;
   private lastHandledPermTimestamp = 0;
   private lastJoinedWorkspaceId: string | null = null;
 
@@ -176,9 +178,26 @@ export class Workspace implements OnInit {
   }
 
   // Activity Bar & Sidebar View State
-  activeSidebarView = signal<'explorer' | 'search' | 'run' | 'packages' | 'ai' | 'comments'>('explorer');
+  activeSidebarView = signal<'explorer' | 'search' | 'run' | 'packages' | 'ai' | 'comments' | 'timeline'>('explorer');
   isSidebarOpen = signal<boolean>(true);
   isDarkMode = signal<boolean>(true);
+
+  // Activity Timeline State (FEAT-18)
+  auditLogs = signal<AuditLogDto[]>([]);
+  isLoadingAuditLogs = signal<boolean>(false);
+  timelineFilter = signal<'all' | 'collaborators' | 'saves'>('all');
+
+  readonly filteredAuditLogs = computed(() => {
+    const logs = this.auditLogs();
+    const filter = this.timelineFilter();
+    if (filter === 'collaborators') {
+      return logs.filter(l => l.actionType.includes('COLLABORATOR') || l.actionType.includes('PERMISSION'));
+    }
+    if (filter === 'saves') {
+      return logs.filter(l => l.actionType.includes('DOCUMENT') || l.actionType.includes('SAVE'));
+    }
+    return logs;
+  });
 
   // Editor instances access
   readonly editorInstances = viewChildren(Editor);
@@ -438,16 +457,22 @@ export class Workspace implements OnInit {
     } catch {}
 
     this.loadWorkspace().then(() => {
-      this.route.params.subscribe((params) => {
+      const sub = this.route.params.subscribe((params) => {
         const projectName = params['projectName'];
         const folderId = this.route.snapshot.queryParams['id'];
         this.resolveScopedProject(projectName, folderId);
+      });
+      this.destroyRef.onDestroy(() => {
+        sub.unsubscribe();
       });
     });
 
     this.destroyRef.onDestroy(() => {
       if (this.activeCleanupResizer) {
         this.activeCleanupResizer();
+      }
+      if (this.activeCleanupTerminalResizer) {
+        this.activeCleanupTerminalResizer();
       }
     });
   }
@@ -2133,7 +2158,7 @@ export class Workspace implements OnInit {
     }
   }
 
-  toggleSidebarView(view: 'explorer' | 'search' | 'run' | 'packages' | 'ai' | 'comments'): void {
+  toggleSidebarView(view: 'explorer' | 'search' | 'run' | 'packages' | 'ai' | 'comments' | 'timeline'): void {
     if (this.activeSidebarView() === view && this.isSidebarOpen()) {
       this.isSidebarOpen.set(false);
     } else {
@@ -2147,7 +2172,28 @@ export class Workspace implements OnInit {
             (input as HTMLInputElement).select();
           }
         }, 50);
+      } else if (view === 'timeline') {
+        this.loadAuditLogs();
       }
+    }
+  }
+
+  async loadAuditLogs(): Promise<void> {
+    const proj = this.scopedProject();
+    if (!proj?.id) {
+      this.auditLogs.set([]);
+      return;
+    }
+
+    this.isLoadingAuditLogs.set(true);
+    try {
+      const logs = await this.folderService.getProjectAuditLogs(proj.id, 50, 0);
+      this.auditLogs.set(logs || []);
+    } catch (err) {
+      console.warn('Could not load audit logs for project:', err);
+      this.auditLogs.set([]);
+    } finally {
+      this.isLoadingAuditLogs.set(false);
     }
   }
 
@@ -2344,6 +2390,7 @@ export class Workspace implements OnInit {
 
     const onEnd = () => {
       this.isResizingTerminal = false;
+      this.activeCleanupTerminalResizer = null;
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onEnd);
       window.removeEventListener('touchmove', onMove);
@@ -2351,6 +2398,7 @@ export class Workspace implements OnInit {
       this.liveTerminalService.fit();
     };
 
+    this.activeCleanupTerminalResizer = onEnd;
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onEnd);
     window.addEventListener('touchmove', onMove);

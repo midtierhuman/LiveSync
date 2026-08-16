@@ -16,6 +16,7 @@ type FolderService struct {
 	db              *database.DB
 	documentService *DocumentService
 	aclCache        ACLEngine
+	auditService    *AuditService
 }
 
 func NewFolderService(db *database.DB, documentService *DocumentService) *FolderService {
@@ -27,6 +28,10 @@ func NewFolderService(db *database.DB, documentService *DocumentService) *Folder
 
 func (s *FolderService) SetACLCache(acl ACLEngine) {
 	s.aclCache = acl
+}
+
+func (s *FolderService) SetAuditService(audit *AuditService) {
+	s.auditService = audit
 }
 
 func (s *FolderService) Create(ctx context.Context, userId string, req *models.CreateFolderRequest) (*models.FolderDto, error) {
@@ -440,6 +445,14 @@ func (s *FolderService) AddFolderShare(ctx context.Context, shareCode, userId st
 		VALUES ($1, $2, $3, $4, $5);
 	`
 	_, err = s.db.Pool.Exec(ctx, query, shareID, f.ID, userId, accessLevel, now)
+	if err == nil && s.auditService != nil {
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			ProjectId:  &f.ID,
+			UserId:     userId,
+			ActionType: "COLLABORATOR_JOINED",
+			Details:    "Collaborator joined project with access: " + accessLevel,
+		})
+	}
 	return err == nil, err
 }
 
@@ -594,6 +607,15 @@ func (s *FolderService) RemoveShare(ctx context.Context, folderId, userId, targe
 	if s.aclCache != nil {
 		_ = s.aclCache.InvalidateFolderAccess(ctx, folderId, targetUserId)
 	}
+	if s.auditService != nil {
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			ProjectId:  &folderId,
+			UserId:     userId,
+			TargetUser: targetUserId,
+			ActionType: "COLLABORATOR_REMOVED",
+			Details:    "Collaborator access revoked from project",
+		})
+	}
 	return result.RowsAffected() > 0, nil
 }
 
@@ -621,6 +643,15 @@ func (s *FolderService) UpdateShareAccess(ctx context.Context, folderId, userId,
 	}
 	if s.aclCache != nil {
 		_ = s.aclCache.SetFolderAccess(ctx, folderId, targetUserId, accessLevel, DefaultACLCacheTTL)
+	}
+	if s.auditService != nil {
+		_ = s.auditService.Record(ctx, &models.CreateAuditLogRequest{
+			ProjectId:  &folderId,
+			UserId:     userId,
+			TargetUser: targetUserId,
+			ActionType: "PERMISSION_UPDATED",
+			Details:    "Collaborator permission set to " + accessLevel,
+		})
 	}
 	return result.RowsAffected() > 0, nil
 }

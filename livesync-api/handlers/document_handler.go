@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -12,14 +13,16 @@ import (
 )
 
 type DocumentHandler struct {
-	docService *services.DocumentService
-	authMW     *security.AuthMiddleware
+	docService   *services.DocumentService
+	authMW       *security.AuthMiddleware
+	auditService *services.AuditService
 }
 
-func NewDocumentHandler(docService *services.DocumentService, authMW *security.AuthMiddleware) *DocumentHandler {
+func NewDocumentHandler(docService *services.DocumentService, authMW *security.AuthMiddleware, auditService *services.AuditService) *DocumentHandler {
 	return &DocumentHandler{
-		docService: docService,
-		authMW:     authMW,
+		docService:   docService,
+		authMW:       authMW,
+		auditService: auditService,
 	}
 }
 
@@ -43,6 +46,7 @@ func (h *DocumentHandler) RegisterRoutes(r chi.Router) {
 				r.Put("/content", h.UpdateContent)
 				r.Delete("/", h.Delete)
 				r.Get("/access", h.GetAccess)
+				r.Get("/audit-logs", h.GetAuditLogs)
 				r.Post("/generate-share-code", h.GenerateShareCode)
 				r.Delete("/shared/{sharedUserId}", h.RemoveShare)
 				r.Put("/shared/{sharedUserId}/access-level", h.UpdateShareAccessLevel)
@@ -307,4 +311,41 @@ func (h *DocumentHandler) UpdateShareCodeAccessLevel(w http.ResponseWriter, r *h
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Share code access level updated successfully"})
+}
+
+func (h *DocumentHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	userId, _ := security.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+
+	access, err := h.docService.Access(r.Context(), id, userId)
+	if err != nil || access == "" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "Document not found or access denied"})
+		return
+	}
+
+	limit := 50
+	offset := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 {
+			limit = val
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	if h.auditService == nil {
+		writeJSON(w, http.StatusOK, []models.AuditLog{})
+		return
+	}
+
+	logs, err := h.auditService.GetDocumentAuditLogs(r.Context(), id, limit, offset)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, logs)
 }

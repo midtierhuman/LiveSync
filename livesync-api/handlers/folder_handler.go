@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -14,12 +15,14 @@ import (
 type FolderHandler struct {
 	folderService *services.FolderService
 	authMW        *security.AuthMiddleware
+	auditService  *services.AuditService
 }
 
-func NewFolderHandler(folderService *services.FolderService, authMW *security.AuthMiddleware) *FolderHandler {
+func NewFolderHandler(folderService *services.FolderService, authMW *security.AuthMiddleware, auditService *services.AuditService) *FolderHandler {
 	return &FolderHandler{
 		folderService: folderService,
 		authMW:        authMW,
+		auditService:  auditService,
 	}
 }
 
@@ -43,6 +46,7 @@ func (h *FolderHandler) RegisterRoutes(r chi.Router) {
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", h.Get)
 				r.Get("/access", h.GetAccess)
+				r.Get("/audit-logs", h.GetAuditLogs)
 				r.Put("/", h.Update)
 				r.Delete("/", h.Delete)
 				r.Post("/generate-share-code", h.GenerateShareCode)
@@ -332,4 +336,41 @@ func (h *FolderHandler) UpdateShareCodeAccessLevel(w http.ResponseWriter, r *htt
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Share code access level updated successfully"})
+}
+
+func (h *FolderHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	userId, _ := security.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+
+	access, err := h.folderService.GetAccessLevel(r.Context(), id, userId)
+	if err != nil || access == "" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "Folder not found or access denied"})
+		return
+	}
+
+	limit := 50
+	offset := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 {
+			limit = val
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	if h.auditService == nil {
+		writeJSON(w, http.StatusOK, []models.AuditLog{})
+		return
+	}
+
+	logs, err := h.auditService.GetProjectAuditLogs(r.Context(), id, limit, offset)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, logs)
 }

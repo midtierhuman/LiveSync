@@ -1,13 +1,65 @@
 # LiveSync Project Roadmap & Issue Tracker
 
 > **Last Updated**: 2026-08-16
-> **Status**: 🟢 Milestone 13 Completed & Closed (6/6 Tasks)
+> **Status**: 🟢 Milestone 14 Completed & Closed (6/6 Tasks)
 
 ---
 
 ## 🎯 Active Milestone
 
-### **Milestone 14: Quality Assurance, Advanced Workspace Analytics & Production Hardening** (ACTIVE 🔄)
+### **Milestone 15: Polyglot Codebase Hygiene, Dead Code Elimination & Architecture Streamlining** (ACTIVE 🔄)
+- [x] **BUG-11: Integrated Terminal Root Working Directory Anchoring & Top Bar Run Control Consolidation** (`livesync-ui`, `livesync-gateway`)
+  - Enforce explicit shell working directory initialization (`Set-Location` in Windows ConPTY and `cd` in Unix bash) anchored to `./workspaces/{projectId}`, ensure reactive VFS re-indexing matches scoped project root, synchronize workspace file snapshots before execution, and remove redundant top-bar execution buttons in favor of the unified Run & Debug sidebar dock.
+- [x] **BUG-12: Standardized POSIX Bash Environment Variable Exports & Execution Launcher Hardening** (`livesync-ui`)
+  - Standardize all run configuration and environment variable exports to POSIX-compliant Bash syntax (`export KEY="VALUE"; <cmd>`), eliminating PowerShell syntax leakage (`$env:`) in Linux containers and ensuring seamless execution across all shell environments.
+- [ ] **BUG-07: Realtime Disconnection Ghost Cursors & Orphan Socket Cleanup** (`livesync-realtime`, `livesync-ui`)
+  - Ensure clean collaborator teardown upon socket disconnect, tab closure, or navigation, preventing orphaned selection highlight ranges, stale collaborator counts, and ghost cursor states in Redis and UI.
+- [ ] **ARCH-08: Full Polyglot Dead Code Pruning & Deprecated API Cleanup** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
+  - Comprehensive static analysis and removal of unused struct fields, obsolete legacy endpoints, dead helper functions, unused npm/pip/go modules, orphaned component templates, and deprecated CSS rules across all 5 microservices.
+- [ ] **BUG-09: Concurrent PTY Stream Race Condition & Terminal Buffer Leak Fix** (`livesync-gateway`, `livesync-ui`)
+  - Memory-bounded scrollback buffer management, explicit PTY process kill signal propagation on WebSocket disconnect, and mutex-safe stdout/stderr I/O pumps to prevent dangling shell processes on the host.
+- [ ] **PERF-07: High-Concurrency Virtual Scroll & Large Directory Tree Windowing** (`livesync-ui`)
+  - DOM virtualization for large project file trees (1,000+ files) and high-throughput xterm.js backpressure control to prevent UI thread lockups during heavy logging output (e.g. `npm install`, `find /`).
+
+---
+
+## 🗺️ Future Milestones & Planned Work
+
+### **Milestone 16: Enterprise Resilience, End-to-End Stress Testing & Chaos Engineering** (PLANNED 📋)
+- [ ] **ARCH-09: Universal Error Boundary & Polyglot Microservice Health Telemetry** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
+  - RFC 7807 compliant structured JSON error formats across all microservices, graceful UI error boundaries for crash recovery, and unified `/health/readiness` & `/health/liveness` probes.
+- [ ] **TEST-01: Multi-User High-Concurrency Chaos & CRDT Fuzzing Suite** (`livesync-realtime`, `livesync-ui`)
+  - Automated simulation of 50+ concurrent typing sessions, network jitter, simulated packet drops, and mathematical convergence validation.
+- [ ] **TEST-02: Terminal PTY Load & Memory Stress Test Matrix** (`livesync-gateway`)
+  - Automated stress tests allocating 100 concurrent PTY sessions, measuring CPU/RAM boundaries, and testing graceful process reaper under memory limits.
+- [ ] **PERF-09: Connection Pool Auto-Scaling & Postgres Read Replicas** (`livesync-api`)
+  - Dynamic `pgxpool` configuration with connection health checks, statement preparation caching, and automatic retry on transient connection dropouts.
+- [ ] **BUG-10: Rapid File Renaming & VFS Cache Invalidation Race Condition** (`livesync-ui`, `livesync-realtime`, `livesync-api`)
+  - Eliminate edge-case race conditions during rapid concurrent file renames and moves across multiple collaborators.
+- [ ] **SEC-05: Rate Limiting, Brute-Force Throttling & DDoS Protection** (`livesync-gateway`, `livesync-api`)
+  - IP and user-based Token Bucket rate limiting in Go Gateway and API for auth, search, package, and PTY endpoints.
+
+---
+
+### **Milestone 17: Execution Authorization & Materialized Workspace Architecture Refactor** (PLANNED 📋)
+- [ ] **ARCH-11: Decoupled Execution Authorization Model & Terminal Access Isolation** (`livesync-gateway`, `livesync-api`)
+  - Decouple execution capability from write/edit permissions (`VIEW`, `EDIT`, or `OWNER` can execute target project), while strictly preserving interactive terminal PTY access boundaries (prohibiting unauthenticated or view-only shell escapes).
+- [ ] **PERF-10: Bulk Project Manifest & Zero-N+1 Workspace Materialization Engine** (`livesync-api`, `livesync-gateway`)
+  - High-performance bulk metadata and content retrieval endpoint in `livesync-api` allowing Go Gateway to materialize initial project workspaces (`/workspaces/{projectId}`) in a single optimized query batch without N+1 database roundtrips.
+- [ ] **ARCH-12: Redis Hot-State Hydration & Incremental Workspace Synchronization Engine** (`livesync-gateway`, `livesync-realtime`)
+  - Server-side incremental workspace synchronization that overlays active Redis collaborative document state (`livesync:doc:{documentId}:content`) onto persistent PostgreSQL file trees, avoiding full disk reconstructions.
+- [ ] **SEC-06: Isolated Ephemeral Execution Sandboxing & Disposable Run Environments** (`livesync-gateway`)
+  - Isolate code execution runs in ephemeral disposable workspaces (`/run/{executionId}` / copy-on-write sandboxes) to guarantee that build artifacts, dependency installations (`npm install`, `pip install`), and execution output never mutate the canonical collaborative workspace.
+- [ ] **FEAT-19: Delta/Overlay Execution Protocol & Frontend Payload Optimization** (`livesync-ui`, `livesync-gateway`)
+  - Refactor Angular execution client to send lightweight run requests (`{ projectId, entrypoint, revision, overlay }`) with only active dirty file overlays instead of transmitting full multi-megabyte project source trees on every run.
+- [ ] **TEST-03: Multi-User Execution Isolation & Comprehensive End-to-End Authorization Suite** (`livesync-gateway`, `livesync-api`, `livesync-ui`)
+  - Comprehensive automated test suite verifying owner execution, edit execution, view-only execution, view + single-file edit execution, 403 rejection on unauthorized projects, isolated run sandbox non-mutation, and concurrent execution isolation.
+
+---
+
+## 🗺️ Completed Milestones
+
+### **Milestone 14: Quality Assurance, Advanced Workspace Analytics & Production Hardening** (COMPLETED ✅)
 - [x] **SEC-04: Zero-Trust Gateway JWT Authentication & Universal Infrastructure Access Verification** (`livesync-gateway`, `livesync-api`, `livesync-realtime`)
   - Enforce strict cryptographically verified JWT bearer tokens and active workspace/document authorization checks across all Go Gateway endpoints (Terminal PTY WebSockets `/api/terminal/ws`, Workspace Atomic Sync `/api/workspaces/:id/sync`, Search `/api/workspaces/:id/search`, and Package Manager proxies). No gateway or backend infrastructure route is accessible without verified caller identity.
 - [x] **BUG-06: Collaborator Permission Update Infinite Signal Feedback Loop & Memory Leak Fix** (`livesync-ui`, `livesync-realtime`)
@@ -16,10 +68,10 @@
   - Sub-millisecond $\mathcal{O}(1)$ cached access evaluation with write-through invalidation on permission changes, fast-path mutation rejection with `PermissionDenied` socket events, and in-flight socket permission state synchronization.
 - [x] **BUG-08: Run & Debug Launch Terminal Blank Output & Asynchronous PTY Command Race Condition** (`livesync-ui`, `livesync-gateway`)
   - Fix xterm.js DOM canvas zero-dimension initialization when spawning run tabs, prevent premature `run_command` and environment variable drops during shell ConPTY startup, automatically sync workspace files to disk before execution, and reuse existing run tabs.
-- [ ] **FEAT-18: Collaborator Activity Timeline & Document Audit Logs** (`livesync-api`, `livesync-ui`)
-  - Detailed historical audit trail of document permissions, collaborators added/removed, and version save snapshots.
-- [ ] **PERF-06: Angular Signal Lifecycle Audit & Comprehensive Client Memory Leak Prevention** (`livesync-ui`)
-  - Audit all subscriptions, effect loops, interval timers, resize observers, CodeMirror View plugin instances, and xterm.js terminal buffers across `livesync-ui` (`EditorComponent`, `WorkspaceComponent`, `LiveTerminalService`, `RealtimeService`) to ensure automatic teardown via `DestroyRef.onDestroy` / `takeUntilDestroyed` and zero zombie listeners.
+- [x] **FEAT-18: Collaborator Activity Timeline & Document Audit Logs** (`livesync-api`, `livesync-ui`)
+  - Detailed historical audit trail of document permissions, collaborators added/removed, and version save snapshots with dedicated activity timeline side-dock panel, filter chips, and reactive log synchronization.
+- [x] **PERF-06: Angular Signal Lifecycle Audit & Comprehensive Client Memory Leak Prevention** (`livesync-ui`)
+  - Audited all subscriptions, effect loops, interval timers, resize observers, CodeMirror View plugin instances, and xterm.js terminal buffers across `livesync-ui` (`EditorComponent`, `WorkspaceComponent`, `LiveTerminalService`, `RealtimeService`) ensuring automatic teardown via `DestroyRef.onDestroy` / `takeUntilDestroyed` and zero zombie listeners.
 
 ---
 
@@ -38,12 +90,12 @@
   - Memory-bounded scrollback buffer management, explicit PTY process kill signal propagation on WebSocket disconnect, and mutex-safe stdout/stderr I/O pumps to prevent dangling shell processes on the host.
 - [ ] **PERF-07: High-Concurrency Virtual Scroll & Large Directory Tree Windowing** (`livesync-ui`)
   - DOM virtualization for large project file trees (1,000+ files) and high-throughput xterm.js backpressure control to prevent UI thread lockups during heavy logging output (e.g. `npm install`, `find /`).
-- [ ] **ARCH-09: Universal Error Boundary & Polyglot Microservice Health Telemetry** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
-  - RFC 7807 compliant structured JSON error formats across all microservices, graceful UI error boundaries for crash recovery, and unified `/health/readiness` & `/health/liveness` probes.
 
 ---
 
 ### **Milestone 16: Enterprise Resilience, End-to-End Stress Testing & Chaos Engineering** (PLANNED 📋)
+- [ ] **ARCH-09: Universal Error Boundary & Polyglot Microservice Health Telemetry** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
+  - RFC 7807 compliant structured JSON error formats across all microservices, graceful UI error boundaries for crash recovery, and unified `/health/readiness` & `/health/liveness` probes.
 - [ ] **TEST-01: Multi-User High-Concurrency Chaos & CRDT Fuzzing Suite** (`livesync-realtime`, `livesync-ui`)
   - Automated simulation of 50+ concurrent typing sessions, network jitter, simulated packet drops, and mathematical convergence validation.
 - [ ] **TEST-02: Terminal PTY Load & Memory Stress Test Matrix** (`livesync-gateway`)
@@ -54,8 +106,22 @@
   - Eliminate edge-case race conditions during rapid concurrent file renames and moves across multiple collaborators.
 - [ ] **SEC-05: Rate Limiting, Brute-Force Throttling & DDoS Protection** (`livesync-gateway`, `livesync-api`)
   - IP and user-based Token Bucket rate limiting in Go Gateway and API for auth, search, package, and PTY endpoints.
-- [ ] **ARCH-10: Production Configuration Validator & Zero-Config Health Dashboard** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
-  - Comprehensive configuration boot validator catching missing secrets, port conflicts, and environment mismatches before starting services.
+
+---
+
+### **Milestone 17: Execution Authorization & Materialized Workspace Architecture Refactor** (PLANNED 📋)
+- [ ] **ARCH-11: Decoupled Execution Authorization Model & Terminal Access Isolation** (`livesync-gateway`, `livesync-api`)
+  - Decouple execution capability from write/edit permissions (`VIEW`, `EDIT`, or `OWNER` can execute target project), while strictly preserving interactive terminal PTY access boundaries (prohibiting unauthenticated or view-only shell escapes).
+- [ ] **PERF-10: Bulk Project Manifest & Zero-N+1 Workspace Materialization Engine** (`livesync-api`, `livesync-gateway`)
+  - High-performance bulk metadata and content retrieval endpoint in `livesync-api` allowing Go Gateway to materialize initial project workspaces (`/workspaces/{projectId}`) in a single optimized query batch without N+1 database roundtrips.
+- [ ] **ARCH-12: Redis Hot-State Hydration & Incremental Workspace Synchronization Engine** (`livesync-gateway`, `livesync-realtime`)
+  - Server-side incremental workspace synchronization that overlays active Redis collaborative document state (`livesync:doc:{documentId}:content`) onto persistent PostgreSQL file trees, avoiding full disk reconstructions.
+- [ ] **SEC-06: Isolated Ephemeral Execution Sandboxing & Disposable Run Environments** (`livesync-gateway`)
+  - Isolate code execution runs in ephemeral disposable workspaces (`/run/{executionId}` / copy-on-write sandboxes) to guarantee that build artifacts, dependency installations (`npm install`, `pip install`), and execution output never mutate the canonical collaborative workspace.
+- [ ] **FEAT-19: Delta/Overlay Execution Protocol & Frontend Payload Optimization** (`livesync-ui`, `livesync-gateway`)
+  - Refactor Angular execution client to send lightweight run requests (`{ projectId, entrypoint, revision, overlay }`) with only active dirty file overlays instead of transmitting full multi-megabyte project source trees on every run.
+- [ ] **TEST-03: Multi-User Execution Isolation & Comprehensive End-to-End Authorization Suite** (`livesync-gateway`, `livesync-api`, `livesync-ui`)
+  - Comprehensive automated test suite verifying owner execution, edit execution, view-only execution, view + single-file edit execution, 403 rejection on unauthorized projects, isolated run sandbox non-mutation, and concurrent execution isolation.
 
 ---
 

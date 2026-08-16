@@ -33,6 +33,18 @@ export interface FolderDto {
   permission?: string;
 }
 
+export interface AuditLogDto {
+  id: string;
+  projectId?: string;
+  documentId?: string;
+  userId: string;
+  userEmail?: string;
+  actionType: string;
+  targetUser?: string;
+  details: string;
+  createdAt: string;
+}
+
 export interface SharedFolderDto {
   id: string;
   folderId: string;
@@ -151,6 +163,12 @@ export class FolderService {
       this.http.put(`${appEndpoints.apiBaseUrl}/api/folders/${folderId}/shared/${userId}/access-level`, {
         accessLevel,
       })
+    );
+  }
+
+  async getProjectAuditLogs(id: string, limit = 50, offset = 0): Promise<AuditLogDto[]> {
+    return firstValueFrom(
+      this.http.get<AuditLogDto[]>(`${appEndpoints.apiBaseUrl}/api/folders/${id}/audit-logs?limit=${limit}&offset=${offset}`)
     );
   }
 }

@@ -48,8 +48,11 @@ func main() {
 
 	// 3. Application Services
 	authService := services.NewAuthService(db, jwtService, passwordHasher)
+	auditService := services.NewAuditService(db)
 	docService := services.NewDocumentService(db)
+	docService.SetAuditService(auditService)
 	folderService := services.NewFolderService(db, docService)
+	folderService.SetAuditService(auditService)
 
 	// 4. Redis Stream Write-Behind Consumer & Cache-Aside ACL Engine (PERF-05)
 	streamConsumer := services.NewDocumentSaveStreamConsumer(cfg.RedisURL, docService)
@@ -64,8 +67,8 @@ func main() {
 
 	// 5. HTTP Handlers
 	authHandler := handlers.NewAuthHandler(authService, jwtService)
-	docHandler := handlers.NewDocumentHandler(docService, authMiddleware)
-	folderHandler := handlers.NewFolderHandler(folderService, authMiddleware)
+	docHandler := handlers.NewDocumentHandler(docService, authMiddleware, auditService)
+	folderHandler := handlers.NewFolderHandler(folderService, authMiddleware, auditService)
 
 	// 6. Router & Middleware
 	r := chi.NewRouter()

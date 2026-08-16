@@ -115,6 +115,15 @@
         >
           <mat-icon>chat_bubble_outline</mat-icon>
         </button>
+
+        <button
+          class="activity-icon-btn"
+          [class.active]="isSidebarOpen() && activeSidebarView() === 'timeline'"
+          (click)="toggleSidebarView('timeline')"
+          matTooltip="Activity Timeline & Audit Trail"
+        >
+          <mat-icon>history</mat-icon>
+        </button>
       </div>
 
       <div class="activity-bottom">
@@ -1044,6 +1053,75 @@
                 </div>
               }
             </div>
+          </div>
+        </section>
+      }
+
+      @if (activeSidebarView() === 'timeline') {
+        <section class="vs-sidebar-panel vs-timeline-panel">
+          <div class="panel-header">
+            <span class="panel-title"><mat-icon>history</mat-icon> ACTIVITY TIMELINE</span>
+            <div class="panel-actions">
+              <button class="icon-btn-small" (click)="loadAuditLogs()" matTooltip="Refresh Audit Trail">
+                <mat-icon>refresh</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="timeline-filter-bar">
+            <button
+              class="filter-pill"
+              [class.active]="timelineFilter() === 'all'"
+              (click)="timelineFilter.set('all')"
+            >
+              All Events
+            </button>
+            <button
+              class="filter-pill"
+              [class.active]="timelineFilter() === 'collaborators'"
+              (click)="timelineFilter.set('collaborators')"
+            >
+              Collaborators
+            </button>
+            <button
+              class="filter-pill"
+              [class.active]="timelineFilter() === 'saves'"
+              (click)="timelineFilter.set('saves')"
+            >
+              Saves
+            </button>
+          </div>
+
+          <div class="panel-body timeline-sidebar-body">
+            @if (isLoadingAuditLogs()) {
+              <div class="timeline-loading-state">
+                <mat-icon class="spin-icon">sync</mat-icon>
+                <span>Loading activity audit logs...</span>
+              </div>
+            } @else {
+              <div class="timeline-stream">
+                @for (log of filteredAuditLogs(); track log.id) {
+                  <div class="timeline-card" [class.collab]="log.actionType.includes('COLLABORATOR') || log.actionType.includes('PERMISSION')">
+                    <div class="timeline-card-header">
+                      <span class="action-badge" [class.save]="log.actionType.includes('DOCUMENT')">
+                        {{ log.actionType }}
+                      </span>
+                      <span class="timestamp">{{ log.createdAt | date:'short' }}</span>
+                    </div>
+                    <p class="timeline-details">{{ log.details }}</p>
+                    <div class="timeline-meta">
+                      <mat-icon class="user-icon">account_circle</mat-icon>
+                      <span class="user-text">{{ log.userEmail || log.userId }}</span>
+                    </div>
+                  </div>
+                } @empty {
+                  <div class="empty-timeline-hint">
+                    <mat-icon>history_toggle_off</mat-icon>
+                    <p>No activity records logged yet for this workspace.</p>
+                  </div>
+                }
+              </div>
+            }
           </div>
         </section>
       }

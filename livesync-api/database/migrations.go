@@ -78,6 +78,21 @@ func Migrate(ctx context.Context, db *DB) error {
 			CONSTRAINT "UK_SharedFolders_Folder_User" UNIQUE ("FolderId", "UserId")
 		);`,
 
+		// 6. AuditLogs Table (FEAT-18: Collaborator Activity Timeline & Document Audit Logs)
+		`CREATE TABLE IF NOT EXISTS "AuditLogs" (
+			"Id" VARCHAR(255) PRIMARY KEY,
+			"ProjectId" VARCHAR(255),
+			"DocumentId" VARCHAR(255),
+			"UserId" VARCHAR(255) NOT NULL,
+			"UserEmail" VARCHAR(255),
+			"ActionType" VARCHAR(100) NOT NULL,
+			"TargetUser" VARCHAR(255),
+			"Details" TEXT NOT NULL,
+			"CreatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS "IX_AuditLogs_ProjectId" ON "AuditLogs" ("ProjectId", "CreatedAt" DESC);`,
+		`CREATE INDEX IF NOT EXISTS "IX_AuditLogs_DocumentId" ON "AuditLogs" ("DocumentId", "CreatedAt" DESC);`,
+
 		// Adjustments / Constraints / Column Alterations
 		`ALTER TABLE "Documents" ALTER COLUMN "Content" TYPE TEXT;`,
 		`ALTER TABLE "Documents" ADD COLUMN IF NOT EXISTS "FolderId" VARCHAR(255);`,
