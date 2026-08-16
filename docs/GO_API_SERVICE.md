@@ -18,10 +18,11 @@ The `livesync-api` microservice is built with **Go 1.26** and **chi v5**. It ser
    - Cascading recursive deletion of subfolders, documents, and associated access shares.
    - Multi-tab document metadata retrieval and owner/shared permission evaluation (`Owner`, `Edit`, `View`).
 
-3. **Share Code & Collaboration Access**:
+3. **Share Code & Hierarchical Access Control (ACL Overrides)**:
    - Unique 10-character alphanumeric share codes (`generateShareCode`).
    - Case-insensitive, trimmed code joining (`/api/documents/add-shared` and `/api/folders/add-shared`).
-   - Per-user granular permission overrides (`View` / `Edit`).
+   - Multi-level ACL inheritance from parent folders to child documents.
+   - Per-user granular document-level permission overrides (`View` / `Edit`) via SQL UPSERT (`INSERT ... ON CONFLICT DO UPDATE`), allowing specific files inside a read-only shared folder to be individually granted edit rights without re-inviting.
 
 4. **Event-Driven Write-Behind Stream Consumer (`DocumentSaveStreamConsumer`)**:
    - Listens on Redis Stream `livesync:stream:document-saves` via consumer group `api-save-group`.

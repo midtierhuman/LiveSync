@@ -25,6 +25,7 @@ import JSZip from 'jszip';
 import { Editor } from '../editor/editor';
 import {
   ShareModalComponent,
+  SharedCollaborator,
   ConfirmDeleteModalComponent,
   MoveModalComponent,
   CreateFileModalComponent,
@@ -1741,6 +1742,73 @@ export class Workspace implements OnInit {
       this.shareCode.set(doc.shareCode);
     }
     this.showShareModal.set(true);
+  }
+
+  getDocumentShareCollaborators(): SharedCollaborator[] {
+    const doc = this.selectedDocForShare();
+    if (!doc) return [];
+
+    const list: SharedCollaborator[] = [];
+    const seenUserIds = new Set<string>();
+
+    // 1. Explicit document-level collaborators (direct shares or overrides)
+    if (doc.sharedWith) {
+      for (const u of doc.sharedWith) {
+        list.push({
+          userId: u.userId,
+          userName: u.userName,
+          accessLevel: u.accessLevel,
+          isInherited: false,
+        });
+        seenUserIds.add(u.userId);
+      }
+    }
+
+    // 2. Ancestor folder hierarchy collaborators
+    let currFolderId = doc.folderId;
+    const allFolders = [...this.myFolders(), ...this.sharedFolderTree()];
+    const scopedProj = this.scopedProject();
+
+    while (currFolderId) {
+      const folder = allFolders.find((f) => f.id === currFolderId);
+      if (!folder) break;
+
+      if (folder.sharedWith) {
+        for (const u of folder.sharedWith) {
+          if (!seenUserIds.has(u.userId)) {
+            list.push({
+              userId: u.userId,
+              userName: u.userName,
+              accessLevel: u.accessLevel,
+              isInherited: true,
+              inheritedFrom: folder.name,
+            });
+            seenUserIds.add(u.userId);
+          }
+        }
+      }
+
+      if (scopedProj && folder.id === scopedProj.id) break;
+      currFolderId = folder.parentFolderId;
+    }
+
+    // 3. Scoped project collaborators (if root project folder is configured)
+    if (scopedProj && scopedProj.sharedWith) {
+      for (const u of scopedProj.sharedWith) {
+        if (!seenUserIds.has(u.userId)) {
+          list.push({
+            userId: u.userId,
+            userName: u.userName,
+            accessLevel: u.accessLevel,
+            isInherited: true,
+            inheritedFrom: scopedProj.name,
+          });
+          seenUserIds.add(u.userId);
+        }
+      }
+    }
+
+    return list;
   }
 
   copyShareCode() {

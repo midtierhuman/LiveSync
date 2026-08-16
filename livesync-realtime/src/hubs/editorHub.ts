@@ -82,7 +82,15 @@ export class EditorHub {
     socket.on('WorkspaceChange', (data: any) => this.handleWorkspaceChange(socket, data));
     socket.on('workspaceChange', (data: any) => this.handleWorkspaceChange(socket, data));
 
-    // Real-Time Collaborator Permission Updates (FEAT-16)
+    // User-Level Socket Channel Multiplexing (ARCH-06)
+    const joinUserHandler = (arg: any) => {
+      const userId = typeof arg === 'string' ? arg : arg?.userId;
+      this.handleJoinUser(socket, userId);
+    };
+    socket.on('JoinUser', joinUserHandler);
+    socket.on('joinUser', joinUserHandler);
+
+    // Real-Time Collaborator Permission Updates (FEAT-16 / ARCH-06)
     socket.on('UpdateCollaboratorPermission', (data: any) => this.handleUpdateCollaboratorPermission(socket, data));
     socket.on('updateCollaboratorPermission', (data: any) => this.handleUpdateCollaboratorPermission(socket, data));
 
@@ -627,6 +635,14 @@ export class EditorHub {
     socket.to(`workspace:${workspaceId}`).emit('ReceiveWorkspaceChange', payload);
   }
 
+  private handleJoinUser(socket: Socket, userId: string): void {
+    if (!userId) return;
+    const roomName = `user:${userId}`;
+    socket.join(roomName);
+    socket.emit('UserJoinedChannel', { userId });
+    console.log(`Socket ${socket.id} joined private user room: ${roomName}`);
+  }
+
   private handleUpdateCollaboratorPermission(socket: Socket, data: any): void {
     if (!data || !data.targetUserId) return;
     const payload = {
@@ -638,14 +654,26 @@ export class EditorHub {
       timestamp: Date.now(),
     };
 
+    // 1. Direct targeted delivery to the collaborator's private user channel (ARCH-06)
+    this.io.to(`user:${data.targetUserId}`).emit('ReceivePermissionUpdated', payload);
+    this.io.to(`user:${data.targetUserId}`).emit('permissionUpdated', payload);
+
+    // 2. Deliver to workspace room if present
     if (data.workspaceId) {
       this.io.to(`workspace:${data.workspaceId}`).emit('ReceivePermissionUpdated', payload);
       this.io.to(`workspace:${data.workspaceId}`).emit('permissionUpdated', payload);
     }
+
+    // 3. Deliver to document room if present
     if (data.documentId) {
       this.io.to(`document:${data.documentId}`).emit('ReceivePermissionUpdated', payload);
       this.io.to(`document:${data.documentId}`).emit('permissionUpdated', payload);
+      this.io.to(data.documentId).emit('ReceivePermissionUpdated', payload);
+      this.io.to(data.documentId).emit('permissionUpdated', payload);
     }
+
+    // 4. Global broadcast fallback
     socket.broadcast.emit('ReceivePermissionUpdated', payload);
+    socket.broadcast.emit('permissionUpdated', payload);
   }
 }

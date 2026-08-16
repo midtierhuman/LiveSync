@@ -8,6 +8,8 @@ export interface SharedCollaborator {
   userId: string;
   userName?: string;
   accessLevel: string;
+  isInherited?: boolean;
+  inheritedFrom?: string;
 }
 
 @Component({
@@ -65,14 +67,17 @@ export interface SharedCollaborator {
                       <div class="user-info">
                         <div class="user-avatar">{{ (user.userName || 'U').slice(0, 2).toUpperCase() }}</div>
                         <span class="user-name">{{ user.userName || 'Collaborator' }}</span>
+                        @if (user.isInherited) {
+                          <span class="inherited-pill" [matTooltip]="'Inherited from ' + (user.inheritedFrom || 'folder')">Inherited</span>
+                        }
                         @if (editingUserId() === user.userId) {
                           <select
                             [(ngModel)]="user.accessLevel"
                             class="access-select-inline"
                             (change)="onUserAccessChange(user.userId, user.accessLevel)"
                           >
-                            <option value="View">View Only</option>
-                            <option value="Edit">Can Edit</option>
+                            <option value="View">View Only{{ user.isInherited ? ' (Override)' : '' }}</option>
+                            <option value="Edit">Can Edit{{ user.isInherited ? ' (Override)' : '' }}</option>
                           </select>
                         } @else {
                           <span class="access-badge" [class.edit-access]="user.accessLevel === 'Edit'">
@@ -349,6 +354,16 @@ export interface SharedCollaborator {
             .user-name {
               font-size: 11.5px;
               color: #f0f6fc;
+            }
+
+            .inherited-pill {
+              font-size: 9px;
+              padding: 1px 5px;
+              border-radius: 3px;
+              background: rgba(56, 189, 248, 0.15);
+              color: #38bdf8;
+              font-weight: 600;
+              letter-spacing: 0.3px;
             }
 
             .access-badge {

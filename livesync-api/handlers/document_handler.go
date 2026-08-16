@@ -271,7 +271,11 @@ func (h *DocumentHandler) UpdateShareAccessLevel(w http.ResponseWriter, r *http.
 
 	updated, err := h.docService.UpdateShareAccess(r.Context(), id, userId, sharedUserId, req.AccessLevel)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"message": "Only the document owner can change access levels"})
+		if err.Error() == "forbidden" {
+			writeJSON(w, http.StatusForbidden, map[string]string{"message": "Only the document owner or project owner can change access levels"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		}
 		return
 	}
 	if !updated {

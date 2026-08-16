@@ -553,7 +553,7 @@ func (s *FolderService) RemoveShare(ctx context.Context, folderId, userId, targe
 	if err != nil {
 		return false, err
 	}
-	if f.OwnerID != userId && userId != targetUserId {
+	if f.OwnerID != userId && userId != targetUserId && !s.isAncestorFolderOwner(ctx, f.ParentFolderID, userId) {
 		return false, errors.New("unauthorized to remove share")
 	}
 
@@ -565,19 +565,45 @@ func (s *FolderService) RemoveShare(ctx context.Context, folderId, userId, targe
 }
 
 func (s *FolderService) UpdateShareAccess(ctx context.Context, folderId, userId, targetUserId, accessLevel string) (bool, error) {
+	if accessLevel != "View" && accessLevel != "Edit" {
+		return false, errors.New("invalid access level")
+	}
 	f, err := s.getRawFolder(ctx, folderId)
 	if err != nil {
 		return false, err
 	}
-	if f.OwnerID != userId {
+	if f.OwnerID != userId && !s.isAncestorFolderOwner(ctx, f.ParentFolderID, userId) {
 		return false, errors.New("only owner can modify collaborator permissions")
 	}
 
-	result, err := s.db.Pool.Exec(ctx, `UPDATE "SharedFolders" SET "AccessLevel" = $1 WHERE "FolderId" = $2 AND "UserId" = $3;`, accessLevel, folderId, targetUserId)
+	shareID := uuid.New().String()
+	result, err := s.db.Pool.Exec(ctx, `
+		INSERT INTO "SharedFolders" ("Id", "FolderId", "UserId", "AccessLevel", "SharedAt")
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+		ON CONFLICT ("FolderId", "UserId")
+		DO UPDATE SET "AccessLevel" = EXCLUDED."AccessLevel";
+	`, shareID, folderId, targetUserId, accessLevel)
 	if err != nil {
 		return false, err
 	}
 	return result.RowsAffected() > 0, nil
+}
+
+func (s *FolderService) isAncestorFolderOwner(ctx context.Context, parentId *string, userId string) bool {
+	curr := parentId
+	for curr != nil && *curr != "" {
+		var ownerId string
+		var nextParent *string
+		err := s.db.Pool.QueryRow(ctx, `SELECT "OwnerId", "ParentFolderId" FROM "Folders" WHERE "Id" = $1;`, *curr).Scan(&ownerId, &nextParent)
+		if err != nil {
+			break
+		}
+		if ownerId == userId {
+			return true
+		}
+		curr = nextParent
+	}
+	return false
 }
 
 func (s *FolderService) toDto(ctx context.Context, f *models.Folder, includeSubfolders bool, viewerUserId string) (*models.FolderDto, error) {

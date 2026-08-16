@@ -1,13 +1,25 @@
 # LiveSync Project Roadmap & Issue Tracker
 
 > **Last Updated**: 2026-08-16
-> **Status**: 🟢 Milestone 12 Completed & Closed (6/6 Tasks)
+> **Status**: 🟢 Milestone 13 Completed & Closed (6/6 Tasks)
 
 ---
 
 ## 🎯 Active Milestone
 
-### **Milestone 13: Real-Time Collaboration, Environment Launchers & Workflow Enhancements** (ACTIVE 🔄)
+### **Milestone 14: Quality Assurance, Advanced Workspace Analytics & Production Hardening** (ACTIVE 🔄)
+- [ ] **SEC-04: Zero-Trust Gateway JWT Authentication & Universal Infrastructure Access Verification** (`livesync-gateway`, `livesync-api`, `livesync-realtime`)
+  - Enforce strict cryptographically verified JWT bearer tokens and active workspace/document authorization checks across all Go Gateway endpoints (Terminal PTY WebSockets `/api/terminal/ws`, Workspace Atomic Sync `/api/workspaces/:id/sync`, Search `/api/workspaces/:id/search`, and Package Manager proxies). No gateway or backend infrastructure route is accessible without verified caller identity.
+- [ ] **PERF-05: Cache-Aside Redis ACL Engine & Fast-Path Permission Evaluation** (`livesync-api`, `livesync-realtime`)
+  - Sub-millisecond $O(1)$ cached access evaluation with write-through invalidation on permission changes and in-memory socket ACL state management.
+- [ ] **FEAT-18: Collaborator Activity Timeline & Document Audit Logs** (`livesync-api`, `livesync-ui`)
+  - Detailed historical audit trail of document permissions, collaborators added/removed, and version save snapshots.
+
+---
+
+## 🗺️ Completed Milestones
+
+### **Milestone 13: Real-Time Collaboration, Environment Launchers & Workflow Enhancements** (COMPLETED ✅)
 - [x] **FEAT-14: VS Code-Style Explorer Context Menu & "Open in Integrated Terminal"** (`livesync-ui`, `livesync-gateway`)
   - Complete VS Code-style context menu on folders & files with instant terminal opening anchored to subdirectories (`/api/terminal/ws?subDir=...`), tab auto-naming (`term: <folder>`), "Find in Folder" include filter linking, and clipboard relative path copying.
 - [x] **FEAT-15: Run & Debug Environment Profiles & Launch Configuration Hub** (`livesync-ui`, `livesync-gateway`)
@@ -16,6 +28,10 @@
   - Live shared collaborator management list with on-the-fly role toggling (Viewer/Editor), access revocation, and real-time Socket.IO permission push (`UpdateCollaboratorPermission` -> `ReceivePermissionUpdated`) that instantly locks/unlocks collaborator editors without reloading.
 - [x] **PERF-04: Multi-User Remote Selection Range Highlighting & CRDT Delta Sync** (`livesync-ui`, `livesync-realtime`)
   - CodeMirror 6 remote presence StateField with colored remote carets, floating collaborator name tag badges, translucent multi-user text selection range highlights, and real-time range delta broadcasting.
+- [x] **FEAT-17: Hierarchical Access Control & Document-Level Permission Overrides** (`livesync-api`, `livesync-ui`, `livesync-realtime`)
+  - Multi-level ACL inheritance from folders/projects to child files with automatic collaborator aggregation, fine-grained document-level permission overrides (`Can Edit (Override)` vs `Inherited (View)`), and upsert persistence.
+- [x] **ARCH-06: Enterprise User-Level Socket Channel Multiplexing & Codebase Hygiene / Deprecation Cleanup** (`livesync-realtime`, `livesync-api`, `livesync-ui`)
+  - Elevate socket connections to authenticated `user:<userId>` private rooms for instant cross-tab/cross-workspace permission delivery, implement SQL upserts with hierarchical ownership verification in Go API, and clean up obsolete/deprecated code patterns.
 
 ---
 

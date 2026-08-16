@@ -415,7 +415,10 @@ func (s *DocumentService) AddShare(ctx context.Context, code, userId string) (bo
 
 func (s *DocumentService) RemoveShare(ctx context.Context, id, userId, sharedUserId string) (bool, error) {
 	doc, err := s.getRawDocument(ctx, id)
-	if err != nil || doc.OwnerID != userId {
+	if err != nil {
+		return false, err
+	}
+	if doc.OwnerID != userId && !s.isFolderOrProjectOwner(ctx, doc.FolderID, userId) {
 		return false, errors.New("forbidden")
 	}
 
@@ -426,20 +429,49 @@ func (s *DocumentService) RemoveShare(ctx context.Context, id, userId, sharedUse
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *DocumentService) UpdateShareAccess(ctx context.Context, id, ownerId, sharedUserId, access string) (bool, error) {
+func (s *DocumentService) UpdateShareAccess(ctx context.Context, id, userId, sharedUserId, access string) (bool, error) {
 	if access != "View" && access != "Edit" {
 		return false, errors.New("invalid access level")
 	}
 	doc, err := s.getRawDocument(ctx, id)
-	if err != nil || doc.OwnerID != ownerId {
+	if err != nil {
+		return false, err
+	}
+	if doc.OwnerID != userId && !s.isFolderOrProjectOwner(ctx, doc.FolderID, userId) {
 		return false, errors.New("forbidden")
 	}
 
-	tag, err := s.db.Pool.Exec(ctx, `UPDATE "SharedDocuments" SET "AccessLevel" = $1 WHERE "DocumentId" = $2 AND "UserId" = $3;`, access, id, sharedUserId)
+	shareID := uuid.New().String()
+	tag, err := s.db.Pool.Exec(ctx, `
+		INSERT INTO "SharedDocuments" ("Id", "DocumentId", "UserId", "AccessLevel", "SharedAt")
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+		ON CONFLICT ("DocumentId", "UserId")
+		DO UPDATE SET "AccessLevel" = EXCLUDED."AccessLevel";
+	`, shareID, id, sharedUserId, access)
 	if err != nil {
 		return false, err
 	}
 	return tag.RowsAffected() > 0, nil
+}
+
+func (s *DocumentService) isFolderOrProjectOwner(ctx context.Context, folderId *string, userId string) bool {
+	if folderId == nil || *folderId == "" {
+		return false
+	}
+	curr := folderId
+	for curr != nil && *curr != "" {
+		var ownerId string
+		var parentId *string
+		err := s.db.Pool.QueryRow(ctx, `SELECT "OwnerId", "ParentFolderId" FROM "Folders" WHERE "Id" = $1;`, *curr).Scan(&ownerId, &parentId)
+		if err != nil {
+			break
+		}
+		if ownerId == userId {
+			return true
+		}
+		curr = parentId
+	}
+	return false
 }
 
 func (s *DocumentService) UpdateCodeAccess(ctx context.Context, id, ownerId, access string) (bool, error) {

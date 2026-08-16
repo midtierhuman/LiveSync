@@ -153,11 +153,22 @@ export class RealtimeService {
     this.socket.on('connect', () => {
       this.connectionState.set('connected');
       console.log('Realtime Multiplexed Socket Connected successfully:', this.socket.id);
+      const user = this.authService.user();
+      if (user?.id) {
+        this.socket.emit('JoinUser', { userId: user.id });
+      }
       for (const [docId] of this.documentStates) {
         this.socket.emit('JoinDocument', docId);
       }
       for (const wsId of this.activeWorkspaceIds) {
         this.socket.emit('JoinWorkspace', wsId);
+      }
+    });
+
+    effect(() => {
+      const user = this.authService.user();
+      if (user?.id && this.socket && this.socket.connected) {
+        this.socket.emit('JoinUser', { userId: user.id });
       }
     });
 
@@ -407,6 +418,13 @@ export class RealtimeService {
     } finally {
       this.isStarting = false;
     }
+  }
+
+  joinUser(userId: string): Promise<void> {
+    if (this.socket && this.socket.connected && userId) {
+      this.socket.emit('JoinUser', { userId });
+    }
+    return Promise.resolve();
   }
 
   async joinDocument(docId: string): Promise<void> {

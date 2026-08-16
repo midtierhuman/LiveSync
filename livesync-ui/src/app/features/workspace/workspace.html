@@ -1302,7 +1302,7 @@
     [itemTitle]="selectedDocForShare()?.title || ''"
     [shareCode]="shareCode()"
     [defaultAccessLevel]="defaultAccessLevel()"
-    [sharedWith]="selectedDocForShare()?.sharedWith || []"
+    [sharedWith]="getDocumentShareCollaborators()"
     (close)="closeShareModal()"
     (copyCode)="copyShareCode()"
     (regenerateCode)="regenerateShareCode()"
