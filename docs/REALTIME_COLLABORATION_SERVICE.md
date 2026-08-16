@@ -50,10 +50,11 @@ The `livesync-realtime` microservice handles low-latency room-based document edi
 | `LeaveWorkspace` (`workspaceId`) | `WorkspaceLeft` | Unsubscribes collaborator socket from the workspace room. |
 | `WorkspaceChange` (`data`) | `ReceiveWorkspaceChange` (`data`) | Broadcasts instant create, rename, move, and delete metadata mutations across all active collaborators' tree views and open tabs. |
 
-### 6. Real-Time Collaborator Permission Updates (Implemented - `FEAT-16`, Hardened - `BUG-06`)
+### 6. Real-Time Collaborator Permission Updates (Implemented - `FEAT-16`, Hardened - `BUG-06`, Fast-Pathed - `PERF-05`)
 | Client Emit | Server Emit | Description |
 | :--- | :--- | :--- |
-| `UpdateCollaboratorPermission` (`{ targetUserId, accessLevel, workspaceId, documentId }`) | `ReceivePermissionUpdated`, `permissionUpdated` | Dispatches targeted real-time permission modifications (`Viewer` vs `Editor` or revocation) to target collaborator private user rooms (`user:<userId>`) and scoped workspace/document channels, avoiding cluster-wide broadcast storms and client-side reactive loops. |
+| `UpdateCollaboratorPermission` (`{ targetUserId, accessLevel, workspaceId, documentId }`) | `ReceivePermissionUpdated`, `permissionUpdated` | Dispatches targeted real-time permission modifications (`Viewer` vs `Editor` or revocation) to target collaborator private user rooms (`user:<userId>`) and scoped workspace/document channels, writes through to Redis ACL cache (`livesync:acl:doc:*`), and updates in-flight socket connection permissions in real time. |
+| `SendOperation` / `SendContentUpdate` (Unauthorized) | `PermissionDenied`, `Error` | Fast-path rejection of unauthorized write operations from `Viewer` sockets, broadcasting an explicit `{ documentId, required: 'Edit', current }` denial event without modifying server document state. |
 
 ---
 

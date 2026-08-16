@@ -18,8 +18,9 @@ import (
 const ShareChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type DocumentService struct {
-	db  *database.DB
-	rdb *redis.Client
+	db       *database.DB
+	rdb      *redis.Client
+	aclCache ACLEngine
 }
 
 func NewDocumentService(db *database.DB) *DocumentService {
@@ -28,6 +29,13 @@ func NewDocumentService(db *database.DB) *DocumentService {
 
 func (s *DocumentService) SetRedisClient(rdb *redis.Client) {
 	s.rdb = rdb
+	if s.aclCache == nil && rdb != nil {
+		s.aclCache = NewRedisACLCacheService(rdb)
+	}
+}
+
+func (s *DocumentService) SetACLCache(acl ACLEngine) {
+	s.aclCache = acl
 }
 
 func (s *DocumentService) Find(ctx context.Context, id, userId string) (*models.DocumentDto, error) {
@@ -320,6 +328,9 @@ func (s *DocumentService) Delete(ctx context.Context, id, userId string) (bool, 
 	if err != nil {
 		return false, err
 	}
+	if s.aclCache != nil {
+		_ = s.aclCache.InvalidateAllDocumentAccess(ctx, id)
+	}
 	return tag.RowsAffected() > 0, nil
 }
 
@@ -426,6 +437,9 @@ func (s *DocumentService) RemoveShare(ctx context.Context, id, userId, sharedUse
 	if err != nil {
 		return false, err
 	}
+	if s.aclCache != nil {
+		_ = s.aclCache.InvalidateDocumentAccess(ctx, id, sharedUserId)
+	}
 	return tag.RowsAffected() > 0, nil
 }
 
@@ -450,6 +464,9 @@ func (s *DocumentService) UpdateShareAccess(ctx context.Context, id, userId, sha
 	`, shareID, id, sharedUserId, access)
 	if err != nil {
 		return false, err
+	}
+	if s.aclCache != nil {
+		_ = s.aclCache.SetDocumentAccess(ctx, id, sharedUserId, access, DefaultACLCacheTTL)
 	}
 	return tag.RowsAffected() > 0, nil
 }
@@ -487,35 +504,62 @@ func (s *DocumentService) UpdateCodeAccess(ctx context.Context, id, ownerId, acc
 	if err != nil {
 		return false, err
 	}
+	if s.aclCache != nil {
+		_ = s.aclCache.InvalidateAllDocumentAccess(ctx, id)
+	}
 	return tag.RowsAffected() > 0, nil
 }
 
 func (s *DocumentService) Access(ctx context.Context, id, userId string) (string, error) {
+	if s.aclCache != nil && userId != "" {
+		if cached, hit, err := s.aclCache.GetDocumentAccess(ctx, id, userId); err == nil && hit {
+			if cached == "None" {
+				return "", nil
+			}
+			return cached, nil
+		}
+	}
+
 	doc, err := s.getRawDocument(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			if s.aclCache != nil && userId != "" {
+				_ = s.aclCache.SetDocumentAccess(ctx, id, userId, "None", DefaultACLCacheTTL)
+			}
 			return "", nil
 		}
 		return "", err
 	}
 
 	if doc.OwnerID == userId {
+		if s.aclCache != nil && userId != "" {
+			_ = s.aclCache.SetDocumentAccess(ctx, id, userId, "Edit", DefaultACLCacheTTL)
+		}
 		return "Edit", nil
 	}
 
 	var accessLevel string
 	err = s.db.Pool.QueryRow(ctx, `SELECT "AccessLevel" FROM "SharedDocuments" WHERE "DocumentId" = $1 AND "UserId" = $2;`, id, userId).Scan(&accessLevel)
 	if err == nil && accessLevel != "" {
+		if s.aclCache != nil && userId != "" {
+			_ = s.aclCache.SetDocumentAccess(ctx, id, userId, accessLevel, DefaultACLCacheTTL)
+		}
 		return accessLevel, nil
 	}
 
 	if doc.FolderID != nil && *doc.FolderID != "" {
 		folderAccess, err := s.folderAccess(ctx, *doc.FolderID, userId)
 		if err == nil && folderAccess != "" {
+			if s.aclCache != nil && userId != "" {
+				_ = s.aclCache.SetDocumentAccess(ctx, id, userId, folderAccess, DefaultACLCacheTTL)
+			}
 			return folderAccess, nil
 		}
 	}
 
+	if s.aclCache != nil && userId != "" {
+		_ = s.aclCache.SetDocumentAccess(ctx, id, userId, "None", DefaultACLCacheTTL)
+	}
 	return "", nil
 }
 

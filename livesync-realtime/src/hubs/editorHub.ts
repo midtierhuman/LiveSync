@@ -242,6 +242,25 @@ export class EditorHub {
     return '';
   }
 
+  private extractUserIdFromToken(token: string): string | null {
+    if (!token || !token.includes('.')) return null;
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+      return (
+        payload.sub ||
+        payload.nameid ||
+        payload.userId ||
+        payload.Id ||
+        payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ||
+        null
+      );
+    } catch {
+      return null;
+    }
+  }
+
   private async handleJoinDocument(socket: Socket, documentId: string, initialContent?: string): Promise<void> {
     try {
       if (!documentId || !documentId.trim()) {
@@ -250,7 +269,29 @@ export class EditorHub {
       }
 
       const accessToken = this.getAccessToken(socket);
-      const accessLevel = await this.documentAccessClient.getAccessLevel(documentId, accessToken);
+      const userId =
+        socket.handshake.auth?.userId ||
+        (socket as any).userId ||
+        (accessToken ? this.extractUserIdFromToken(accessToken) : null);
+
+      let accessLevel: string | null = null;
+
+      // 1. Fast-path $O(1)$ lookup from Redis ACL Cache (PERF-05)
+      if (userId && this.state.getCachedDocumentACL) {
+        try {
+          accessLevel = await this.state.getCachedDocumentACL(documentId, userId);
+        } catch (cacheErr) {
+          console.warn(`[ACL Fast-Path] Redis cache check failed:`, cacheErr);
+        }
+      }
+
+      // 2. Fallback to HTTP API lookup on cache miss
+      if (!accessLevel) {
+        accessLevel = await this.documentAccessClient.getAccessLevel(documentId, accessToken);
+        if (accessLevel && userId && this.state.setCachedDocumentACL) {
+          await this.state.setCachedDocumentACL(documentId, userId, accessLevel);
+        }
+      }
 
       if (!accessLevel) {
         socket.emit('Error', 'You do not have access to this document.');
@@ -341,6 +382,12 @@ export class EditorHub {
     try {
       const accessLevel = await this.state.getAccess(socket.id, documentId);
       if (accessLevel !== 'Edit') {
+        socket.emit('PermissionDenied', {
+          documentId,
+          required: 'Edit',
+          current: accessLevel || 'None',
+          message: 'You do not have edit access to this document.',
+        });
         socket.emit('Error', 'You do not have edit access to this document.');
         return;
       }
@@ -379,6 +426,12 @@ export class EditorHub {
     try {
       const accessLevel = await this.state.getAccess(socket.id, documentId);
       if (accessLevel !== 'Edit') {
+        socket.emit('PermissionDenied', {
+          documentId,
+          required: 'Edit',
+          current: accessLevel || 'None',
+          message: 'You do not have edit access to this document.',
+        });
         socket.emit('Error', 'You do not have edit access to this document.');
         return;
       }
@@ -643,7 +696,7 @@ export class EditorHub {
     console.log(`Socket ${socket.id} joined private user room: ${roomName}`);
   }
 
-  private handleUpdateCollaboratorPermission(socket: Socket, data: any): void {
+  private async handleUpdateCollaboratorPermission(socket: Socket, data: any): Promise<void> {
     if (!data || !data.targetUserId) return;
     const payload = {
       targetUserId: data.targetUserId,
@@ -654,17 +707,37 @@ export class EditorHub {
       timestamp: Date.now(),
     };
 
-    // 1. Direct targeted delivery to the collaborator's private user channel (ARCH-06)
+    // 1. Fast-path write-through to Redis ACL cache (PERF-05)
+    if (data.documentId && this.state.setCachedDocumentACL) {
+      await this.state.setCachedDocumentACL(data.documentId, data.targetUserId, payload.accessLevel).catch(() => {});
+    }
+    if (data.workspaceId && this.state.setCachedWorkspaceACL) {
+      await this.state.setCachedWorkspaceACL(data.workspaceId, data.targetUserId, payload.accessLevel).catch(() => {});
+    }
+
+    // 2. Synchronize active in-flight socket connection permissions for target user
+    if (data.documentId && this.state.updateUserDocumentAccess && this.io?.in) {
+      try {
+        const userSockets = await this.io.in(`user:${data.targetUserId}`).fetchSockets();
+        for (const s of userSockets) {
+          await this.state.updateUserDocumentAccess(data.documentId, s.id, payload.accessLevel);
+        }
+      } catch (err) {
+        console.warn(`[ACL Engine] Could not update active socket ACL for user ${data.targetUserId}:`, err);
+      }
+    }
+
+    // 3. Direct targeted delivery to the collaborator's private user channel (ARCH-06)
     this.io.to(`user:${data.targetUserId}`).emit('ReceivePermissionUpdated', payload);
     this.io.to(`user:${data.targetUserId}`).emit('permissionUpdated', payload);
 
-    // 2. Deliver to workspace room if present
+    // 4. Deliver to workspace room if present
     if (data.workspaceId) {
       this.io.to(`workspace:${data.workspaceId}`).emit('ReceivePermissionUpdated', payload);
       this.io.to(`workspace:${data.workspaceId}`).emit('permissionUpdated', payload);
     }
 
-    // 3. Deliver to document room if present
+    // 5. Deliver to document room if present
     if (data.documentId) {
       this.io.to(`document:${data.documentId}`).emit('ReceivePermissionUpdated', payload);
       this.io.to(`document:${data.documentId}`).emit('permissionUpdated', payload);

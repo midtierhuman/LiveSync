@@ -51,9 +51,15 @@ func main() {
 	docService := services.NewDocumentService(db)
 	folderService := services.NewFolderService(db, docService)
 
-	// 4. Redis Stream Write-Behind Consumer
+	// 4. Redis Stream Write-Behind Consumer & Cache-Aside ACL Engine (PERF-05)
 	streamConsumer := services.NewDocumentSaveStreamConsumer(cfg.RedisURL, docService)
-	docService.SetRedisClient(streamConsumer.GetRedisClient())
+	redisClient := streamConsumer.GetRedisClient()
+	docService.SetRedisClient(redisClient)
+
+	aclCacheService := services.NewRedisACLCacheService(redisClient)
+	docService.SetACLCache(aclCacheService)
+	folderService.SetACLCache(aclCacheService)
+
 	go streamConsumer.Start(ctx)
 
 	// 5. HTTP Handlers

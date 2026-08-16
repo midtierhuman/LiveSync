@@ -4,6 +4,7 @@ import { IOperationLog } from './operationLog';
 export interface IDocumentStateService {
   addUserToDocument(documentId: string, connectionId: string, accessLevel: string): Promise<boolean>;
   removeUserFromDocument(documentId: string, connectionId: string): Promise<boolean>;
+  updateUserDocumentAccess(documentId: string, connectionId: string, accessLevel: string): Promise<void>;
   getUserCount(documentId: string): Promise<number>;
   getDocumentsForConnection(connectionId: string): Promise<Record<string, string>>;
   setContent(documentId: string, content: string): Promise<void>;
@@ -15,6 +16,9 @@ export interface IDocumentStateService {
   getColor(connectionId: string): Promise<string | null>;
   getOperationLog(): IOperationLog;
   publishSaveEvent(documentId: string, content: string, userId?: string): Promise<string>;
+  getCachedDocumentACL(documentId: string, userId: string): Promise<string | null>;
+  setCachedDocumentACL(documentId: string, userId: string, accessLevel: string, ttlSeconds?: number): Promise<void>;
+  setCachedWorkspaceACL(workspaceId: string, userId: string, accessLevel: string, ttlSeconds?: number): Promise<void>;
 }
 
 export class RedisDocumentStateService implements IDocumentStateService {
@@ -157,5 +161,47 @@ export class RedisDocumentStateService implements IDocumentStateService {
     );
     console.log(`[Redis Stream Write-Behind] Published save event ${messageId} for document ${documentId}`);
     return messageId || '';
+  }
+
+  /**
+   * Updates in-memory/Redis permission for an active connection on a specific document.
+   */
+  public async updateUserDocumentAccess(documentId: string, connectionId: string, accessLevel: string): Promise<void> {
+    const connDocsKey = RedisDocumentStateService.connDocsKey(connectionId);
+    await this.redis.hset(connDocsKey, documentId, accessLevel);
+    await this.redis.expire(connDocsKey, RedisDocumentStateService.CONN_KEY_TTL_SECONDS);
+  }
+
+  /**
+   * Fast-path ACL lookup directly from Redis cache.
+   */
+  public async getCachedDocumentACL(documentId: string, userId: string): Promise<string | null> {
+    if (!documentId || !userId) return null;
+    const key = `livesync:acl:doc:${documentId}:${userId}`;
+    const val = await this.redis.get(key);
+    if (!val || val === 'None') return null;
+    return val;
+  }
+
+  public async setCachedDocumentACL(
+    documentId: string,
+    userId: string,
+    accessLevel: string,
+    ttlSeconds: number = 900
+  ): Promise<void> {
+    if (!documentId || !userId) return;
+    const key = `livesync:acl:doc:${documentId}:${userId}`;
+    await this.redis.set(key, accessLevel, 'EX', ttlSeconds);
+  }
+
+  public async setCachedWorkspaceACL(
+    workspaceId: string,
+    userId: string,
+    accessLevel: string,
+    ttlSeconds: number = 900
+  ): Promise<void> {
+    if (!workspaceId || !userId) return;
+    const key = `livesync:acl:ws:${workspaceId}:${userId}`;
+    await this.redis.set(key, accessLevel, 'EX', ttlSeconds);
   }
 }

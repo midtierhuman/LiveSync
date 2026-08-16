@@ -12,8 +12,8 @@
   - Enforce strict cryptographically verified JWT bearer tokens and active workspace/document authorization checks across all Go Gateway endpoints (Terminal PTY WebSockets `/api/terminal/ws`, Workspace Atomic Sync `/api/workspaces/:id/sync`, Search `/api/workspaces/:id/search`, and Package Manager proxies). No gateway or backend infrastructure route is accessible without verified caller identity.
 - [x] **BUG-06: Collaborator Permission Update Infinite Signal Feedback Loop & Memory Leak Fix** (`livesync-ui`, `livesync-realtime`)
   - Fix fatal circular reactive effect feedback loop in `WorkspaceComponent` (`scopedProject.set` triggering the same effect reading `scopedProject()`), wrap side-effects and reads in `untracked()`, deduplicate permission events, and prune duplicate multi-channel socket emission storms in `EditorHub`.
-- [ ] **PERF-05: Cache-Aside Redis ACL Engine & Fast-Path Permission Evaluation** (`livesync-api`, `livesync-realtime`)
-  - Sub-millisecond $O(1)$ cached access evaluation with write-through invalidation on permission changes and in-memory socket ACL state management.
+- [x] **PERF-05: Cache-Aside Redis ACL Engine & Fast-Path Permission Evaluation** (`livesync-api`, `livesync-realtime`)
+  - Sub-millisecond $\mathcal{O}(1)$ cached access evaluation with write-through invalidation on permission changes, fast-path mutation rejection with `PermissionDenied` socket events, and in-flight socket permission state synchronization.
 - [ ] **FEAT-18: Collaborator Activity Timeline & Document Audit Logs** (`livesync-api`, `livesync-ui`)
   - Detailed historical audit trail of document permissions, collaborators added/removed, and version save snapshots.
 - [ ] **PERF-06: Angular Signal Lifecycle Audit & Comprehensive Client Memory Leak Prevention** (`livesync-ui`)

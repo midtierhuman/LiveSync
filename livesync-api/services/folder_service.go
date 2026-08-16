@@ -15,6 +15,7 @@ import (
 type FolderService struct {
 	db              *database.DB
 	documentService *DocumentService
+	aclCache        ACLEngine
 }
 
 func NewFolderService(db *database.DB, documentService *DocumentService) *FolderService {
@@ -22,6 +23,10 @@ func NewFolderService(db *database.DB, documentService *DocumentService) *Folder
 		db:              db,
 		documentService: documentService,
 	}
+}
+
+func (s *FolderService) SetACLCache(acl ACLEngine) {
+	s.aclCache = acl
 }
 
 func (s *FolderService) Create(ctx context.Context, userId string, req *models.CreateFolderRequest) (*models.FolderDto, error) {
@@ -304,6 +309,9 @@ func (s *FolderService) Delete(ctx context.Context, folderId, userId string) (bo
 	if err != nil {
 		return false, err
 	}
+	if s.aclCache != nil {
+		_ = s.aclCache.InvalidateAllFolderAccess(ctx, folderId)
+	}
 	return tag.RowsAffected() > 0, nil
 }
 
@@ -439,15 +447,36 @@ func (s *FolderService) GetAccessLevel(ctx context.Context, folderId, userId str
 	if folderId == "" {
 		return "", nil
 	}
+	if s.aclCache != nil && userId != "" {
+		if cached, hit, err := s.aclCache.GetFolderAccess(ctx, folderId, userId); err == nil && hit {
+			if cached == "None" {
+				return "", nil
+			}
+			return cached, nil
+		}
+	}
+
 	f, err := s.getRawFolder(ctx, folderId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			if s.aclCache != nil && userId != "" {
+				_ = s.aclCache.SetFolderAccess(ctx, folderId, userId, "None", DefaultACLCacheTTL)
+			}
 			return "", nil
 		}
 		return "", err
 	}
 
-	return s.accessLevel(ctx, f, userId), nil
+	perm := s.accessLevel(ctx, f, userId)
+	if s.aclCache != nil && userId != "" {
+		if perm != "" {
+			_ = s.aclCache.SetFolderAccess(ctx, folderId, userId, perm, DefaultACLCacheTTL)
+		} else {
+			_ = s.aclCache.SetFolderAccess(ctx, folderId, userId, "None", DefaultACLCacheTTL)
+		}
+	}
+
+	return perm, nil
 }
 
 func (s *FolderService) accessLevel(ctx context.Context, f *models.Folder, userId string) string {
@@ -479,7 +508,6 @@ func (s *FolderService) BuildFolderPath(ctx context.Context, folderId string) []
 	var path []models.FolderPathNode
 	visited := make(map[string]bool)
 	curr := folderId
-
 	for curr != "" && !visited[curr] {
 		visited[curr] = true
 		f, err := s.getRawFolder(ctx, curr)
@@ -493,7 +521,6 @@ func (s *FolderService) BuildFolderPath(ctx context.Context, folderId string) []
 			break
 		}
 	}
-
 	return path
 }
 
@@ -545,6 +572,9 @@ func (s *FolderService) UpdateCodeAccess(ctx context.Context, folderId, userId, 
 	if err != nil {
 		return false, err
 	}
+	if s.aclCache != nil {
+		_ = s.aclCache.InvalidateAllFolderAccess(ctx, folderId)
+	}
 	return result.RowsAffected() > 0, nil
 }
 
@@ -560,6 +590,9 @@ func (s *FolderService) RemoveShare(ctx context.Context, folderId, userId, targe
 	result, err := s.db.Pool.Exec(ctx, `DELETE FROM "SharedFolders" WHERE "FolderId" = $1 AND "UserId" = $2;`, folderId, targetUserId)
 	if err != nil {
 		return false, err
+	}
+	if s.aclCache != nil {
+		_ = s.aclCache.InvalidateFolderAccess(ctx, folderId, targetUserId)
 	}
 	return result.RowsAffected() > 0, nil
 }
@@ -585,6 +618,9 @@ func (s *FolderService) UpdateShareAccess(ctx context.Context, folderId, userId,
 	`, shareID, folderId, targetUserId, accessLevel)
 	if err != nil {
 		return false, err
+	}
+	if s.aclCache != nil {
+		_ = s.aclCache.SetFolderAccess(ctx, folderId, targetUserId, accessLevel, DefaultACLCacheTTL)
 	}
 	return result.RowsAffected() > 0, nil
 }

@@ -32,6 +32,11 @@ The `livesync-api` microservice is built with **Go 1.26** and **chi v5**. It ser
    - Inspects active Redis document keys (`livesync:doc:{id}:content`) during document fetch queries (`GET /api/documents/{id}`).
    - Guarantees immediate read-after-write consistency even before asynchronous Redis Stream write-behind flushes complete.
 
+6. **Cache-Aside Redis ACL Engine (`PERF-05` / `RedisACLCacheService`)**:
+   - High-throughput $\mathcal{O}(1)$ sub-millisecond permission evaluations cached in Redis (`livesync:acl:doc:{docId}:{userId}` and `livesync:acl:ws:{folderId}:{userId}`) with automatic 15-minute TTL.
+   - Immediate write-through cache invalidation and updates on permission grants, overrides, code rotations, and revocations.
+   - Non-blocking graceful degradation to PostgreSQL when Redis is temporarily offline.
+
 ---
 
 ## 🔌 Key REST API Endpoints

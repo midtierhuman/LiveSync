@@ -112,3 +112,8 @@ graph TD
 - `livesync-api` reads from the Redis Stream via `XREADGROUP` (group: `api-save-group`) and asynchronously flushes document content snapshots into PostgreSQL.
 - `livesync-api` inspects the active Redis document snapshot cache on `GET /api/documents/{id}` before falling back to PostgreSQL, guaranteeing monotonic read consistency.
 - Periodic and on-disconnect flushers ensure zero data loss during server restarts or room closures.
+
+### 4. Cache-Aside Redis ACL Engine & Fast-Path Permission Evaluation (`PERF-05`)
+- `livesync-api` caches document (`livesync:acl:doc:{docId}:{userId}`) and workspace (`livesync:acl:ws:{folderId}:{userId}`) access permissions in Redis with a 15-minute TTL, enabling sub-millisecond $\mathcal{O}(1)$ authorization checks and write-through invalidation on permission changes.
+- `livesync-realtime` checks Redis ACL keys on document joins and validates client mutation requests against in-memory socket permissions, rejecting unauthorized write attempts from `Viewer` roles immediately with `PermissionDenied` events.
+
