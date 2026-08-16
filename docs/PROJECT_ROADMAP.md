@@ -1,13 +1,27 @@
 # LiveSync Project Roadmap & Issue Tracker
 
 > **Last Updated**: 2026-08-16
-> **Status**: 🟢 Milestone 11 Completed & Closed
+> **Status**: 🟢 Milestone 12 Completed & Closed (6/6 Tasks)
 
 ---
 
 ## 🎯 Active Milestone
 
-### **Milestone 12: Advanced Workspace Search, Diagnostics & High-Performance Architecture** (ACTIVE 🔄)
+### **Milestone 13: Real-Time Collaboration, Environment Launchers & Workflow Enhancements** (ACTIVE 🔄)
+- [x] **FEAT-14: VS Code-Style Explorer Context Menu & "Open in Integrated Terminal"** (`livesync-ui`, `livesync-gateway`)
+  - Complete VS Code-style context menu on folders & files with instant terminal opening anchored to subdirectories (`/api/terminal/ws?subDir=...`), tab auto-naming (`term: <folder>`), "Find in Folder" include filter linking, and clipboard relative path copying.
+- [x] **FEAT-15: Run & Debug Environment Profiles & Launch Configuration Hub** (`livesync-ui`, `livesync-gateway`)
+  - Dedicated Run & Debug panel with preset runtime environments (Node.js, Python, Go, custom launch profiles), environment variable manager, header execution launcher (`▶ Run`), and execution monitor.
+- [ ] **FEAT-16: Dynamic Collaborator Access List & Real-Time Permission Synchronization** (`livesync-ui`, `livesync-realtime`, `livesync-api`)
+  - Live shared collaborator management list with on-the-fly role toggling (Viewer/Editor) and real-time Socket.IO permission push that instantly locks/unlocks collaborator editors.
+- [ ] **PERF-04: Multi-User Remote Selection Range Highlighting & CRDT Delta Sync** (`livesync-ui`, `livesync-realtime`)
+  - Visual collaborator selection ranges in CodeMirror 6 with optimized CRDT byte-level delta replication.
+
+---
+
+## 🗺️ Completed Milestones
+
+### **Milestone 12: Advanced Workspace Search, Diagnostics & High-Performance Architecture** (COMPLETED ✅)
 - [x] **BUG-05: Collaborative Full Document Deletion Sync (`Ctrl+A` + `Backspace` / Empty Content Sync)** (`livesync-ui`, `livesync-realtime`)
   - Fixed falsy truthy check (`if (newContent)`) in `Editor` and wrapped `contentUpdate` signal in `RealtimeService` as `DocumentContentUpdate` object reference with timestamp so clearing whole documents (`""`) reliably triggers CodeMirror updates for all collaborators.
 - [x] **ARCH-01: Persistent In-Memory Terminal Dock & Zero-Teardown PTY Session** (`livesync-ui`)
@@ -18,18 +32,10 @@
   - Integrated high-speed disk search and atomic replace endpoints in Go Gateway (`GET /api/workspaces/:id/search`, `POST /api/workspaces/:id/replace`) and dedicated VS Code-style Search & Replace panel in Angular UI with case/whole-word/regex modifiers, file include/exclude patterns, interactive match previews, single/batch replace, and instant match jump navigation.
 - [x] **FEAT-09: Code Diagnostics & Linter / Problems Panel Integration** (DEPRECATED / DROPPED ❌)
   - Marked obsolete/dropped: Native terminal PTY already runs developer linters & compilers (`npm test`, `pytest`, `tsc`), CodeMirror handles in-editor syntax diagnostics, and AST Big-O analysis lives in dedicated profiler headers, avoiding bottom dock clutter.
-- [ ] **FEAT-12: Multi-Terminal Tabs & Resilient `FitAddon` Layout Resize Handling** (`livesync-ui`, `livesync-gateway`)
-  - Support multiple concurrent shell sessions with named tabs and smooth layout resize adaptation.
+- [x] **FEAT-12: Multi-Terminal Tabs & Resilient `FitAddon` Layout Resize Handling** (`livesync-ui`, `livesync-gateway`)
+  - Multi-terminal tab manager in `LiveTerminalService` and bottom dock with concurrent PTY allocation (`/api/terminal/ws?sessionId=...`), persistent in-memory session containers, tab switcher, add/kill tab controls, and debounced `FitAddon` resize observer.
 
 ---
-
-### **Milestone 13: Real-Time Performance & Selection Replication** (PLANNED 📋)
-- [ ] **PERF-04: Multi-User Remote Selection Range Highlighting & CRDT Delta Sync** (`livesync-ui`, `livesync-realtime`)
-  - Visual collaborator selection ranges in CodeMirror 6 with optimized CRDT byte-level delta replication.
-
----
-
-## 🗺️ Completed Milestones
 
 ### **Milestone 11: Production-Grade Cloud IDE Hardening & Architecture Cleanliness** (COMPLETED ✅)
 - [x] **FEAT-13: Clean Terminal Prompt & Streamlined Slug Routing** (`livesync-ui`, `livesync-gateway`)

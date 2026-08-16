@@ -1,9 +1,26 @@
-import { Injectable, inject, signal, DestroyRef } from '@angular/core';
+import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { appEndpoints } from '../app-endpoints';
 import { AuthService } from './auth.service';
 import { WorkspaceSyncService } from './workspace-sync.service';
+
+export interface TerminalTabMeta {
+  id: string;
+  name: string;
+  isConnected: boolean;
+}
+
+interface TerminalSession {
+  id: string;
+  name: string;
+  term: Terminal;
+  fitAddon: FitAddon;
+  socket: WebSocket | null;
+  wrapperEl: HTMLElement;
+  isConnected: boolean;
+  subDir?: string;
+}
 
 interface PendingCommand {
   command: string;
@@ -18,16 +35,19 @@ export class LiveTerminalService {
   private readonly workspaceSyncService = inject(WorkspaceSyncService);
   private readonly destroyRef = inject(DestroyRef);
 
-  private socket: WebSocket | null = null;
-  private term: Terminal | null = null;
-  private fitAddon: FitAddon | null = null;
+  private sessions: Map<string, TerminalSession> = new Map();
+  private hostContainer: HTMLElement | null = null;
   private currentProjectId: string = 'default';
   private currentProjectName: string = '';
+  private isDarkMode: boolean = true;
   private resizeObserver: ResizeObserver | null = null;
+  private tabCounter: number = 0;
   private pendingCommands: PendingCommand[] = [];
   private pendingSyncFiles: { files: Record<string, string>; lockedFiles?: string[] } | null = null;
 
-  readonly isConnected = signal<boolean>(false);
+  // Signals
+  readonly terminalTabs = signal<TerminalTabMeta[]>([]);
+  readonly activeTabId = signal<string>('');
   readonly terminalStatus = signal<string>('Idle');
   readonly onFileSystemChange = signal<{
     type: string;
@@ -38,14 +58,38 @@ export class LiveTerminalService {
     timestamp: number;
   } | null>(null);
 
+  readonly isConnected = computed(() => {
+    const activeId = this.activeTabId();
+    if (!activeId) return false;
+    const session = this.sessions.get(activeId);
+    return Boolean(session?.isConnected);
+  });
+
+  // Backward compatibility accessor for single-terminal references
+  get terminalInstance(): Terminal | null {
+    const active = this.getActiveSession();
+    return active ? active.term : null;
+  }
+
   constructor() {
     this.destroyRef.onDestroy(() => {
       this.destroy();
     });
   }
 
-  get terminalInstance(): Terminal | null {
-    return this.term;
+  private getActiveSession(): TerminalSession | null {
+    const activeId = this.activeTabId();
+    if (!activeId) return null;
+    return this.sessions.get(activeId) || null;
+  }
+
+  private updateTabsSignal(): void {
+    const metas: TerminalTabMeta[] = Array.from(this.sessions.values()).map((s) => ({
+      id: s.id,
+      name: s.name,
+      isConnected: s.isConnected,
+    }));
+    this.terminalTabs.set(metas);
   }
 
   private getTheme(isDark: boolean) {
@@ -98,84 +142,101 @@ export class LiveTerminalService {
         };
   }
 
-  private attachedContainer: HTMLElement | null = null;
-
-  attachToElement(container: HTMLElement, projectId?: string, isDark: boolean = true, projectName?: string) {
+  attachToElement(container: HTMLElement, projectId?: string, isDark: boolean = true, projectName?: string): void {
     if (projectName) {
       this.currentProjectName = projectName;
     }
+    this.isDarkMode = isDark;
+
     const hasProjectChanged = Boolean(projectId && projectId !== this.currentProjectId);
     if (hasProjectChanged) {
       this.currentProjectId = projectId!;
-      if (this.socket) {
-        this.socket.close();
-        this.socket = null;
-      }
+      // Clear sessions on project switch
+      this.destroyAllSessions();
     } else if (projectId) {
       this.currentProjectId = projectId;
     }
 
-    // Fast-path: If the terminal is already attached to this container for this project, simply refocus and fit!
-    if (
-      this.attachedContainer === container &&
-      this.term &&
-      !hasProjectChanged &&
-      this.term.element &&
-      container.contains(this.term.element)
-    ) {
+    this.hostContainer = container;
+
+    // Fast path: Container already has active sessions attached
+    if (this.sessions.size > 0 && container.children.length > 0) {
       this.setTheme(isDark);
-      this.bindSocketListeners();
       setTimeout(() => {
         this.fit();
         this.focus();
-      }, 20);
+      }, 30);
       return;
-    }
-
-    this.attachedContainer = container;
-
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
-    }
-
-    if (this.term) {
-      try {
-        this.term.dispose();
-      } catch {
-        // Safe dispose
-      }
-      this.term = null;
-      this.fitAddon = null;
     }
 
     container.innerHTML = '';
 
-    this.term = new Terminal({
+    // Initialize ResizeObserver on host container
+    if (typeof ResizeObserver !== 'undefined' && !this.resizeObserver) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.fit();
+      });
+      this.resizeObserver.observe(container);
+    }
+
+    // Create initial default terminal tab if none exist
+    if (this.sessions.size === 0) {
+      this.createTab('Terminal 1');
+    }
+  }
+
+  createTab(customName?: string, subDir?: string): string {
+    this.tabCounter++;
+    const tabId = `term_tab_${Date.now()}_${this.tabCounter}`;
+    const name = customName || `Terminal ${this.tabCounter}`;
+
+    const wrapper = document.createElement('div');
+    wrapper.id = `terminal-wrapper-${tabId}`;
+    wrapper.className = 'terminal-tab-wrapper';
+    wrapper.style.width = '100%';
+    wrapper.style.height = '100%';
+    wrapper.style.display = 'none';
+
+    if (this.hostContainer) {
+      this.hostContainer.appendChild(wrapper);
+    }
+
+    const term = new Terminal({
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 13,
       lineHeight: 1.25,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
-      theme: this.getTheme(isDark),
+      theme: this.getTheme(this.isDarkMode),
       allowProposedApi: true,
     });
 
-    this.fitAddon = new FitAddon();
-    this.term.loadAddon(this.fitAddon);
-    this.term.open(container);
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(wrapper);
+
+    const session: TerminalSession = {
+      id: tabId,
+      name,
+      term,
+      fitAddon,
+      socket: null,
+      wrapperEl: wrapper,
+      isConnected: false,
+      subDir,
+    };
 
     // User input in terminal canvas forwarded directly to WebSocket
-    this.term.onData((data) => {
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        this.socket.send(data);
+    term.onData((data) => {
+      if (session.socket && session.socket.readyState === WebSocket.OPEN) {
+        session.socket.send(data);
       }
     });
 
     // Resize event
-    this.term.onResize((size) => {
-      if (this.socket && this.socket.readyState === WebSocket.OPEN && size.cols > 0 && size.rows > 0) {
-        this.socket.send(
+    term.onResize((size) => {
+      if (session.socket && session.socket.readyState === WebSocket.OPEN && size.cols > 0 && size.rows > 0) {
+        session.socket.send(
           JSON.stringify({
             action: 'resize',
             cols: size.cols,
@@ -185,182 +246,134 @@ export class LiveTerminalService {
       }
     });
 
-    // ResizeObserver on the container
-    if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => {
-        this.fit();
-      });
-      this.resizeObserver.observe(container);
-    }
+    this.sessions.set(tabId, session);
+    this.updateTabsSignal();
 
-    // If socket is already connected to this project, rebind listeners and repaint prompt
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.bindSocketListeners();
-      setTimeout(() => {
-        this.fit();
-        this.socket?.send(
-          JSON.stringify({
-            action: 'resize',
-            cols: this.term?.cols || 80,
-            rows: this.term?.rows || 24,
-          }),
-        );
-        // Request prompt redraw
-        this.socket?.send('\r\n');
-        this.focus();
-      }, 50);
-    } else {
-      setTimeout(() => {
-        this.fit();
-        this.focus();
-      }, 50);
-      this.connect();
-    }
+    // Switch to new tab and connect session socket
+    this.switchTab(tabId);
+    this.connectSession(session);
+
+    return tabId;
   }
 
-  setTheme(isDark: boolean) {
-    if (!this.term) return;
-    this.term.options.theme = this.getTheme(isDark);
+  createTabInDirectory(relPath: string, customName?: string): string {
+    const cleanSub = relPath.replace(/^[\/\\]+|[\/\\]+$/g, '');
+    const folderName = customName || cleanSub.split(/[\/\\]/).pop() || cleanSub;
+    const tabName = `term: ${folderName}`;
+    return this.createTab(tabName, cleanSub);
   }
 
-  fit() {
-    try {
-      if (
-        this.fitAddon &&
-        this.term &&
-        this.term.element &&
-        this.term.element.clientHeight > 0 &&
-        this.term.element.clientWidth > 0
-      ) {
-        this.fitAddon.fit();
+  switchTab(tabId: string): void {
+    if (!this.sessions.has(tabId)) return;
+
+    this.sessions.forEach((s, id) => {
+      if (id === tabId) {
+        s.wrapperEl.style.display = 'block';
+      } else {
+        s.wrapperEl.style.display = 'none';
       }
-    } catch {
-      // Safe fallback
-    }
-  }
+    });
 
-  focus() {
+    this.activeTabId.set(tabId);
+    const active = this.sessions.get(tabId);
+    this.terminalStatus.set(active?.isConnected ? 'Connected' : 'Connecting...');
+
     setTimeout(() => {
-      this.term?.focus();
-    }, 20);
+      this.fit(tabId);
+      this.focus(tabId);
+    }, 30);
   }
 
-  private bindSocketListeners() {
-    if (!this.socket) return;
+  closeTab(tabId: string): void {
+    const session = this.sessions.get(tabId);
+    if (!session) return;
 
-    this.socket.onmessage = (event) => {
-      if (typeof event.data === 'string') {
-        // Detect structured JSON change notifications from fsnotify
-        const trimmed = event.data.trim();
-        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-          try {
-            const msg = JSON.parse(trimmed);
-            if (msg.type === 'fs_change' || msg.action === 'fs_change') {
-              this.onFileSystemChange.set({ ...msg, timestamp: Date.now() });
-              return;
-            }
-          } catch {
-            // Not JSON, fallthrough to terminal rendering
-          }
-        }
-        this.term?.write(event.data);
-      } else if (event.data instanceof ArrayBuffer) {
-        this.term?.write(new Uint8Array(event.data));
-      } else if (event.data instanceof Blob) {
-        event.data.arrayBuffer().then((buffer) => {
-          this.term?.write(new Uint8Array(buffer));
-        });
+    // Disconnect and dispose
+    if (session.socket) {
+      session.socket.close();
+      session.socket = null;
+    }
+    try {
+      session.term.dispose();
+    } catch {
+      // Safe dispose
+    }
+    if (session.wrapperEl.parentNode) {
+      session.wrapperEl.parentNode.removeChild(session.wrapperEl);
+    }
+
+    this.sessions.delete(tabId);
+    this.updateTabsSignal();
+
+    // If closed the active tab, switch to next available or create new
+    if (this.activeTabId() === tabId) {
+      const remaining = Array.from(this.sessions.keys());
+      if (remaining.length > 0) {
+        this.switchTab(remaining[remaining.length - 1]);
+      } else {
+        this.createTab('Terminal 1');
       }
-    };
-
-    this.socket.onerror = () => {
-      this.isConnected.set(false);
-      this.terminalStatus.set('Error');
-    };
-
-    this.socket.onclose = () => {
-      this.isConnected.set(false);
-      this.terminalStatus.set('Disconnected');
-      this.socket = null;
-    };
+    }
   }
 
-  connect(projectId?: string, projectName?: string) {
-    if (projectName) {
-      this.currentProjectName = projectName;
+  renameTab(tabId: string, newName: string): void {
+    const session = this.sessions.get(tabId);
+    if (session && newName.trim()) {
+      session.name = newName.trim();
+      this.updateTabsSignal();
     }
-    if (projectId && projectId !== this.currentProjectId) {
-      this.currentProjectId = projectId;
-      if (this.socket) {
-        this.socket.close();
-        this.socket = null;
-      }
-    } else if (projectId) {
-      this.currentProjectId = projectId;
-    }
+  }
 
-    if (this.socket) {
-      if (this.socket.readyState === WebSocket.OPEN) {
-        this.bindSocketListeners();
-        if (this.term && (this.term.cols || 0) > 0 && (this.term.rows || 0) > 0) {
-          this.fit();
-          this.socket.send(
-            JSON.stringify({
-              action: 'resize',
-              cols: this.term.cols || 80,
-              rows: this.term.rows || 24,
-            }),
-          );
-        }
-        return;
-      }
-      if (this.socket.readyState === WebSocket.CONNECTING) {
-        return;
-      }
-      this.socket.close();
-      this.socket = null;
+  private connectSession(session: TerminalSession): void {
+    if (session.socket && session.socket.readyState === WebSocket.OPEN) {
+      return;
     }
 
     const httpBase = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl || window.location.origin;
     const token = this.authService.token();
     const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
     const projectNameParam = this.currentProjectName ? `&projectName=${encodeURIComponent(this.currentProjectName)}` : '';
+    const subDirParam = session.subDir ? `&subDir=${encodeURIComponent(session.subDir)}` : '';
     const wsUrl =
       httpBase
         .replace(/^http:\/\//, 'ws://')
         .replace(/^https:\/\//, 'wss://')
         .replace(/\/$/, '') +
-      `/api/terminal/ws?projectId=${encodeURIComponent(this.currentProjectId)}${projectNameParam}${tokenParam}`;
-
-    this.terminalStatus.set('Connecting...');
+      `/api/terminal/ws?projectId=${encodeURIComponent(this.currentProjectId)}${projectNameParam}${subDirParam}&sessionId=${encodeURIComponent(session.id)}${tokenParam}`;
 
     try {
-      this.socket = new WebSocket(wsUrl);
+      const socket = new WebSocket(wsUrl);
+      session.socket = socket;
 
-      this.socket.onopen = () => {
-        this.isConnected.set(true);
-        this.terminalStatus.set('Connected');
-
-        // Send initial resize to sync PTY geometry
-        if (this.term && (this.term.cols || 0) > 0 && (this.term.rows || 0) > 0) {
-          this.fit();
-          this.socket?.send(
-            JSON.stringify({
-              action: 'resize',
-              cols: this.term.cols || 80,
-              rows: this.term.rows || 24,
-            }),
-          );
+      socket.onopen = () => {
+        session.isConnected = true;
+        this.updateTabsSignal();
+        if (this.activeTabId() === session.id) {
+          this.terminalStatus.set('Connected');
         }
 
-        // Flush any pending file synchronization
+        // Send initial geometry
+        setTimeout(() => {
+          this.fit(session.id);
+          if (session.term.cols > 0 && session.term.rows > 0) {
+            socket.send(
+              JSON.stringify({
+                action: 'resize',
+                cols: session.term.cols || 80,
+                rows: session.term.rows || 24,
+              }),
+            );
+          }
+        }, 50);
+
+        // Flush pending sync files if any
         if (this.pendingSyncFiles) {
           const { files, lockedFiles } = this.pendingSyncFiles;
           this.pendingSyncFiles = null;
           this.syncFiles(files, lockedFiles);
         }
 
-        // Flush queued commands with files snapshots
+        // Flush queued commands
         if (this.pendingCommands.length > 0) {
           const cmds = [...this.pendingCommands];
           this.pendingCommands = [];
@@ -368,10 +381,83 @@ export class LiveTerminalService {
         }
       };
 
-      this.bindSocketListeners();
+      socket.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          const trimmed = event.data.trim();
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              const msg = JSON.parse(trimmed);
+              if (msg.type === 'fs_change' || msg.action === 'fs_change') {
+                this.onFileSystemChange.set({ ...msg, timestamp: Date.now() });
+                return;
+              }
+            } catch {
+              // Not JSON
+            }
+          }
+          session.term.write(event.data);
+        } else if (event.data instanceof ArrayBuffer) {
+          session.term.write(new Uint8Array(event.data));
+        } else if (event.data instanceof Blob) {
+          event.data.arrayBuffer().then((buf) => {
+            session.term.write(new Uint8Array(buf));
+          });
+        }
+      };
+
+      socket.onerror = () => {
+        session.isConnected = false;
+        this.updateTabsSignal();
+        if (this.activeTabId() === session.id) {
+          this.terminalStatus.set('Error');
+        }
+      };
+
+      socket.onclose = () => {
+        session.isConnected = false;
+        this.updateTabsSignal();
+        if (this.activeTabId() === session.id) {
+          this.terminalStatus.set('Disconnected');
+        }
+      };
     } catch {
-      this.isConnected.set(false);
+      session.isConnected = false;
+      this.updateTabsSignal();
       this.terminalStatus.set('Failed to connect');
+    }
+  }
+
+  // General terminal commands
+  setTheme(isDark: boolean): void {
+    this.isDarkMode = isDark;
+    this.sessions.forEach((s) => {
+      s.term.options.theme = this.getTheme(isDark);
+    });
+  }
+
+  fit(tabId?: string): void {
+    const targetId = tabId || this.activeTabId();
+    const session = targetId ? this.sessions.get(targetId) : null;
+    if (
+      session &&
+      session.fitAddon &&
+      session.term.element &&
+      session.term.element.clientHeight > 0 &&
+      session.term.element.clientWidth > 0
+    ) {
+      try {
+        session.fitAddon.fit();
+      } catch {
+        // Safe fallback
+      }
+    }
+  }
+
+  focus(tabId?: string): void {
+    const targetId = tabId || this.activeTabId();
+    const session = targetId ? this.sessions.get(targetId) : null;
+    if (session) {
+      setTimeout(() => session.term.focus(), 20);
     }
   }
 
@@ -381,8 +467,9 @@ export class LiveTerminalService {
       console.warn('[LiveTerminalService] Atomic workspace sync warning:', err);
     });
 
-    // 2. Pass to websocket stream if connected or queue for connect
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    // 2. Pass to active websocket stream if connected or queue for connect
+    const active = this.getActiveSession();
+    if (!active || !active.socket || active.socket.readyState !== WebSocket.OPEN) {
       this.pendingSyncFiles = {
         files: { ...this.pendingSyncFiles?.files, ...files },
         lockedFiles: lockedFiles || this.pendingSyncFiles?.lockedFiles || [],
@@ -390,7 +477,7 @@ export class LiveTerminalService {
       return;
     }
 
-    this.socket.send(
+    active.socket.send(
       JSON.stringify({
         action: 'sync_files',
         files,
@@ -400,13 +487,14 @@ export class LiveTerminalService {
   }
 
   runCommand(command: string, files?: Record<string, string>) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    const active = this.getActiveSession();
+    if (!active || !active.socket || active.socket.readyState !== WebSocket.OPEN) {
       this.pendingCommands.push({ command, files });
-      this.connect();
+      if (active) this.connectSession(active);
       return;
     }
 
-    this.socket.send(
+    active.socket.send(
       JSON.stringify({
         action: 'run_command',
         data: command,
@@ -416,43 +504,68 @@ export class LiveTerminalService {
   }
 
   sendInput(data: string) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(data);
+    const active = this.getActiveSession();
+    if (active && active.socket && active.socket.readyState === WebSocket.OPEN) {
+      active.socket.send(data);
     }
   }
 
-  clear() {
-    this.term?.clear();
+  clear(tabId?: string) {
+    const targetId = tabId || this.activeTabId();
+    const session = targetId ? this.sessions.get(targetId) : null;
+    session?.term.clear();
   }
 
-  restart() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
+  restart(tabId?: string) {
+    const targetId = tabId || this.activeTabId();
+    const session = targetId ? this.sessions.get(targetId) : null;
+    if (session) {
+      if (session.socket) {
+        session.socket.close();
+        session.socket = null;
+      }
+      session.term.reset();
+      this.connectSession(session);
     }
-    this.term?.reset();
-    this.connect();
   }
 
-  destroy() {
+  connect(projectId?: string, projectName?: string) {
+    if (projectId) this.currentProjectId = projectId;
+    if (projectName) this.currentProjectName = projectName;
+    const active = this.getActiveSession();
+    if (active) {
+      this.connectSession(active);
+    } else if (this.sessions.size === 0) {
+      this.createTab('Terminal 1');
+    }
+  }
+
+  private destroyAllSessions(): void {
+    this.sessions.forEach((s) => {
+      if (s.socket) {
+        s.socket.close();
+        s.socket = null;
+      }
+      try {
+        s.term.dispose();
+      } catch {
+        // Safe
+      }
+      if (s.wrapperEl.parentNode) {
+        s.wrapperEl.parentNode.removeChild(s.wrapperEl);
+      }
+    });
+    this.sessions.clear();
+    this.updateTabsSignal();
+    this.activeTabId.set('');
+  }
+
+  destroy(): void {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
-    if (this.term) {
-      try {
-        this.term.dispose();
-      } catch {
-        // Safe dispose
-      }
-      this.term = null;
-      this.fitAddon = null;
-    }
-    this.isConnected.set(false);
+    this.destroyAllSessions();
     this.terminalStatus.set('Closed');
   }
 }

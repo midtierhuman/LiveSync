@@ -23,6 +23,49 @@
     </div>
 
     <div class="header-right">
+      <!-- Execution & Run Configurations Header Bar (VS Code style) -->
+      <div class="run-header-controls">
+        <button
+          class="btn-run-play"
+          (click)="executeRunProfile()"
+          [disabled]="runConfigService.isRunning()"
+          matTooltip="Run with Selected Profile"
+        >
+          <mat-icon class="play-icon">play_arrow</mat-icon>
+          <span>Run</span>
+        </button>
+
+        <button
+          class="btn-run-profile-select"
+          [matMenuTriggerFor]="runProfileMenu"
+          matTooltip="Select Run Profile & Configuration"
+        >
+          <span class="selected-profile-label">{{ runConfigService.selectedProfile().name }}</span>
+          <mat-icon class="dropdown-chevron">arrow_drop_down</mat-icon>
+        </button>
+
+        <mat-menu #runProfileMenu="matMenu" class="run-profiles-dropdown">
+          <div class="menu-section-header">Preset Run Profiles</div>
+          @for (profile of runConfigService.profiles(); track profile.id) {
+            <button
+              mat-menu-item
+              [class.active-profile]="profile.id === runConfigService.selectedProfileId()"
+              (click)="runConfigService.selectProfile(profile.id)"
+            >
+              <mat-icon class="profile-type-icon">
+                {{ profile.language === 'python' ? 'code' : profile.language === 'node' ? 'javascript' : 'terminal' }}
+              </mat-icon>
+              <span>{{ profile.name }}</span>
+            </button>
+          }
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="toggleSidebarView('run')">
+            <mat-icon>settings</mat-icon>
+            <span>Configure Run Environments...</span>
+          </button>
+        </mat-menu>
+      </div>
+
       @if (scopedProject(); as sp) {
         <button class="btn-share-project" (click)="openShareFolderModal(sp)" matTooltip="Share Project Workspace">
           <mat-icon>share</mat-icon>
@@ -78,6 +121,15 @@
           matTooltip="Search & Replace (Ctrl+Shift+F)"
         >
           <mat-icon>search</mat-icon>
+        </button>
+
+        <button
+          class="activity-icon-btn"
+          [class.active]="isSidebarOpen() && activeSidebarView() === 'run'"
+          (click)="toggleSidebarView('run')"
+          matTooltip="Run & Debug Configurations"
+        >
+          <mat-icon>play_arrow</mat-icon>
         </button>
 
         <button
@@ -655,6 +707,113 @@
         </section>
       }
 
+      <!-- VIEW: RUN & DEBUG -->
+      @if (activeSidebarView() === 'run') {
+        <section class="vs-sidebar-panel vs-run-panel">
+          <div class="panel-header">
+            <span class="panel-title"><mat-icon>play_arrow</mat-icon> RUN & DEBUG</span>
+            <div class="panel-actions">
+              <button
+                class="btn-panel-action"
+                (click)="executeRunProfile()"
+                matTooltip="Start Execution"
+              >
+                <mat-icon>play_arrow</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="run-panel-content">
+            <!-- Active Profile Card -->
+            <div class="run-section-card">
+              <div class="section-card-header">
+                <span class="section-card-title">Launch Configuration</span>
+              </div>
+              <div class="profile-selector-box">
+                <label for="runProfileSelect">Profile:</label>
+                <select
+                  id="runProfileSelect"
+                  class="profile-dropdown"
+                  [ngModel]="runConfigService.selectedProfileId()"
+                  (ngModelChange)="runConfigService.selectProfile($event)"
+                >
+                  @for (p of runConfigService.profiles(); track p.id) {
+                    <option [value]="p.id">{{ p.name }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="command-preview-box">
+                <span class="preview-label">Command:</span>
+                <code class="command-code">{{ runConfigService.buildExecutionCommand(runConfigService.selectedProfile(), getActiveTabTitle() || 'main') }}</code>
+              </div>
+
+              <button class="btn-execute-large" (click)="executeRunProfile()" [disabled]="runConfigService.isRunning()">
+                <mat-icon>{{ runConfigService.isRunning() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
+                <span>{{ runConfigService.isRunning() ? 'Running...' : 'Run Profile' }}</span>
+              </button>
+            </div>
+
+            <!-- Environment Variables Section -->
+            <div class="run-section-card env-vars-card">
+              <div class="section-card-header">
+                <span class="section-card-title">Environment Variables</span>
+                <button class="btn-card-action" (click)="runConfigService.addEnvVar()" matTooltip="Add Variable">
+                  <mat-icon>add</mat-icon>
+                </button>
+              </div>
+
+              <div class="env-vars-list">
+                @for (env of runConfigService.customEnvVars(); track $index) {
+                  <div class="env-var-row">
+                    <input
+                      type="text"
+                      class="env-input env-key"
+                      placeholder="KEY"
+                      [value]="env.key"
+                      (input)="runConfigService.updateEnvVar($index, $any($event.target).value, env.value)"
+                    />
+                    <span class="env-equals">=</span>
+                    <input
+                      type="text"
+                      class="env-input env-val"
+                      placeholder="VALUE"
+                      [value]="env.value"
+                      (input)="runConfigService.updateEnvVar($index, env.key, $any($event.target).value)"
+                    />
+                    <button class="btn-remove-env" (click)="runConfigService.removeEnvVar($index)" matTooltip="Remove">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Execution Status / History -->
+            @if (runConfigService.lastExecution(); as last) {
+              <div class="run-section-card last-exec-card">
+                <div class="section-card-header">
+                  <span class="section-card-title">Last Execution</span>
+                  <span class="status-chip" [class]="last.status">{{ last.status.toUpperCase() }}</span>
+                </div>
+                <div class="exec-details">
+                  <div class="exec-field">
+                    <span class="label">Profile:</span>
+                    <span class="val">{{ last.profileName }}</span>
+                  </div>
+                  @if (last.durationMs) {
+                    <div class="exec-field">
+                      <span class="label">Elapsed:</span>
+                      <span class="val">{{ (last.durationMs / 1000).toFixed(2) }}s</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
       <!-- VIEW 2: PACKAGES -->
       @if (activeSidebarView() === 'packages') {
         <section class="vs-sidebar-panel vs-packages-panel">
@@ -1020,21 +1179,42 @@
 
         <div class="terminal-header">
           <div class="terminal-tabs-container">
-            <div class="terminal-title-chip">
-              <mat-icon class="tab-icon">terminal</mat-icon>
-              <span>Workspace Terminal (Interactive)</span>
-              <span
-                class="terminal-status-badge"
-                [class]="(liveTerminalService.terminalStatus() || 'idle').toLowerCase().replace(' ', '-')"
+            @for (tab of liveTerminalService.terminalTabs(); track tab.id) {
+              <div
+                class="terminal-tab-item"
+                [class.active]="tab.id === liveTerminalService.activeTabId()"
+                (click)="liveTerminalService.switchTab(tab.id)"
               >
-                <span class="status-pulse-dot"></span>
-                {{ liveTerminalService.terminalStatus() }}
-              </span>
-            </div>
+                <mat-icon class="tab-icon">terminal</mat-icon>
+                <span class="tab-title">{{ tab.name }}</span>
+                <span
+                  class="terminal-status-dot"
+                  [class.connected]="tab.isConnected"
+                  [matTooltip]="tab.isConnected ? 'Connected' : 'Connecting/Disconnected'"
+                ></span>
+                @if (liveTerminalService.terminalTabs().length > 1) {
+                  <button
+                    class="btn-close-tab"
+                    (click)="$event.stopPropagation(); liveTerminalService.closeTab(tab.id)"
+                    matTooltip="Kill Terminal"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+            }
+
+            <button
+              class="btn-new-terminal-tab"
+              (click)="liveTerminalService.createTab()"
+              matTooltip="New Terminal Tab"
+            >
+              <mat-icon>add</mat-icon>
+            </button>
           </div>
 
           <div class="terminal-header-actions">
-            <button mat-icon-button (click)="restartTerminal()" matTooltip="Restart Terminal Session">
+            <button mat-icon-button (click)="restartTerminal()" matTooltip="Restart Active Terminal">
               <mat-icon>restart_alt</mat-icon>
             </button>
 
@@ -1050,7 +1230,7 @@
               <mat-icon>{{ isTerminalMaximized() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
             </button>
 
-            <button mat-icon-button (click)="closeTerminal()" class="close-terminal-btn" matTooltip="Close Terminal Panel">
+            <button mat-icon-button (click)="closeTerminal()" class="close-terminal-btn" matTooltip="Hide Terminal Panel (Ctrl+`)">
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -1180,6 +1360,17 @@
           <mat-icon>create_new_folder</mat-icon> New Subfolder...
         </button>
         <div class="ctx-divider"></div>
+        <button class="ctx-item" (click)="onContextMenuAction('openTerminal')">
+          <mat-icon>terminal</mat-icon> Open in Integrated Terminal
+        </button>
+        <button class="ctx-item" (click)="onContextMenuAction('findInFolder')">
+          <mat-icon>search</mat-icon> Find in Folder...
+        </button>
+        <div class="ctx-divider"></div>
+        <button class="ctx-item" (click)="onContextMenuAction('copyRelativePath')">
+          <mat-icon>content_copy</mat-icon> Copy Relative Path
+        </button>
+        <div class="ctx-divider"></div>
         <button class="ctx-item" (click)="onContextMenuAction('rename')">
           <mat-icon>edit</mat-icon> Rename Folder...
         </button>
@@ -1187,6 +1378,14 @@
         <button class="ctx-item" (click)="onContextMenuAction('setEntrypoint')">
           <mat-icon>star</mat-icon> Set as Project Entrypoint (⭐)
         </button>
+        <button class="ctx-item" (click)="onContextMenuAction('openTerminal')">
+          <mat-icon>terminal</mat-icon> Open Containing Folder in Terminal
+        </button>
+        <div class="ctx-divider"></div>
+        <button class="ctx-item" (click)="onContextMenuAction('copyRelativePath')">
+          <mat-icon>content_copy</mat-icon> Copy Relative Path
+        </button>
+        <div class="ctx-divider"></div>
         <button class="ctx-item" (click)="onContextMenuAction('rename')">
           <mat-icon>edit</mat-icon> Rename File...
         </button>

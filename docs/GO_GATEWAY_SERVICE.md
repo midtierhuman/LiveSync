@@ -20,7 +20,7 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
    - **Clean Workspace Presentation**: Automatically configures human-friendly shell prompts (`developer@livesync:~/{projectName}$`) and workspace welcome headers (`Workspace: ~/{projectName}`) while keeping raw storage UUIDs strictly isolated to server-side directories.
    - Automatically synchronizes project files on disk before executing run commands (`python <entrypoint>`, `node <entrypoint>`, `go run <entrypoint>`).
    - Enforces OS Read-Only permissions (`chmod 0444`) on locked files (`lockedFiles: []string`), preventing unauthorized terminal modifications while permitting imports and execution.
-   - Handles full-duplex bi-directional WebSocket streaming (`/api/terminal/ws`) with `coder/websocket` protected by mutex synchronizers for xterm.js integration.
+   - Handles full-duplex bi-directional WebSocket streaming (`/api/terminal/ws?projectId=...&sessionId=...`) with `coder/websocket` protected by mutex synchronizers for xterm.js integration, supporting concurrent independent shell sessions per workspace.
    - **Bi-Directional `fsnotify` Disk Watcher (`startWorkspaceWatcher`)**: Watches project workspaces on disk and pushes real-time `fs_change` JSON events over WebSocket when files/folders are created, modified, or deleted by terminal commands (`mkdir`, `touch`, `npm create vite`, `git clone`), keeping the frontend Project Explorer synchronized without manual refreshes.
    - Robust structured message dispatcher preventing JSON protocol frames (`resize`, `sync_files`, etc.) from leaking into shell stdin as raw text.
    - Supports live dynamic terminal resizing frames (`cols`, `rows`), file sync payloads, command piping, and raw VT100/ANSI keycode streaming with real-time prompt, arrow key navigation, and history.
@@ -45,7 +45,7 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
 | `POST /api/workspaces/{id}/replace` | HTTP REST | `WorkspaceSearchHandler.HandleReplace` | Atomic multi-file & single-match replace with `fsnotify` suppression |
 | `POST /api/workspaces/{id}/sync` | HTTP REST | `WorkspaceSyncHandler.HandleWorkspaceSync` | Atomic filesystem mirroring with transient `fsnotify` suppression |
 | `GET /api/workspaces/{id}/sync` | HTTP REST | `WorkspaceSyncHandler.HandleWorkspaceSync` | Workspace file hash registry & disk manifest |
-| `WS /api/terminal/ws` | WebSocket | `TerminalHandler.ServeWS` | Native OS PTY (`powershell.exe` / `/bin/bash`) anchored in `./workspaces/{projectId}` |
+| `WS /api/terminal/ws` | WebSocket | `TerminalHandler.ServeWS` | Multi-session concurrent OS PTY shells (`powershell.exe` / `/bin/bash`) anchored in `./workspaces/{projectId}` |
 | `GET /api/execution/languages` | HTTP REST | `ExecutionHandler.GetLanguages` | `AIService.GetLanguages` (gRPC) |
 | `POST /api/ai/analyze` | HTTP REST | `AIHandler.AnalyzeCode` | `AIService.AnalyzeCode` (gRPC) |
 | `GET /api/ai/models` | HTTP REST | `AIHandler.ListModels` | In-memory local & cloud model registry |

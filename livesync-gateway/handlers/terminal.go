@@ -129,6 +129,23 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		projectName = "workspace"
 	}
 
+	// Optional subDir parameter for opening terminal in nested folders
+	subDir := r.URL.Query().Get("subDir")
+	targetDir := absWsDir
+	displayPath := projectName
+	if subDir != "" {
+		cleanedSub := filepath.Clean(filepath.FromSlash(subDir))
+		if !strings.HasPrefix(cleanedSub, "..") && cleanedSub != "." {
+			candidateDir := filepath.Join(absWsDir, cleanedSub)
+			rel, relErr := filepath.Rel(absWsDir, candidateDir)
+			if relErr == nil && !strings.HasPrefix(rel, "..") {
+				_ = os.MkdirAll(candidateDir, 0755)
+				targetDir = candidateDir
+				displayPath = filepath.ToSlash(filepath.Join(projectName, rel))
+			}
+		}
+	}
+
 	termEnv := append(os.Environ(),
 		"PATH="+envPath,
 		"PYTHONPATH="+pythonPath,
@@ -138,25 +155,26 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		"PYTHONUNBUFFERED=1",
 		"NODE_NO_WARNINGS=1",
 		"WORKSPACE_DIR="+absWsDir,
+		"CURRENT_DIR="+targetDir,
 		"PROJECT_NAME="+projectName,
-		"PS1=\\[\\033[01;32m\\]developer@livesync\\[\\033[00m\\]:\\[\\033[01;34m\\]~/"+projectName+"\\[\\033[00m\\]$ ",
+		"PS1=\\[\\033[01;32m\\]developer@livesync\\[\\033[00m\\]:\\[\\033[01;34m\\]~/"+displayPath+"\\[\\033[00m\\]$ ",
 	)
 
 	var shellCmd string
 	var shellArgs []string
 	if runtime.GOOS == "windows" {
 		shellCmd = "powershell.exe"
-		shellArgs = []string{"-NoLogo", "-NoExit", "-Command", "function prompt { 'developer@livesync:~/" + projectName + "$ ' }"}
+		shellArgs = []string{"-NoLogo", "-NoExit", "-Command", "function prompt { 'developer@livesync:~/" + displayPath + "$ ' }"}
 	} else {
 		shellCmd = "/bin/bash"
 		rcPath := filepath.Join(workspaceDir, ".livesync_bashrc")
 		rcContent := "if [ -f ~/.bashrc ]; then . ~/.bashrc; elif [ -f /etc/bash.bashrc ]; then . /etc/bash.bashrc; fi\n" +
-			"export PS1='\\[\\033[01;32m\\]developer@livesync\\[\\033[00m\\]:\\[\\033[01;34m\\]~/" + projectName + "\\[\\033[00m\\]$ '\n"
+			"export PS1='\\[\\033[01;32m\\]developer@livesync\\[\\033[00m\\]:\\[\\033[01;34m\\]~/" + displayPath + "\\[\\033[00m\\]$ '\n"
 		_ = os.WriteFile(rcPath, []byte(rcContent), 0644)
 		shellArgs = []string{"--rcfile", rcPath}
 	}
 
-	term, err := startPlatformTerminal(shellCmd, shellArgs, absWsDir, termEnv, 80, 24)
+	term, err := startPlatformTerminal(shellCmd, shellArgs, targetDir, termEnv, 80, 24)
 	if err != nil {
 		log.Printf("Terminal spawn error: %v", err)
 		welcomeMsg := "\r\n\x1b[31m❌ Failed to start interactive terminal session: " + err.Error() + "\x1b[0m\r\n"
@@ -167,7 +185,7 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	// Initial welcome notification
 	welcomeMsg := "\r\n\x1b[36m⚡ LiveSync Interactive Workspace Terminal\x1b[0m\r\n" +
-		"\x1b[90mWorkspace: ~/" + projectName + "\x1b[0m\r\n\r\n"
+		"\x1b[90mWorkspace: ~/" + displayPath + "\x1b[0m\r\n\r\n"
 	_ = c.Write(ctx, websocket.MessageText, []byte(welcomeMsg))
 
 	var wg sync.WaitGroup

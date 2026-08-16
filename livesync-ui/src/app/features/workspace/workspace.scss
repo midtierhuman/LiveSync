@@ -1566,50 +1566,112 @@
     .terminal-tabs-container {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
+      overflow-x: auto;
 
-      .terminal-title-chip {
+      &::-webkit-scrollbar {
+        height: 0px;
+      }
+
+      .terminal-tab-item {
         display: flex;
         align-items: center;
         gap: 6px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: transparent;
+        color: #8b949e;
+        cursor: pointer;
         font-size: 11.5px;
-        font-weight: 600;
-        color: #c9d1d9;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-weight: 500;
+        transition: all 0.12s ease;
+        user-select: none;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: #c9d1d9;
+        }
+
+        &.active {
+          background: #21262d;
+          color: #f0f6fc;
+          font-weight: 600;
+        }
 
         .tab-icon {
-          font-size: 15px;
-          width: 15px;
-          height: 15px;
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
           color: #58a6ff;
         }
 
-        .terminal-status-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 1px 6px;
-          border-radius: 10px;
-          font-size: 10px;
-          background: rgba(255, 255, 255, 0.06);
-          color: #8b949e;
+        .tab-title {
+          white-space: nowrap;
+        }
 
-          .status-pulse-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #8b949e;
-          }
+        .terminal-status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #6e7681;
 
           &.connected {
-            color: #3fb950;
-            background: rgba(63, 185, 80, 0.12);
-            .status-pulse-dot {
-              background: #3fb950;
-              box-shadow: 0 0 6px #3fb950;
-            }
+            background: #3fb950;
+            box-shadow: 0 0 5px #3fb950;
           }
+        }
+
+        .btn-close-tab {
+          background: transparent;
+          border: none;
+          color: #8b949e;
+          cursor: pointer;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 2px;
+          margin-left: 2px;
+          opacity: 0.7;
+
+          mat-icon {
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
+          }
+
+          &:hover {
+            color: #f85149;
+            background: rgba(248, 81, 73, 0.15);
+            opacity: 1;
+          }
+        }
+      }
+
+      .btn-new-terminal-tab {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 4px;
+        color: #8b949e;
+        cursor: pointer;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: all 0.12s ease;
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+        }
+
+        &:hover {
+          color: #f0f6fc;
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.25);
         }
       }
     }
@@ -2390,6 +2452,327 @@
                 width: 12px;
                 height: 12px;
               }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Run Header Controls (VS Code Style) */
+.run-header-controls {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  height: 30px;
+  margin-right: 8px;
+
+  .btn-run-play {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #238636;
+    color: #ffffff;
+    border: none;
+    padding: 0 10px;
+    height: 100%;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    .play-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover:not(:disabled) {
+      background: #2ea043;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-run-profile-select {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #1f242c;
+    color: #c9d1d9;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0 8px;
+    height: 100%;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    .selected-profile-label {
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dropdown-chevron {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #8b949e;
+    }
+
+    &:hover {
+      background: #2d333b;
+      color: #ffffff;
+    }
+  }
+}
+
+/* VS Code Run & Debug Panel */
+.vs-run-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+
+  .run-panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .run-section-card {
+      background: #181c24;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .section-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .section-card-title {
+          font-size: 11px;
+          font-weight: 700;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .btn-card-action {
+          background: transparent;
+          border: none;
+          color: #58a6ff;
+          cursor: pointer;
+          padding: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+          }
+
+          &:hover {
+            color: #79c0ff;
+          }
+        }
+      }
+
+      .profile-selector-box {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        label {
+          font-size: 11.5px;
+          color: #8b949e;
+        }
+
+        .profile-dropdown {
+          flex: 1;
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 4px;
+          color: #c9d1d9;
+          font-size: 11.5px;
+          height: 28px;
+          padding: 0 6px;
+          outline: none;
+
+          &:focus {
+            border-color: #58a6ff;
+          }
+        }
+      }
+
+      .command-preview-box {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        .preview-label {
+          font-size: 10.5px;
+          color: #8b949e;
+        }
+
+        .command-code {
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 4px;
+          padding: 4px 8px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          color: #58a6ff;
+          overflow-x: auto;
+        }
+      }
+
+      .btn-execute-large {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: #238636;
+        color: #ffffff;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        margin-top: 4px;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &:hover:not(:disabled) {
+          background: #2ea043;
+        }
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+
+      .env-vars-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        .env-var-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          .env-input {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 3px;
+            color: #c9d1d9;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 3px 6px;
+            height: 24px;
+            outline: none;
+
+            &:focus {
+              border-color: #58a6ff;
+            }
+
+            &.env-key {
+              width: 40%;
+            }
+
+            &.env-val {
+              flex: 1;
+            }
+          }
+
+          .env-equals {
+            color: #8b949e;
+            font-size: 11px;
+          }
+
+          .btn-remove-env {
+            background: transparent;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            padding: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            mat-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+            }
+
+            &:hover {
+              color: #f85149;
+            }
+          }
+        }
+      }
+
+      &.last-exec-card {
+        .status-chip {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 10px;
+
+          &.success {
+            background: rgba(63, 185, 80, 0.15);
+            color: #3fb950;
+          }
+          &.running {
+            background: rgba(88, 166, 255, 0.15);
+            color: #58a6ff;
+          }
+          &.failed {
+            background: rgba(248, 81, 73, 0.15);
+            color: #f85149;
+          }
+        }
+
+        .exec-details {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          font-size: 11px;
+
+          .exec-field {
+            display: flex;
+            justify-content: space-between;
+            color: #8b949e;
+
+            .val {
+              color: #c9d1d9;
+              font-weight: 500;
             }
           }
         }

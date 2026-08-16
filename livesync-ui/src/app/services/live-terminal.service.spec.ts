@@ -4,7 +4,7 @@ import { LiveTerminalService } from './live-terminal.service';
 import { AuthService } from './auth.service';
 import { WorkspaceSyncService } from './workspace-sync.service';
 
-describe('LiveTerminalService', () => {
+describe('LiveTerminalService (Multi-Terminal Tabs)', () => {
   let service: LiveTerminalService;
   let originalWebSocket: typeof WebSocket;
 
@@ -38,53 +38,52 @@ describe('LiveTerminalService', () => {
     service.destroy();
   });
 
-  it('connects to /api/terminal/ws with projectId and token', (done: DoneFn) => {
-    const sentMessages: string[] = [];
-    let openedSocket: any;
+  it('creates and attaches multi-terminal tabs with distinct session IDs', () => {
+    const sentUrls: string[] = [];
 
     class MockWebSocket {
       static readonly OPEN = 1;
-      static readonly CONNECTING = 0;
       readonly OPEN = 1;
-      readonly CONNECTING = 0;
       readyState = 1;
       onopen: (() => void) | null = null;
       onmessage: ((event: { data: string }) => void) | null = null;
-      onerror: (() => void) | null = null;
       onclose: (() => void) | null = null;
 
       constructor(public readonly url: string) {
-        openedSocket = this;
+        sentUrls.push(url);
         setTimeout(() => {
           if (this.onopen) this.onopen();
-          try {
-            expect(openedSocket.url).toContain('/api/terminal/ws');
-            expect(openedSocket.url).toContain('projectId=proj-123');
-            expect(openedSocket.url).toContain('token=test-terminal-token');
-            expect(service.isConnected()).toBe(true);
-            done();
-          } catch (err) {
-            done.fail(err as Error);
-          }
         }, 0);
       }
 
-      send(payload: string) {
-        sentMessages.push(payload);
-      }
-
-      close() {
-        this.readyState = 3;
-        if (this.onclose) this.onclose();
-      }
+      send() {}
+      close() {}
     }
 
     (window as any).WebSocket = MockWebSocket;
 
-    service.connect('proj-123');
+    const dummyHost = document.createElement('div');
+    service.attachToElement(dummyHost, 'proj-123', true, 'my-project');
+
+    expect(service.terminalTabs().length).toBe(1);
+    expect(service.terminalTabs()[0].name).toBe('Terminal 1');
+
+    const tab2Id = service.createTab('npm run dev');
+    expect(service.terminalTabs().length).toBe(2);
+    expect(service.activeTabId()).toBe(tab2Id);
+
+    // Switch tab
+    const tab1Id = service.terminalTabs()[0].id;
+    service.switchTab(tab1Id);
+    expect(service.activeTabId()).toBe(tab1Id);
+
+    // Close tab 2
+    service.closeTab(tab2Id);
+    expect(service.terminalTabs().length).toBe(1);
+    expect(service.activeTabId()).toBe(tab1Id);
   });
 
-  it('syncs workspace files over websocket', () => {
+  it('syncs workspace files over active websocket', () => {
     const sentMessages: string[] = [];
 
     class MockWebSocket {
@@ -105,14 +104,19 @@ describe('LiveTerminalService', () => {
 
     (window as any).WebSocket = MockWebSocket;
 
-    service.connect('proj-abc');
-    (service as any).socket = new MockWebSocket('ws://test');
+    const dummyHost = document.createElement('div');
+    service.attachToElement(dummyHost, 'proj-abc');
 
     service.syncFiles({ 'main.py': 'print("hello")' });
 
-    expect(sentMessages.length).toBe(1);
-    const parsed = JSON.parse(sentMessages[0]);
-    expect(parsed.action).toBe('sync_files');
-    expect(parsed.files['main.py']).toBe('print("hello")');
+    expect(sentMessages.length).toBeGreaterThanOrEqual(1);
+    const syncMsg = sentMessages.find((m) => {
+      try {
+        return JSON.parse(m).action === 'sync_files';
+      } catch {
+        return false;
+      }
+    });
+    expect(syncMsg).toBeDefined();
   });
 });

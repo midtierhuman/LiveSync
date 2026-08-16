@@ -20,6 +20,7 @@ import { VFSService } from '../../services/vfs.service';
 import { RealtimeService } from '../../services/realtime.service';
 import { PackageManagerService } from '../../services/package-manager.service';
 import { WorkspaceSearchService, SearchMatch } from '../../services/workspace-search.service';
+import { RunConfigService } from '../../services/run-config.service';
 import JSZip from 'jszip';
 import { Editor } from '../editor/editor';
 import {
@@ -71,6 +72,7 @@ export class Workspace implements OnInit {
   private readonly folderService = inject(FolderService);
   public readonly liveTerminalService = inject(LiveTerminalService);
   public readonly searchService = inject(WorkspaceSearchService);
+  public readonly runConfigService = inject(RunConfigService);
   private readonly realtimeService = inject(RealtimeService);
   public readonly vfsService = inject(VFSService);
   private readonly router = inject(Router);
@@ -140,7 +142,7 @@ export class Workspace implements OnInit {
   }
 
   // Activity Bar & Sidebar View State
-  activeSidebarView = signal<'explorer' | 'search' | 'packages' | 'ai' | 'comments'>('explorer');
+  activeSidebarView = signal<'explorer' | 'search' | 'run' | 'packages' | 'ai' | 'comments'>('explorer');
   isSidebarOpen = signal<boolean>(true);
   isDarkMode = signal<boolean>(true);
 
@@ -1160,6 +1162,27 @@ export class Workspace implements OnInit {
 
     if (action === 'setEntrypoint') {
       this.setProjectEntrypoint(ctx.item);
+    } else if (action === 'openTerminal') {
+      if (ctx.type === 'folder') {
+        const relPath = this.getFolderRelativePath(ctx.item);
+        this.openInIntegratedTerminal(relPath, ctx.item.name);
+      } else {
+        const relPath = this.getFileRelativePath(ctx.item);
+        const containingDir = relPath.includes('/') ? relPath.substring(0, relPath.lastIndexOf('/')) : '';
+        const folderName = containingDir ? containingDir.split('/').pop() : this.scopedProject()?.name;
+        this.openInIntegratedTerminal(containingDir, folderName);
+      }
+    } else if (action === 'findInFolder') {
+      const relPath = ctx.type === 'folder' ? this.getFolderRelativePath(ctx.item) : this.getFileRelativePath(ctx.item);
+      const filter = relPath ? `${relPath}/**` : '';
+      this.searchService.includePattern.set(filter);
+      this.searchService.showFilters.set(true);
+      this.toggleSidebarView('search');
+    } else if (action === 'copyRelativePath') {
+      const relPath = ctx.type === 'folder' ? this.getFolderRelativePath(ctx.item) : this.getFileRelativePath(ctx.item);
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(relPath || '/').catch(() => {});
+      }
     } else if (action === 'newFile') {
       this.openCreateInFolder(ctx.item.id, 'file');
     } else if (action === 'newFolder') {
@@ -1186,6 +1209,66 @@ export class Workspace implements OnInit {
       } else {
         this.confirmDelete(ctx.item.id);
       }
+    }
+  }
+
+  getFolderRelativePath(folder: FolderDto): string {
+    if (!folder) return '';
+    const scopedId = this.scopedProject()?.id;
+    if (folder.id === scopedId) return '';
+
+    const segments: string[] = [folder.name];
+    let currParentId = folder.parentFolderId;
+
+    const findFolderById = (id: string, list: FolderDto[]): FolderDto | undefined => {
+      for (const f of list) {
+        if (f.id === id) return f;
+        if (f.subfolders && f.subfolders.length > 0) {
+          const res = findFolderById(id, f.subfolders);
+          if (res) return res;
+        }
+      }
+      return undefined;
+    };
+
+    while (currParentId && currParentId !== scopedId) {
+      const parent =
+        findFolderById(currParentId, this.myFolders()) ||
+        findFolderById(currParentId, this.sharedFolderTree());
+      if (!parent) break;
+      segments.unshift(parent.name);
+      currParentId = parent.parentFolderId;
+    }
+
+    return segments.join('/');
+  }
+
+  getFileRelativePath(doc: DocumentDto): string {
+    if (!doc) return '';
+    const vfsPath = this.vfsService.getPathByDocumentId(doc.id);
+    if (vfsPath) return vfsPath;
+    if (doc.folderId) {
+      const folder =
+        this.myFolders().find((f) => f.id === doc.folderId) ||
+        this.sharedFolderTree().find((f) => f.id === doc.folderId);
+      if (folder) {
+        const folderRel = this.getFolderRelativePath(folder);
+        return folderRel ? `${folderRel}/${doc.title}` : doc.title;
+      }
+    }
+    return doc.title;
+  }
+
+  openInIntegratedTerminal(relPath: string, name?: string): void {
+    if (!this.isTerminalOpen()) {
+      this.isTerminalOpen.set(true);
+      setTimeout(() => {
+        this.attachWorkspaceTerminal();
+        this.liveTerminalService.createTabInDirectory(relPath, name);
+      }, 50);
+    } else {
+      this.attachWorkspaceTerminal();
+      this.liveTerminalService.createTabInDirectory(relPath, name);
     }
   }
 
@@ -1863,7 +1946,7 @@ export class Workspace implements OnInit {
     }
   }
 
-  toggleSidebarView(view: 'explorer' | 'search' | 'packages' | 'ai' | 'comments'): void {
+  toggleSidebarView(view: 'explorer' | 'search' | 'run' | 'packages' | 'ai' | 'comments'): void {
     if (this.activeSidebarView() === view && this.isSidebarOpen()) {
       this.isSidebarOpen.set(false);
     } else {
@@ -1878,6 +1961,29 @@ export class Workspace implements OnInit {
           }
         }, 50);
       }
+    }
+  }
+
+  async executeRunProfile(): Promise<void> {
+    const activeId = this.activeTabId();
+    const doc = this.myDocuments().find((d) => d.id === activeId);
+    const activeFilePath = doc ? (this.getFileRelativePath(doc) || doc.title) : 'main';
+
+    if (!this.isTerminalOpen()) {
+      this.isTerminalOpen.set(true);
+      setTimeout(() => {
+        this.attachWorkspaceTerminal();
+        void this.runConfigService.runProfile(
+          this.runConfigService.selectedProfile(),
+          activeFilePath
+        );
+      }, 50);
+    } else {
+      this.attachWorkspaceTerminal();
+      void this.runConfigService.runProfile(
+        this.runConfigService.selectedProfile(),
+        activeFilePath
+      );
     }
   }
 
