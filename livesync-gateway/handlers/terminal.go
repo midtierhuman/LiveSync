@@ -91,6 +91,16 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if accessLevel != "Edit" && accessLevel != "Owner" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Forbidden: Interactive terminal requires Edit or Owner permissions. View-only collaborators can execute code via execution endpoints.",
+			"code":  "FORBIDDEN",
+		})
+		return
+	}
+
 	rawConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		InsecureSkipVerify: true,
 	})

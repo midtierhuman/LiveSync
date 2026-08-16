@@ -62,6 +62,7 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/execution/languages", middleware.JWTAuth(cfg, execHandler.GetLanguages))
+	mux.HandleFunc("/api/execution/run", middleware.JWTAuth(cfg, execHandler.RunCode))
 	mux.HandleFunc("/api/ai/analyze", middleware.JWTAuth(cfg, aiHandler.AnalyzeCode))
 	mux.HandleFunc("/api/ai/models", middleware.JWTAuth(cfg, aiHandler.ListModels))
 	mux.HandleFunc("/api/packages/", middleware.JWTAuth(cfg, pkgHandler.SearchPackages))

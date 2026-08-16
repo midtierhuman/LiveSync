@@ -49,6 +49,7 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
 | `POST /api/workspaces/{id}/sync` | HTTP REST | `WorkspaceSyncHandler.HandleWorkspaceSync` | Atomic filesystem mirroring with transient `fsnotify` suppression |
 | `GET /api/workspaces/{id}/sync` | HTTP REST | `WorkspaceSyncHandler.HandleWorkspaceSync` | Workspace file hash registry & disk manifest |
 | `WS /api/terminal/ws` | WebSocket | `TerminalHandler.ServeWS` | Multi-session concurrent OS PTY shells (`powershell.exe` / `/bin/bash`) anchored in `./workspaces/{projectId}` |
+| `POST /api/execution/run` | HTTP REST | `ExecutionHandler.RunCode` | Decoupled execution authorization allowing View, Edit, and Owner |
 | `GET /api/execution/languages` | HTTP REST | `ExecutionHandler.GetLanguages` | `AIService.GetLanguages` (gRPC) |
 | `POST /api/ai/analyze` | HTTP REST | `AIHandler.AnalyzeCode` | `AIService.AnalyzeCode` (gRPC) |
 | `GET /api/ai/models` | HTTP REST | `AIHandler.ListModels` | In-memory local & cloud model registry |

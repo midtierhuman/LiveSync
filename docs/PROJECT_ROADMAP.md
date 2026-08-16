@@ -42,8 +42,8 @@
 ---
 
 ### **Milestone 17: Execution Authorization & Materialized Workspace Architecture Refactor** (PLANNED 📋)
-- [ ] **ARCH-11: Decoupled Execution Authorization Model & Terminal Access Isolation** (`livesync-gateway`, `livesync-api`)
-  - Decouple execution capability from write/edit permissions (`VIEW`, `EDIT`, or `OWNER` can execute target project), while strictly preserving interactive terminal PTY access boundaries (prohibiting unauthenticated or view-only shell escapes).
+- [x] **ARCH-11: Decoupled Execution Authorization Model & Terminal Access Isolation** (`livesync-gateway`, `livesync-api`)
+  - Decoupled execution capability from write/edit permissions (`VIEW`, `EDIT`, or `OWNER` can execute target project), while strictly preserving interactive terminal PTY access boundaries (prohibiting unauthenticated or view-only shell escapes).
 - [ ] **PERF-10: Bulk Project Manifest & Zero-N+1 Workspace Materialization Engine** (`livesync-api`, `livesync-gateway`)
   - High-performance bulk metadata and content retrieval endpoint in `livesync-api` allowing Go Gateway to materialize initial project workspaces (`/workspaces/{projectId}`) in a single optimized query batch without N+1 database roundtrips.
 - [ ] **ARCH-12: Redis Hot-State Hydration & Incremental Workspace Synchronization Engine** (`livesync-gateway`, `livesync-realtime`)
