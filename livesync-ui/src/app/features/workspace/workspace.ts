@@ -2228,11 +2228,28 @@ export class Workspace implements OnInit {
     return filesMap;
   }
 
+  collectDirtyOverlays(): Record<string, string> {
+    const overlays: Record<string, string> = {};
+    const activeInst = this.activeEditorInstance();
+    if (activeInst && activeInst.docId()) {
+      const docId = activeInst.docId();
+      const vfs = this.vfsService.vfsIndex();
+      const activeDoc = this.myDocuments().find((d) => d.id === docId);
+      const relPath = vfs.docIdToPath.get(docId) || activeDoc?.title || 'main';
+      const code = activeInst.codeSignal();
+      if (code !== undefined && code !== null) {
+        overlays[relPath] = code;
+      }
+    }
+    return overlays;
+  }
+
   async executeRunProfile(): Promise<void> {
     const activeId = this.activeTabId();
     const doc = this.myDocuments().find((d) => d.id === activeId);
     const activeFilePath = doc ? (this.getFileRelativePath(doc) || doc.title) : 'main';
-    const filesSnapshot = this.collectWorkspaceFilesSnapshot();
+    const overlays = this.collectDirtyOverlays();
+    const projId = this.scopedProject()?.id;
 
     if (!this.isTerminalOpen()) {
       this.isTerminalOpen.set(true);
@@ -2241,7 +2258,8 @@ export class Workspace implements OnInit {
         void this.runConfigService.runProfile(
           this.runConfigService.selectedProfile(),
           activeFilePath,
-          filesSnapshot
+          overlays,
+          projId
         );
       }, 50);
     } else {
@@ -2249,7 +2267,8 @@ export class Workspace implements OnInit {
       void this.runConfigService.runProfile(
         this.runConfigService.selectedProfile(),
         activeFilePath,
-        filesSnapshot
+        overlays,
+        projId
       );
     }
   }

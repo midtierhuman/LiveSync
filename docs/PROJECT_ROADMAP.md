@@ -41,7 +41,9 @@
 
 ---
 
-### **Milestone 17: Execution Authorization & Materialized Workspace Architecture Refactor** (PLANNED 📋)
+## 🗺️ Completed Milestones
+
+### **Milestone 17: Execution Authorization & Materialized Workspace Architecture Refactor** (COMPLETED ✅)
 - [x] **ARCH-11: Decoupled Execution Authorization Model & Terminal Access Isolation** (`livesync-gateway`, `livesync-api`)
   - Decoupled execution capability from write/edit permissions (`VIEW`, `EDIT`, or `OWNER` can execute target project), while strictly preserving interactive terminal PTY access boundaries (prohibiting unauthenticated or view-only shell escapes).
 - [x] **PERF-10: Bulk Project Manifest & Zero-N+1 Workspace Materialization Engine** (`livesync-api`, `livesync-gateway`)
@@ -50,14 +52,10 @@
   - Server-side incremental workspace synchronization that overlays active Redis collaborative document state (`livesync:doc:{documentId}:content`) onto persistent PostgreSQL file trees, avoiding full disk reconstructions.
 - [x] **SEC-06: Isolated Ephemeral Execution Sandboxing & Disposable Run Environments** (`livesync-gateway`)
   - Isolated code execution runs in ephemeral disposable workspaces (`/run/{executionId}` / copy-on-write sandboxes) to guarantee that build artifacts, dependency installations (`npm install`, `pip install`), and execution output never mutate the canonical collaborative workspace.
-- [ ] **FEAT-19: Delta/Overlay Execution Protocol & Frontend Payload Optimization** (`livesync-ui`, `livesync-gateway`)
-  - Refactor Angular execution client to send lightweight run requests (`{ projectId, entrypoint, revision, overlay }`) with only active dirty file overlays instead of transmitting full multi-megabyte project source trees on every run.
-- [ ] **TEST-03: Multi-User Execution Isolation & Comprehensive End-to-End Authorization Suite** (`livesync-gateway`, `livesync-api`, `livesync-ui`)
+- [x] **FEAT-19: Delta/Overlay Execution Protocol & Frontend Payload Optimization** (`livesync-ui`, `livesync-gateway`)
+  - Refactored Angular execution client to send lightweight run requests (`{ projectId, entrypoint, revision, overlay }`) with only active dirty file overlays instead of transmitting full multi-megabyte project source trees on every run.
+- [x] **TEST-03: Multi-User Execution Isolation & Comprehensive End-to-End Authorization Suite** (`livesync-gateway`, `livesync-api`, `livesync-ui`)
   - Comprehensive automated test suite verifying owner execution, edit execution, view-only execution, view + single-file edit execution, 403 rejection on unauthorized projects, isolated run sandbox non-mutation, and concurrent execution isolation.
-
----
-
-## 🗺️ Completed Milestones
 
 ### **Milestone 14: Quality Assurance, Advanced Workspace Analytics & Production Hardening** (COMPLETED ✅)
 - [x] **SEC-04: Zero-Trust Gateway JWT Authentication & Universal Infrastructure Access Verification** (`livesync-gateway`, `livesync-api`, `livesync-realtime`)

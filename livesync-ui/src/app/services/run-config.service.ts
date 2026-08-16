@@ -1,5 +1,9 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { LiveTerminalService } from './live-terminal.service';
+import { AuthService } from './auth.service';
+import { appEndpoints } from '../app-endpoints';
 
 export type SupportedLanguage = 'node' | 'python' | 'go' | 'custom';
 
@@ -11,6 +15,25 @@ export interface RunProfile {
   args?: string;
   envVars: Record<string, string>;
   isCustom?: boolean;
+}
+
+export interface RunExecutionRequest {
+  projectId: string;
+  entrypoint: string;
+  revision?: number;
+  overlay?: Record<string, string>;
+  command?: string;
+  language?: string;
+}
+
+export interface RunExecutionResponse {
+  executionId: string;
+  projectId: string;
+  status: string;
+  accessLevel: string;
+  message: string;
+  sandboxDir?: string;
+  durationMs?: number;
 }
 
 export interface RunExecutionResult {
@@ -90,6 +113,8 @@ const SELECTED_PROFILE_KEY = 'livesync_selected_run_profile';
 })
 export class RunConfigService {
   private readonly liveTerminalService = inject(LiveTerminalService);
+  private readonly http = inject(HttpClient);
+  private readonly authService = inject(AuthService);
 
   readonly profiles = signal<RunProfile[]>(this.loadProfiles());
   readonly selectedProfileId = signal<string>(this.loadSelectedProfileId());
@@ -185,9 +210,44 @@ export class RunConfigService {
     return cmd;
   }
 
-  async runProfile(profile: RunProfile, activeFilePath: string = 'main', filesSnapshot?: Record<string, string>): Promise<void> {
+  async executeRun(request: RunExecutionRequest): Promise<RunExecutionResponse | null> {
+    try {
+      const token = this.authService.token();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const url = `${appEndpoints.sandboxBaseUrl}/api/execution/run`;
+      const resp = await firstValueFrom(
+        this.http.post<RunExecutionResponse>(url, request, { headers })
+      );
+      return resp;
+    } catch (err) {
+      console.warn('Execution run request failed:', err);
+      return null;
+    }
+  }
+
+  async runProfile(
+    profile: RunProfile,
+    activeFilePath: string = 'main',
+    overlayOrSnapshot?: Record<string, string>,
+    projectId?: string
+  ): Promise<void> {
     const fullCmd = this.buildExecutionCommand(profile, activeFilePath);
     const tabName = `run: ${profile.name.split(':')[0] || profile.name}`;
+
+    if (projectId) {
+      void this.executeRun({
+        projectId,
+        entrypoint: activeFilePath,
+        overlay: overlayOrSnapshot,
+        command: fullCmd,
+        language: profile.language,
+      });
+    }
 
     const envEntries = [
       ...Object.entries(profile.envVars || {}),
@@ -219,7 +279,7 @@ export class RunConfigService {
 
     // 2. Dispatch command and sync files
     setTimeout(() => {
-      this.liveTerminalService.runCommand(executionCmd, filesSnapshot);
+      this.liveTerminalService.runCommand(executionCmd, overlayOrSnapshot);
       setTimeout(() => {
         this.isRunning.set(false);
         const duration = Date.now() - execResult.startTime;

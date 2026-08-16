@@ -105,22 +105,12 @@ func (h *ExecutionHandler) RunCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Ensure workspace is materialized from PostgreSQL bulk manifest if not present (PERF-10)
+	// 2. Ensure canonical workspace is materialized from PostgreSQL bulk manifest if not present (PERF-10)
 	wsDir, fileCount, matErr := MaterializeWorkspaceFromManifest(r.Context(), h.cfg, req.ProjectID, tokenStr, GetGlobalSuppressionRegistry())
 	if matErr != nil {
 		log.Printf("⚠️ [EXEC_WARN] Failed to materialize workspace for project %s: %v", req.ProjectID, matErr)
 	} else {
 		log.Printf("📂 [EXEC_WORKSPACE_READY] project=%s wsDir=%s files=%d", req.ProjectID, wsDir, fileCount)
-	}
-
-	// 3. Layer incremental dirty overlays over the materialized workspace (ARCH-12)
-	if len(req.Overlay) > 0 && wsDir != "" {
-		_, overlaidCount, overlayErr := SyncIncrementalOverlays(wsDir, req.Overlay, nil, GetGlobalSuppressionRegistry())
-		if overlayErr != nil {
-			log.Printf("⚠️ [EXEC_WARN] Failed to apply incremental overlays: %v", overlayErr)
-		} else {
-			log.Printf("⚡ [EXEC_OVERLAY_APPLIED] project=%s overlaidFiles=%d", req.ProjectID, overlaidCount)
-		}
 	}
 
 	// Generate execution ID
@@ -132,7 +122,8 @@ func (h *ExecutionHandler) RunCode(w http.ResponseWriter, r *http.Request) {
 	log.Printf("🚀 [EXEC_AUTHORIZED] execId=%s user=%s project=%s access=%s entrypoint=%s overlayFiles=%d revision=%d",
 		execID, userID, req.ProjectID, accessLevel, req.Entrypoint, overlayCount, req.Revision)
 
-	// 4. Create isolated ephemeral execution sandbox (SEC-06)
+	// 3. Create isolated ephemeral execution sandbox with overlays (SEC-06 & ARCH-12)
+	// Guaranteed non-mutation of the canonical workspace wsDir.
 	sandboxDir, sbErr := CreateEphemeralSandbox(wsDir, execID, req.Overlay)
 	if sbErr != nil {
 		log.Printf("⚠️ [EXEC_WARN] Sandbox creation warning: %v", sbErr)

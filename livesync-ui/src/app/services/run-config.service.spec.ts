@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { RunConfigService, RunProfile } from './run-config.service';
 import { LiveTerminalService } from './live-terminal.service';
 
@@ -19,6 +21,8 @@ describe('RunConfigService', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         RunConfigService,
         { provide: LiveTerminalService, useValue: mockLiveTerminal },
       ],
