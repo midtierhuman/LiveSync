@@ -8,16 +8,22 @@
 ## 🎯 Active Milestone
 
 ### **Milestone 12: Advanced Workspace Search, Diagnostics & High-Performance Architecture** (ACTIVE 🔄)
+- [x] **BUG-05: Collaborative Full Document Deletion Sync (`Ctrl+A` + `Backspace` / Empty Content Sync)** (`livesync-ui`, `livesync-realtime`)
+  - Fixed falsy truthy check (`if (newContent)`) in `Editor` and wrapped `contentUpdate` signal in `RealtimeService` as `DocumentContentUpdate` object reference with timestamp so clearing whole documents (`""`) reliably triggers CodeMirror updates for all collaborators.
 - [x] **ARCH-01: Persistent In-Memory Terminal Dock & Zero-Teardown PTY Session** (`livesync-ui`)
   - Retain `xterm.js` instance, DOM attachment, and WebSocket stream in memory across panel toggles, ensuring running processes (`npm run dev`, `python -i`), scrollback history, and shell state are 100% preserved with zero re-render delay.
 - [x] **ARCH-02: Dedicated REST / gRPC Workspace Atomic Sync Engine & Self-Change Suppression** (`livesync-gateway`, `livesync-ui`)
   - Dedicated `/api/workspaces/:id/sync` atomic disk mirroring with transient hash-based `fsnotify` self-change suppression to decouple filesystem synchronization from raw terminal keystroke WebSocket streams.
-- [ ] **FEAT-08: Workspace-Wide Multi-File Search & Replace (`Ctrl+Shift+F`)** (`livesync-ui`, `livesync-gateway`)
-  - Full project ripgrep/regex search with multi-file match previews and batch replace across documents.
-- [ ] **FEAT-09: Code Diagnostics & Linter / Problems Panel Integration** (`livesync-ui`, `livesync-ai`)
-  - Real-time syntax errors and static AST warnings integrated into an expandable bottom Problems dock.
+- [x] **FEAT-08: Workspace-Wide Multi-File Search & Replace (`Ctrl+Shift+F`)** (`livesync-ui`, `livesync-gateway`)
+  - Integrated high-speed disk search and atomic replace endpoints in Go Gateway (`GET /api/workspaces/:id/search`, `POST /api/workspaces/:id/replace`) and dedicated VS Code-style Search & Replace panel in Angular UI with case/whole-word/regex modifiers, file include/exclude patterns, interactive match previews, single/batch replace, and instant match jump navigation.
+- [x] **FEAT-09: Code Diagnostics & Linter / Problems Panel Integration** (DEPRECATED / DROPPED ❌)
+  - Marked obsolete/dropped: Native terminal PTY already runs developer linters & compilers (`npm test`, `pytest`, `tsc`), CodeMirror handles in-editor syntax diagnostics, and AST Big-O analysis lives in dedicated profiler headers, avoiding bottom dock clutter.
 - [ ] **FEAT-12: Multi-Terminal Tabs & Resilient `FitAddon` Layout Resize Handling** (`livesync-ui`, `livesync-gateway`)
   - Support multiple concurrent shell sessions with named tabs and smooth layout resize adaptation.
+
+---
+
+### **Milestone 13: Real-Time Performance & Selection Replication** (PLANNED 📋)
 - [ ] **PERF-04: Multi-User Remote Selection Range Highlighting & CRDT Delta Sync** (`livesync-ui`, `livesync-realtime`)
   - Visual collaborator selection ranges in CodeMirror 6 with optimized CRDT byte-level delta replication.
 

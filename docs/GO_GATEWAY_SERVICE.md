@@ -41,6 +41,8 @@ The `livesync-gateway` microservice is built with **Go** to act as the primary h
 
 | Endpoint | Protocol | Handler | Target Backend |
 | :--- | :--- | :--- | :--- |
+| `GET /api/workspaces/{id}/search` | HTTP REST | `WorkspaceSearchHandler.HandleSearch` | Multi-file regex & whole-word disk search with match snippets |
+| `POST /api/workspaces/{id}/replace` | HTTP REST | `WorkspaceSearchHandler.HandleReplace` | Atomic multi-file & single-match replace with `fsnotify` suppression |
 | `POST /api/workspaces/{id}/sync` | HTTP REST | `WorkspaceSyncHandler.HandleWorkspaceSync` | Atomic filesystem mirroring with transient `fsnotify` suppression |
 | `GET /api/workspaces/{id}/sync` | HTTP REST | `WorkspaceSyncHandler.HandleWorkspaceSync` | Workspace file hash registry & disk manifest |
 | `WS /api/terminal/ws` | WebSocket | `TerminalHandler.ServeWS` | Native OS PTY (`powershell.exe` / `/bin/bash`) anchored in `./workspaces/{projectId}` |

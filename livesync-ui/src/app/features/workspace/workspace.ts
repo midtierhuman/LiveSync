@@ -19,6 +19,7 @@ import { LiveTerminalService } from '../../services/live-terminal.service';
 import { VFSService } from '../../services/vfs.service';
 import { RealtimeService } from '../../services/realtime.service';
 import { PackageManagerService } from '../../services/package-manager.service';
+import { WorkspaceSearchService, SearchMatch } from '../../services/workspace-search.service';
 import JSZip from 'jszip';
 import { Editor } from '../editor/editor';
 import {
@@ -69,6 +70,7 @@ export class Workspace implements OnInit {
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
   public readonly liveTerminalService = inject(LiveTerminalService);
+  public readonly searchService = inject(WorkspaceSearchService);
   private readonly realtimeService = inject(RealtimeService);
   public readonly vfsService = inject(VFSService);
   private readonly router = inject(Router);
@@ -110,6 +112,11 @@ export class Workspace implements OnInit {
         const lang = this.getCurrentWorkspaceLanguage();
         void this.packageManagerService.fetchPopularPackages(lang);
         void this.packageManagerService.fetchInstalledPackages(lang);
+      } else if (view === 'search') {
+        const projId = this.scopedProject()?.id || '';
+        if (projId && this.searchService.query()) {
+          void this.searchService.search(projId);
+        }
       }
     });
   }
@@ -133,7 +140,7 @@ export class Workspace implements OnInit {
   }
 
   // Activity Bar & Sidebar View State
-  activeSidebarView = signal<'explorer' | 'packages' | 'ai' | 'comments'>('explorer');
+  activeSidebarView = signal<'explorer' | 'search' | 'packages' | 'ai' | 'comments'>('explorer');
   isSidebarOpen = signal<boolean>(true);
   isDarkMode = signal<boolean>(true);
 
@@ -1065,6 +1072,13 @@ export class Workspace implements OnInit {
       this.toggleQuickOpen();
       return;
     }
+
+    // 6. Ctrl+Shift+F / Cmd+Shift+F -> Focus Workspace Global Search
+    if (isCmdOrCtrl && event.shiftKey && (event.key === 'f' || event.key === 'F')) {
+      event.preventDefault();
+      this.openWorkspaceSearch();
+      return;
+    }
   }
 
   private findSubfolderByName(name: string, parentFolderId: string | null): FolderDto | undefined {
@@ -1849,13 +1863,71 @@ export class Workspace implements OnInit {
     }
   }
 
-  toggleSidebarView(view: 'explorer' | 'packages' | 'ai' | 'comments'): void {
+  toggleSidebarView(view: 'explorer' | 'search' | 'packages' | 'ai' | 'comments'): void {
     if (this.activeSidebarView() === view && this.isSidebarOpen()) {
       this.isSidebarOpen.set(false);
     } else {
       this.activeSidebarView.set(view);
       this.isSidebarOpen.set(true);
+      if (view === 'search') {
+        setTimeout(() => {
+          const input = document.getElementById('workspace-search-input');
+          if (input) {
+            input.focus();
+            (input as HTMLInputElement).select();
+          }
+        }, 50);
+      }
     }
+  }
+
+  openWorkspaceSearch(): void {
+    this.toggleSidebarView('search');
+  }
+
+  async triggerWorkspaceSearch(): Promise<void> {
+    const projId = this.scopedProject()?.id || 'global';
+    await this.searchService.search(projId);
+  }
+
+  async triggerWorkspaceReplaceAll(): Promise<void> {
+    const projId = this.scopedProject()?.id || 'global';
+    const res = await this.searchService.replaceAll(projId);
+    if (res.status === 'ok' && res.updatedFiles) {
+      // Reload workspace tree and active documents
+      void this.loadWorkspace(true);
+    }
+  }
+
+  async triggerSingleMatchReplace(file: string, match: SearchMatch): Promise<void> {
+    const projId = this.scopedProject()?.id || 'global';
+    const res = await this.searchService.replaceSingleMatch(projId, file, match);
+    if (res.status === 'ok') {
+      void this.loadWorkspace(true);
+    }
+  }
+
+  navigateToSearchResult(file: string, lineNumber: number, columnNumber: number = 0): void {
+    const vfs = this.vfsService.vfsIndex();
+    const docId = vfs.pathToDocId.get(file) || this.findDocIdByTitleOrPath(file);
+
+    if (docId) {
+      this.openDocument(docId);
+      setTimeout(() => {
+        const activeInst = this.activeEditorInstance();
+        if (activeInst) {
+          activeInst.scrollToLine(lineNumber, columnNumber);
+        }
+      }, 100);
+    }
+  }
+
+  private findDocIdByTitleOrPath(path: string): string | null {
+    const base = path.split('/').pop() || path;
+    const match = this.myDocuments().find(
+      (d) => d.title.toLowerCase() === path.toLowerCase() || d.title.toLowerCase() === base.toLowerCase(),
+    );
+    return match ? match.id : null;
   }
 
   // Workspace Terminal State & Handlers

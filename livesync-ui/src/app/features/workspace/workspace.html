@@ -73,6 +73,15 @@
 
         <button
           class="activity-icon-btn"
+          [class.active]="isSidebarOpen() && activeSidebarView() === 'search'"
+          (click)="toggleSidebarView('search')"
+          matTooltip="Search & Replace (Ctrl+Shift+F)"
+        >
+          <mat-icon>search</mat-icon>
+        </button>
+
+        <button
+          class="activity-icon-btn"
           [class.active]="isSidebarOpen() && activeSidebarView() === 'packages'"
           (click)="toggleSidebarView('packages')"
           matTooltip="Package Hub (npm / PyPI)"
@@ -427,6 +436,224 @@
         </section>
       }
     }
+
+      <!-- VIEW: SEARCH & REPLACE -->
+      @if (activeSidebarView() === 'search') {
+        <section class="vs-sidebar-panel vs-search-panel">
+          <div class="panel-header">
+            <span class="panel-title"><mat-icon>search</mat-icon> SEARCH & REPLACE</span>
+            <div class="panel-actions">
+              <button
+                class="btn-panel-action"
+                (click)="triggerWorkspaceSearch()"
+                matTooltip="Refresh Search"
+              >
+                <mat-icon>refresh</mat-icon>
+              </button>
+              <button
+                class="btn-panel-action"
+                (click)="searchService.clearSearch()"
+                matTooltip="Clear Search"
+              >
+                <mat-icon>clear_all</mat-icon>
+              </button>
+              <button
+                class="btn-panel-action"
+                (click)="searchService.collapseAll()"
+                matTooltip="Collapse All"
+              >
+                <mat-icon>unfold_less</mat-icon>
+              </button>
+              <button
+                class="btn-panel-action"
+                (click)="searchService.expandAll()"
+                matTooltip="Expand All"
+              >
+                <mat-icon>unfold_more</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="search-inputs-container">
+            <!-- Search Query Input -->
+            <div class="search-input-row">
+              <div class="search-input-wrapper">
+                <mat-icon class="search-icon-prefix">search</mat-icon>
+                <input
+                  id="workspace-search-input"
+                  type="text"
+                  class="search-text-input"
+                  placeholder="Search across files..."
+                  [ngModel]="searchService.query()"
+                  (ngModelChange)="searchService.query.set($event)"
+                  (keydown.enter)="triggerWorkspaceSearch()"
+                />
+                <div class="search-modifiers">
+                  <button
+                    class="btn-modifier"
+                    [class.active]="searchService.matchCase()"
+                    (click)="searchService.matchCase.set(!searchService.matchCase()); triggerWorkspaceSearch()"
+                    matTooltip="Match Case (Alt+C)"
+                  >
+                    Aa
+                  </button>
+                  <button
+                    class="btn-modifier"
+                    [class.active]="searchService.matchWholeWord()"
+                    (click)="searchService.matchWholeWord.set(!searchService.matchWholeWord()); triggerWorkspaceSearch()"
+                    matTooltip="Match Whole Word (Alt+W)"
+                  >
+                    \b
+                  </button>
+                  <button
+                    class="btn-modifier"
+                    [class.active]="searchService.isRegex()"
+                    (click)="searchService.isRegex.set(!searchService.isRegex()); triggerWorkspaceSearch()"
+                    matTooltip="Use Regular Expression (Alt+R)"
+                  >
+                    .*
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Replace Input Toggle -->
+            <div class="search-input-row replace-row">
+              <div class="search-input-wrapper">
+                <mat-icon class="search-icon-prefix">find_replace</mat-icon>
+                <input
+                  type="text"
+                  class="search-text-input"
+                  placeholder="Replace with..."
+                  [ngModel]="searchService.replaceText()"
+                  (ngModelChange)="searchService.replaceText.set($event)"
+                  (keydown.enter)="triggerWorkspaceReplaceAll()"
+                />
+                <button
+                  class="btn-replace-all"
+                  [disabled]="!searchService.query() || searchService.isReplacing() || searchService.totalMatches() === 0"
+                  (click)="triggerWorkspaceReplaceAll()"
+                  matTooltip="Replace All Matches"
+                >
+                  <mat-icon>find_replace</mat-icon>
+                  <span>All</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Include/Exclude Pattern Toggle -->
+            <div class="search-filters-toggle">
+              <button
+                class="btn-toggle-filters"
+                (click)="searchService.showFilters.set(!searchService.showFilters())"
+              >
+                <mat-icon class="chevron-icon">{{ searchService.showFilters() ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                <span>files to include / exclude</span>
+              </button>
+            </div>
+
+            @if (searchService.showFilters()) {
+              <div class="search-filters-inputs">
+                <input
+                  type="text"
+                  class="filter-text-input"
+                  placeholder="files to include (e.g. *.ts, src/**)"
+                  [ngModel]="searchService.includePattern()"
+                  (ngModelChange)="searchService.includePattern.set($event)"
+                  (keydown.enter)="triggerWorkspaceSearch()"
+                />
+                <input
+                  type="text"
+                  class="filter-text-input"
+                  placeholder="files to exclude (e.g. *.spec.ts, dist/**)"
+                  [ngModel]="searchService.excludePattern()"
+                  (ngModelChange)="searchService.excludePattern.set($event)"
+                  (keydown.enter)="triggerWorkspaceSearch()"
+                />
+              </div>
+            }
+          </div>
+
+          <!-- Search Results Area -->
+          <div class="search-results-viewport">
+            @if (searchService.isSearching()) {
+              <div class="search-loading-state">
+                <div class="search-spinner"></div>
+                <span>Searching workspace...</span>
+              </div>
+            } @else if (searchService.searchError()) {
+              <div class="search-error-state">
+                <mat-icon>error_outline</mat-icon>
+                <span>{{ searchService.searchError() }}</span>
+              </div>
+            } @else if (searchService.query() && searchService.totalMatches() === 0) {
+              <div class="search-empty-state">
+                <mat-icon>search_off</mat-icon>
+                <span>No results found for "{{ searchService.query() }}"</span>
+              </div>
+            } @else if (!searchService.query()) {
+              <div class="search-prompt-state">
+                <mat-icon>find_in_page</mat-icon>
+                <span>Type a query and press Enter to search across all files</span>
+                <span class="shortcut-tip">Shortcut: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></span>
+              </div>
+            } @else {
+              <!-- Results Header -->
+              <div class="search-meta-header">
+                <span class="match-count-summary">
+                  {{ searchService.totalMatches() }} {{ searchService.totalMatches() === 1 ? 'match' : 'matches' }} in {{ searchService.totalFiles() }} {{ searchService.totalFiles() === 1 ? 'file' : 'files' }}
+                </span>
+                <span class="search-duration">({{ searchService.searchDurationMs() }}ms)</span>
+              </div>
+
+              <!-- Results Tree -->
+              <div class="search-results-tree">
+                @for (res of searchService.searchResults(); track res.file) {
+                  <div class="search-file-group">
+                    <div
+                      class="search-file-header"
+                      (click)="searchService.toggleFileCollapse(res.file)"
+                      [class.collapsed]="searchService.collapsedFiles().has(res.file)"
+                    >
+                      <mat-icon class="file-collapse-icon">
+                        {{ searchService.collapsedFiles().has(res.file) ? 'chevron_right' : 'expand_more' }}
+                      </mat-icon>
+                      <mat-icon class="file-type-icon">description</mat-icon>
+                      <span class="file-path-title" [matTooltip]="res.file">{{ res.file }}</span>
+                      <span class="file-match-badge">{{ res.matchCount }}</span>
+                    </div>
+
+                    @if (!searchService.collapsedFiles().has(res.file)) {
+                      <div class="search-matches-list">
+                        @for (match of res.matches; track match.lineNumber + '-' + match.startColumn) {
+                          <div
+                            class="search-match-row"
+                            (click)="navigateToSearchResult(res.file, match.lineNumber, match.startColumn)"
+                            matTooltip="Click to open at line {{ match.lineNumber }}"
+                          >
+                            <span class="match-line-num">{{ match.lineNumber }}</span>
+                            <span class="match-line-preview" [title]="match.lineContent">
+                              {{ match.preview }}
+                            </span>
+                            <button
+                              class="btn-replace-single"
+                              (click)="$event.stopPropagation(); triggerSingleMatchReplace(res.file, match)"
+                              [disabled]="!searchService.replaceText()"
+                              matTooltip="Replace this occurrence"
+                            >
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </section>
+      }
 
       <!-- VIEW 2: PACKAGES -->
       @if (activeSidebarView() === 'packages') {

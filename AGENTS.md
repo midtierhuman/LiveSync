@@ -29,9 +29,30 @@ Every code modification must be reflected across corresponding documentation:
 
 ---
 
-## 📋 MANDATORY RULE: Roadmap-First Development Workflow
-- **Always update the Roadmap before writing code**: Whenever you are about to implement a new feature, fix a bug, optimize performance, or make architectural changes, you **MUST** first add the task to [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md) (in the backlog tracker and active milestone) **before** writing or editing any code.
-- **Update status upon completion**: Once the implementation and testing are verified, update the task status to completed (`✅ Done`) in [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md).
+## 📋 MANDATORY RULE: Roadmap-First & User-Approval Agile Workflow
+
+### 1. Milestone Capacity & Structure Limits
+- Each milestone can contain a maximum of **6 total tasks** (regardless of task category: Features `FEAT`, Bug Fixes `BUG`, Performance Optimizations `PERF`, or Architecture `ARCH`).
+- Once the active milestone reaches 6 total tasks, you **MUST** create a new milestone (e.g., `Milestone N+1`) and place subsequent tasks there.
+
+### 2. Standardized Task Proposal & User Approval
+- **Always update the Roadmap before writing code**: Whenever you are about to implement a new feature, fix a bug, optimize performance, or make architectural changes, you **MUST** first add the task to [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md) (in the backlog tracker and active milestone).
+- **Do NOT start implementing code immediately after adding the task**: You **MUST** first present the proposed plan to the user using the standardized format:
+  - **Task ID & Title**: (e.g., `FEAT-08: Workspace-Wide Multi-File Search`)
+  - **Target Milestone**: (e.g., `Milestone 12`)
+  - **Affected Microservices**: (e.g., `livesync-ui`, `livesync-gateway`)
+  - **Acceptance Criteria**: Concrete Given-When-Then behavioral expectations.
+  - **Execution Plan**: Step-by-step implementation summary.
+- Wait for the user's explicit confirmation/agreement before writing or editing any codebase files.
+
+### 3. Definition of Done (DoD) & Milestone Release Gate
+- A task is ONLY marked as completed (`✅ Done`) in [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md) when:
+  1. All target service test suites pass cleanly.
+  2. Production bundle builds succeed (`npm run build`, `go build`, etc.).
+  3. All documentation in [`docs/`](./docs/DOCS_INDEX.md) and [`README.md`](./README.md) is synchronized.
+- When an active milestone reaches **6/6 tasks completed (`✅ Done`)**:
+  - Run the full verification matrix across all 5 polyglot microservices.
+  - Mark the milestone as `COMPLETED ✅` and transition the next milestone to `ACTIVE 🔄`.
 
 ---
 

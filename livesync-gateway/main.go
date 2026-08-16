@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -32,6 +33,26 @@ func main() {
 	termHandler := handlers.NewTerminalHandler(cfg)
 	pkgHandler := handlers.NewPackagesHandler(cfg)
 	wsSyncHandler := handlers.NewWorkspaceSyncHandler(cfg)
+	wsSearchHandler := handlers.NewWorkspaceSearchHandler(cfg)
+
+	workspaceDispatcher := func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/workspaces")
+		path = strings.TrimPrefix(path, "/")
+		parts := strings.Split(path, "/")
+
+		if len(parts) > 0 {
+			lastPart := parts[len(parts)-1]
+			if lastPart == "search" || parts[0] == "search" {
+				wsSearchHandler.HandleSearch(w, r)
+				return
+			}
+			if lastPart == "replace" || parts[0] == "replace" {
+				wsSearchHandler.HandleReplace(w, r)
+				return
+			}
+		}
+		wsSyncHandler.HandleWorkspaceSync(w, r)
+	}
 
 	// Routes
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +65,7 @@ func main() {
 	mux.HandleFunc("/api/ai/analyze", middleware.JWTAuth(cfg, aiHandler.AnalyzeCode))
 	mux.HandleFunc("/api/ai/models", middleware.JWTAuth(cfg, aiHandler.ListModels))
 	mux.HandleFunc("/api/packages/", middleware.JWTAuth(cfg, pkgHandler.SearchPackages))
-	mux.HandleFunc("/api/workspaces/", middleware.JWTAuth(cfg, wsSyncHandler.HandleWorkspaceSync))
+	mux.HandleFunc("/api/workspaces/", middleware.JWTAuth(cfg, workspaceDispatcher))
 	mux.HandleFunc("/api/terminal/ws", middleware.JWTAuth(cfg, termHandler.ServeWS))
 
 	handler := middleware.CORS(cfg, mux)

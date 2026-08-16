@@ -14,8 +14,18 @@ describe('Editor', () => {
   let fixture: ComponentFixture<Editor>;
 
   beforeEach(async () => {
+    const docState = {
+      contentUpdate: signal<any>(null),
+      cursorUpdate: signal<any>(null),
+      activeCollaborators: signal<any[]>([]),
+      comments: signal<any[]>([]),
+      activeUserCount: signal(0),
+      userJoined: signal(''),
+      userLeft: signal(''),
+    };
+
     const realtimeStub = {
-      contentUpdate: signal(''),
+      contentUpdate: signal<string | null>(null),
       cursorUpdate: signal(null),
       activeCollaborators: signal([]),
       followedUserId: signal(null),
@@ -28,6 +38,8 @@ describe('Editor', () => {
       joinDocument: jasmine.createSpy().and.resolveTo(),
       leaveDocument: jasmine.createSpy().and.resolveTo(),
       sendUpdate: jasmine.createSpy().and.resolveTo(),
+      setCurrentDocumentId: jasmine.createSpy(),
+      getOrCreateDocumentState: jasmine.createSpy().and.returnValue(docState),
       addContentUpdateListener: jasmine.createSpy(),
       addUserJoinedListener: jasmine.createSpy(),
       addUserLeftListener: jasmine.createSpy(),
@@ -54,6 +66,7 @@ describe('Editor', () => {
 
     const authStub = {
       token: signal('test-token'),
+      user: signal({ username: 'testuser' }),
     };
 
     await TestBed.configureTestingModule({
@@ -75,6 +88,16 @@ describe('Editor', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should update codeSignal and editor when an empty string document update is received', () => {
+    component.docId.set('test-doc');
+    component.codeSignal.set('initial code');
+    const docState = TestBed.inject(RealtimeService).getOrCreateDocumentState('test-doc');
+    docState.contentUpdate.set({ content: '', timestamp: Date.now() });
+    TestBed.flushEffects();
+
+    expect(component.codeSignal()).toBe('');
   });
 });
 

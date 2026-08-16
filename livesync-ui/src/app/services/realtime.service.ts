@@ -45,10 +45,15 @@ export interface WorkspaceChangeEvent {
   timestamp?: number;
 }
 
+export interface DocumentContentUpdate {
+  content: string;
+  timestamp: number;
+}
+
 export interface DocumentRealtimeState {
   documentId: string;
   subscribers: number;
-  contentUpdate: WritableSignal<string>;
+  contentUpdate: WritableSignal<DocumentContentUpdate | null>;
   activeUserCount: WritableSignal<number>;
   userJoined: WritableSignal<string>;
   userLeft: WritableSignal<string>;
@@ -77,7 +82,7 @@ export class RealtimeService {
   // Computed signals backing active document for backward compatibility with component templates
   readonly contentUpdate = computed(() => {
     const docId = this.currentDocumentId();
-    return docId ? (this.documentStates.get(docId)?.contentUpdate() ?? '') : '';
+    return docId ? (this.documentStates.get(docId)?.contentUpdate()?.content ?? '') : '';
   });
 
   readonly userJoined = computed(() => {
@@ -164,14 +169,14 @@ export class RealtimeService {
 
       if (typeof arg1 === 'object' && arg1 !== null) {
         docId = arg1.documentId || arg1.fileId || docId;
-        content = arg1.content ?? '';
+        content = arg1.content !== undefined && arg1.content !== null ? String(arg1.content) : '';
       } else {
-        content = typeof arg1 === 'string' ? arg1 : (arg2 ?? '');
+        content = typeof arg1 === 'string' ? arg1 : (arg2 !== undefined && arg2 !== null ? String(arg2) : '');
       }
 
       if (docId) {
         const state = this.getOrCreateDocumentState(docId);
-        state.contentUpdate.set(content);
+        state.contentUpdate.set({ content, timestamp: Date.now() });
       }
     });
 
@@ -302,7 +307,7 @@ export class RealtimeService {
       state = {
         documentId: docId,
         subscribers: 0,
-        contentUpdate: signal<string>(''),
+        contentUpdate: signal<DocumentContentUpdate | null>(null),
         activeUserCount: signal<number>(0),
         userJoined: signal<string>(''),
         userLeft: signal<string>(''),

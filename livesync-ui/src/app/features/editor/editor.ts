@@ -297,10 +297,10 @@ export class Editor implements OnInit {
       const currentDocId = this.docId();
       if (!currentDocId) return;
       const state = this.realtimeService.getOrCreateDocumentState(currentDocId);
-      const newContent = state.contentUpdate();
-      if (newContent) {
-        this.codeSignal.set(newContent);
-        this.updateEditorDocument(newContent);
+      const update = state.contentUpdate();
+      if (update && typeof update.content === 'string') {
+        this.codeSignal.set(update.content);
+        this.updateEditorDocument(update.content);
       }
     });
 
@@ -703,12 +703,18 @@ export class Editor implements OnInit {
   }
 
   scrollToCommentLine(lineNumber: number): void {
+    this.scrollToLine(lineNumber, 0);
+  }
+
+  scrollToLine(lineNumber: number, columnNumber: number = 0): void {
     if (this.editorView && lineNumber > 0 && lineNumber <= this.editorView.state.doc.lines) {
       const line = this.editorView.state.doc.line(lineNumber);
+      const targetPos = Math.min(line.from + Math.max(0, columnNumber), line.to);
       this.editorView.dispatch({
-        selection: { anchor: line.from, head: line.from },
+        selection: { anchor: targetPos, head: targetPos },
         scrollIntoView: true,
       });
+      this.editorView.focus();
     }
   }
 

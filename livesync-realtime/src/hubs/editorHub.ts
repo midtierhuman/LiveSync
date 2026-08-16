@@ -320,10 +320,10 @@ export class EditorHub {
 
     if (typeof arg1 === 'object' && arg1 !== null) {
       documentId = arg1.documentId || arg1.fileId;
-      content = arg1.content;
+      content = arg1.content !== undefined && arg1.content !== null ? String(arg1.content) : '';
     } else {
       documentId = arg1;
-      content = arg2;
+      content = arg2 !== undefined && arg2 !== null ? String(arg2) : '';
     }
 
     try {
