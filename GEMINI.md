@@ -12,20 +12,13 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 
 ## 🚨 MANDATORY RULE: Continuous Documentation & README Synchronization
 
-> **CRITICAL INSTRUCTION**: Whenever you make **ANY** change to the codebase (such as updating endpoints, ports, models, protocols, conflict algorithms, database schemas, dependencies, Docker configurations, or service logic), you **MUST** immediately update the relevant README files and documentation in [`docs/`](./docs/DOCS_INDEX.md).
+> **CRITICAL INSTRUCTION**: Whenever you make **ANY** change to the codebase (such as updating endpoints, ports, models, protocols, conflict algorithms, database schemas, dependencies, Docker configurations, or service logic), you **MUST** immediately update the relevant documentation in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md), and [`README.md`](./README.md).
 
 ### Documentation Maintenance Checklist
 Every code modification must be reflected across corresponding documentation:
 1. **Root [`README.md`](./README.md)**: Keep architecture diagrams, port mappings, microservice registry, and quick-start commands accurate.
-2. **[`docs/DOCS_INDEX.md`](./docs/DOCS_INDEX.md)**: Keep documentation catalog and index descriptions up-to-date.
-3. **[`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md)**: Keep inter-service communication flows, protocols, and port topography synchronized.
-4. **Service & Domain Documentation**:
-   - Updates to Go gateway -> Update [`docs/GO_GATEWAY_SERVICE.md`](./docs/GO_GATEWAY_SERVICE.md).
-   - Updates to Python AI / gRPC -> Update [`docs/AI_INTELLIGENCE_SERVICE.md`](./docs/AI_INTELLIGENCE_SERVICE.md).
-   - Updates to Go API -> Update [`docs/GO_API_SERVICE.md`](./docs/GO_API_SERVICE.md).
-   - Updates to Realtime / Socket.IO / CRDT & OT algorithms -> Update [`docs/REALTIME_COLLABORATION_SERVICE.md`](./docs/REALTIME_COLLABORATION_SERVICE.md).
-   - Updates to Backlog / Tasks / Milestones -> Update [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md).
-5. **[`docs/TESTING_GUIDE.md`](./docs/TESTING_GUIDE.md)**: Keep test and verification commands working and up-to-date.
+2. **[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)**: Master architecture document covering microservices topography, gRPC/WebSocket/REST protocols, mathematical OT/CRDT conflict resolution ($TP_1$), Quota Guard, dependency shields, and competitive analysis.
+3. **[`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md)**: Keep backlog, active milestones, completed task history, and DoD test verification matrix synchronized.
 
 ---
 
@@ -49,7 +42,7 @@ Every code modification must be reflected across corresponding documentation:
 - A task is ONLY marked as completed (`✅ Done`) in [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md) when:
   1. All target service test suites pass cleanly.
   2. Production bundle builds succeed (`npm run build`, `go build`, etc.).
-  3. All documentation in [`docs/`](./docs/DOCS_INDEX.md) and [`README.md`](./README.md) is synchronized.
+  3. All documentation in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md), and [`README.md`](./README.md) is synchronized.
 - When an active milestone reaches **6/6 tasks completed (`✅ Done`)**:
   - Run the full verification matrix across all 5 polyglot microservices.
   - Mark the milestone as `COMPLETED ✅` and transition the next milestone to `ACTIVE 🔄`.

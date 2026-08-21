@@ -156,7 +156,13 @@ func (s *DocumentService) Create(ctx context.Context, userId string, req *models
 	now := time.Now()
 	id := uuid.New().String()
 	title := strings.TrimSpace(req.Title)
+	if err := ValidatePathAndName(title); err != nil {
+		return nil, err
+	}
 	content := req.Content
+	if err := ValidateContentSize(content); err != nil {
+		return nil, err
+	}
 
 	var finalFolderId *string
 	if req.FolderID != nil && strings.TrimSpace(*req.FolderID) != "" {
@@ -172,6 +178,12 @@ func (s *DocumentService) Create(ctx context.Context, userId string, req *models
 			return nil, err
 		}
 		finalFolderId = &defaultFolderId
+	}
+
+	if finalFolderId != nil {
+		if err := ValidateProjectQuotas(ctx, s.db.Pool, *finalFolderId, len([]byte(content)), true); err != nil {
+			return nil, err
+		}
 	}
 
 	query := `
@@ -236,9 +248,22 @@ func (s *DocumentService) Update(ctx context.Context, id, userId string, req *mo
 
 	now := time.Now()
 	if req.Title != nil && strings.TrimSpace(*req.Title) != "" {
-		doc.Title = strings.TrimSpace(*req.Title)
+		newTitle := strings.TrimSpace(*req.Title)
+		if err := ValidatePathAndName(newTitle); err != nil {
+			return nil, err
+		}
+		doc.Title = newTitle
 	}
 	if req.Content != nil {
+		if err := ValidateContentSize(*req.Content); err != nil {
+			return nil, err
+		}
+		diffBytes := len([]byte(*req.Content)) - len([]byte(doc.Content))
+		if diffBytes > 0 && doc.FolderID != nil {
+			if err := ValidateProjectQuotas(ctx, s.db.Pool, *doc.FolderID, diffBytes, false); err != nil {
+				return nil, err
+			}
+		}
 		doc.Content = *req.Content
 	}
 	doc.UpdatedAt = now

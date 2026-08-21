@@ -2248,7 +2248,6 @@ export class Workspace implements OnInit {
     const activeId = this.activeTabId();
     const doc = this.myDocuments().find((d) => d.id === activeId);
     const activeFilePath = doc ? (this.getFileRelativePath(doc) || doc.title) : 'main';
-    const overlays = this.collectDirtyOverlays();
     const projId = this.scopedProject()?.id;
 
     if (!this.isTerminalOpen()) {
@@ -2258,7 +2257,7 @@ export class Workspace implements OnInit {
         void this.runConfigService.runProfile(
           this.runConfigService.selectedProfile(),
           activeFilePath,
-          overlays,
+          undefined,
           projId
         );
       }, 50);
@@ -2267,7 +2266,7 @@ export class Workspace implements OnInit {
       void this.runConfigService.runProfile(
         this.runConfigService.selectedProfile(),
         activeFilePath,
-        overlays,
+        undefined,
         projId
       );
     }

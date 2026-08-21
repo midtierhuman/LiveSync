@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -39,11 +40,18 @@ func (s *FolderService) Create(ctx context.Context, userId string, req *models.C
 	if name == "" {
 		return nil, errors.New("folder name is required")
 	}
+	if IsBlockedDirectoryName(name) {
+		return nil, fmt.Errorf("restricted folder name: '%s' is a dependency/build directory and cannot be created", name)
+	}
 
 	if req.ParentFolderID != nil && strings.TrimSpace(*req.ParentFolderID) != "" {
 		parentAccess, err := s.GetAccessLevel(ctx, *req.ParentFolderID, userId)
 		if err != nil || parentAccess != "Edit" {
 			return nil, errors.New("no edit access to parent folder")
+		}
+		depth, err := GetFolderDepth(ctx, s.db.Pool, *req.ParentFolderID)
+		if err == nil && depth >= MaxFolderDepth {
+			return nil, fmt.Errorf("maximum folder nesting depth of %d exceeded", MaxFolderDepth)
 		}
 	}
 
@@ -280,7 +288,15 @@ func (s *FolderService) Update(ctx context.Context, folderId, userId string, req
 		return nil, errors.New("forbidden")
 	}
 
-	f.Name = strings.TrimSpace(req.Name)
+	newName := strings.TrimSpace(req.Name)
+	if newName == "" {
+		return nil, errors.New("folder name cannot be empty")
+	}
+	if IsBlockedDirectoryName(newName) {
+		return nil, fmt.Errorf("restricted folder name: '%s' is a dependency/build directory and cannot be used", newName)
+	}
+
+	f.Name = newName
 	f.UpdatedAt = time.Now()
 
 	_, err = s.db.Pool.Exec(ctx, `UPDATE "Folders" SET "Name" = $1, "UpdatedAt" = $2 WHERE "Id" = $3;`, f.Name, f.UpdatedAt, folderId)
@@ -321,38 +337,25 @@ func (s *FolderService) Delete(ctx context.Context, folderId, userId string) (bo
 }
 
 func (s *FolderService) deleteContentsRecursively(ctx context.Context, parentFolderId string) {
-	// Find and delete documents in this folder and their shares
-	rows, err := s.db.Pool.Query(ctx, `SELECT "Id" FROM "Documents" WHERE "FolderId" = $1;`, parentFolderId)
+	// Delete documents in this folder
+	_, _ = s.db.Pool.Exec(ctx, `DELETE FROM "Documents" WHERE "FolderId" = $1;`, parentFolderId)
+
+	// Find subfolders
+	rows, err := s.db.Pool.Query(ctx, `SELECT "Id" FROM "Folders" WHERE "ParentFolderId" = $1;`, parentFolderId)
 	if err == nil {
-		var docIds []string
+		var subIds []string
 		for rows.Next() {
-			var dId string
-			_ = rows.Scan(&dId)
-			docIds = append(docIds, dId)
+			var subId string
+			if rows.Scan(&subId) == nil {
+				subIds = append(subIds, subId)
+			}
 		}
 		rows.Close()
 
-		for _, dId := range docIds {
-			_, _ = s.db.Pool.Exec(ctx, `DELETE FROM "SharedDocuments" WHERE "DocumentId" = $1;`, dId)
-			_, _ = s.db.Pool.Exec(ctx, `DELETE FROM "Documents" WHERE "Id" = $1;`, dId)
-		}
-	}
-
-	// Recurse into child folders
-	childRows, err := s.db.Pool.Query(ctx, `SELECT "Id" FROM "Folders" WHERE "ParentFolderId" = $1;`, parentFolderId)
-	if err == nil {
-		var childFolderIds []string
-		for childRows.Next() {
-			var cfId string
-			_ = childRows.Scan(&cfId)
-			childFolderIds = append(childFolderIds, cfId)
-		}
-		childRows.Close()
-
-		for _, cfId := range childFolderIds {
-			_, _ = s.db.Pool.Exec(ctx, `DELETE FROM "SharedFolders" WHERE "FolderId" = $1;`, cfId)
-			s.deleteContentsRecursively(ctx, cfId)
-			_, _ = s.db.Pool.Exec(ctx, `DELETE FROM "Folders" WHERE "Id" = $1;`, cfId)
+		for _, subId := range subIds {
+			s.deleteContentsRecursively(ctx, subId)
+			_, _ = s.db.Pool.Exec(ctx, `DELETE FROM "SharedFolders" WHERE "FolderId" = $1;`, subId)
+			_, _ = s.db.Pool.Exec(ctx, `DELETE FROM "Folders" WHERE "Id" = $1;`, subId)
 		}
 	}
 }
@@ -401,6 +404,11 @@ func (s *FolderService) MoveFolder(ctx context.Context, folderId, userId string,
 		tAccess, err := s.GetAccessLevel(ctx, *targetParentFolderId, userId)
 		if err != nil || tAccess != "Edit" {
 			return false, errors.New("target folder not editable")
+		}
+
+		depth, err := GetFolderDepth(ctx, s.db.Pool, *targetParentFolderId)
+		if err == nil && depth >= MaxFolderDepth {
+			return false, fmt.Errorf("maximum folder nesting depth of %d exceeded", MaxFolderDepth)
 		}
 	}
 

@@ -313,11 +313,14 @@ func SyncWorkspaceAtomicWithRegistry(wsDir string, files map[string]string, lock
 			continue
 		}
 		cleanedRel := filepath.ToSlash(filepath.Clean(relPath))
-		if strings.HasPrefix(cleanedRel, "..") || strings.HasPrefix(cleanedRel, "/") {
+		if strings.HasPrefix(cleanedRel, "..") || strings.HasPrefix(cleanedRel, "/") || isIgnoredPath(cleanedRel) {
 			continue
 		}
 
 		contentBytes := []byte(content)
+		if len(contentBytes) > 256*1024 {
+			continue
+		}
 		contentHash := HashContentBytes(contentBytes)
 		hashes[cleanedRel] = contentHash
 

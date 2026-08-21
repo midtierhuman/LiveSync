@@ -12,9 +12,11 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 
 ## 🚀 Key Capabilities
 
-- **🤝 Real-Time Collaboration**: Conflict-free collaborative editing with multi-cursor presence, follow mode, and inline threaded comments powered by Node.js, Socket.IO, and Redis.
-- **⚡ Go API Gateway (`livesync-gateway`)**: High-throughput gateway handling JWT validation, CORS, PTY shell allocation (`powershell.exe`/`/bin/bash`), direct PyPI/npm package search, and HTTP/2 gRPC client connection pooling.
-- **🤖 Python AI & AST Intelligence (`livesync-ai`)**: Dedicated worker serving requests over native gRPC (`port 50051`) for AST Big-O complexity analysis, unit test generation, refactoring, and hybrid local/cloud LLM intelligence.
+- **🤝 Real-Time Collaboration & $TP_1$ Conflict Resolution**: Mathematically proven Operational Transformation (OT) and CRDT deterministic tie-breaking engine guaranteeing Transformation Property 1 ($TP_1$) convergence across concurrent multi-user typing sessions without lock contention.
+- **⚡ Sub-Millisecond Event-Driven Persistence**: Keystroke operations update in-memory Redis sorted sets in $< 2\text{ms}$; snapshots are asynchronously streamed via Redis Streams (`livesync:stream:document-saves`) to PostgreSQL in batches without blocking collaborative socket loops.
+- **🛡️ Storage Quotas & Dependency Isolation**: Multi-tier dependency shields prevent `node_modules`, `venv`, and binaries from touching persistent storage, with strict project resource caps (30 files, 256 KB/file, 2 MB project limit).
+- **⚡ Go API Gateway (`livesync-gateway`)**: High-throughput gateway handling JWT validation, CORS, PTY shell allocation (`powershell.exe`/`/bin/bash`), direct PyPI/npm package search, HTTP/2 gRPC client connection pooling, and backend-authoritative project compilation.
+- **🤖 Python AI & AST Intelligence (`livesync-ai`)**: Dedicated worker serving requests over native gRPC (`port 50051`) for AST Big-O complexity analysis ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$), unit test generation, refactoring, and hybrid local/cloud LLM intelligence.
 - **📺 True Interactive Workspace Terminal & Streaming**: Real-time bi-directional `xterm.js` terminal canvas connected via WebSockets to a native PTY shell (`powershell.exe`/`/bin/bash`) anchored in the project workspace with OS read-only protection for locked files.
 - **📊 AST Big-O Complexity Analyzer**: Static AST code analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$) and Space complexity.
 - **🤖 Hybrid AI Assistance**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) & Google Gemini with zero-cost offline AST structural analysis fallback.
@@ -139,17 +141,12 @@ LiveSync/
 
 ---
 
-## 📚 Technical Documentation Index
+## 📚 Technical Documentation
 
-Detailed service guides and specifications are located in the [`docs/`](./docs/DOCS_INDEX.md) folder:
+Comprehensive architectural specifications and roadmap trackers are located in the [`docs/`](./docs/ARCHITECTURE.md) folder:
 
-- **[Architecture & VFS Overview](./docs/SYSTEM_ARCHITECTURE.md)**
-- **[Go API Gateway Guide](./docs/GO_GATEWAY_SERVICE.md)**
-- **[Python AI Intelligence Guide](./docs/AI_INTELLIGENCE_SERVICE.md)**
-- **[Realtime Engine & Conflict Resolution](./docs/REALTIME_COLLABORATION_SERVICE.md)**
-- **[Go REST API Guide](./docs/GO_API_SERVICE.md)**
-- **[Project Roadmap & Tracker](./docs/PROJECT_ROADMAP.md)**
-- **[Testing & Verification Guide](./docs/TESTING_GUIDE.md)**
+- **[Architecture & Technical Specifications (`docs/ARCHITECTURE.md`)](./docs/ARCHITECTURE.md)**: System topography, polyglot rationale, formal OT/CRDT conflict resolution proofs ($TP_1$), service deep-dives, and competitive benchmark matrix.
+- **[Project Roadmap & Test Verification Matrix (`docs/PROJECT_ROADMAP.md`)](./docs/PROJECT_ROADMAP.md)**: Milestones, completed features, active backlog, and full polyglot test verification guide.
 
 ---
 

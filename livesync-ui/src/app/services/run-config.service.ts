@@ -277,9 +277,9 @@ export class RunConfigService {
     }
     this.liveTerminalService.switchTab(tabId);
 
-    // 2. Dispatch command and sync files
+    // 2. Dispatch command to live terminal (backend materializes from authoritative store)
     setTimeout(() => {
-      this.liveTerminalService.runCommand(executionCmd, overlayOrSnapshot);
+      this.liveTerminalService.runCommand(executionCmd);
       setTimeout(() => {
         this.isRunning.set(false);
         const duration = Date.now() - execResult.startTime;

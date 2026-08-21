@@ -25,6 +25,12 @@
 
 ## 🗺️ Future Milestones & Planned Work
 
+### **Milestone 18: Backend-Authoritative Compilation, Storage Quotas & Dependency Isolation** (ACTIVE 🔄)
+- [x] **ARCH-13: Backend-Authoritative Project Hydration, Dependency Ingestion Shield & Storage Quota Guard** (`livesync-ui`, `livesync-gateway`, `livesync-api`)
+  - Transition client-side execution from payload-heavy snapshot dumping to pure backend-authoritative project manifest hydration, implement strict multi-tier dependency shields against `node_modules`/binary ingestion to PostgreSQL, and enforce tight project quotas (max 30 files, 256KB per file, 2MB workspace cap).
+
+---
+
 ### **Milestone 16: Enterprise Resilience, End-to-End Stress Testing & Chaos Engineering** (PLANNED 📋)
 - [ ] **ARCH-09: Universal Error Boundary & Polyglot Microservice Health Telemetry** (`livesync-gateway`, `livesync-api`, `livesync-realtime`, `livesync-ai`, `livesync-ui`)
   - RFC 7807 compliant structured JSON error formats across all microservices, graceful UI error boundaries for crash recovery, and unified `/health/readiness` & `/health/liveness` probes.
@@ -256,3 +262,19 @@
 - [x] Static AST Big-O Complexity Analyzer ($\mathcal{O}(\text{Time})$ & $\mathcal{O}(\text{Space})$)
 - [x] Prometheus `/metrics` endpoint & Grafana configurations
 - [x] REST API DTO proxying & Angular Frontend UI Diagnostics Bar
+
+---
+
+## 🧪 Quality Assurance & Test Verification Matrix
+
+Every task and milestone release requires 100% clean test passes and production bundle builds across all 5 polyglot services:
+
+| Service / Subsystem | Test Execution Command | Build Verification Command |
+| :--- | :--- | :--- |
+| **Angular UI (`livesync-ui`)** | `npm test -- --watch=false` | `npm run build` |
+| **Go Core API (`livesync-api`)** | `go test -v ./...` | `go build -v .` |
+| **Go Gateway (`livesync-gateway`)** | `go test ./...` | `go build -v .` |
+| **Node Realtime (`livesync-realtime`)** | `npm test` | `npm run build` |
+| **Python AI (`livesync-ai`)** | `.\venv\Scripts\python -m pytest` | `python -m py_compile app/main.py` |
+| **Docker Full Stack** | `docker compose up --build -d` | `docker compose ps` |
+

@@ -408,8 +408,8 @@ func watchRecursive(watcher *fsnotify.Watcher, rootDir string) {
 }
 
 func isIgnoredDirName(name string) bool {
-	switch strings.ToLower(name) {
-	case "node_modules", ".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".cache", ".tmp", "dist", "build":
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "node_modules", "vendor", ".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".cache", ".tmp", "dist", "build", ".next", ".turbo", ".svn", ".hg", ".idea", ".vscode", ".output", "target", "obj":
 		return true
 	default:
 		return false
@@ -423,6 +423,11 @@ func isIgnoredPath(relPath string) bool {
 		if isIgnoredDirName(p) || (strings.HasPrefix(p, ".") && p != ".") {
 			return true
 		}
+	}
+	ext := strings.ToLower(filepath.Ext(cleaned))
+	switch ext {
+	case ".exe", ".dll", ".so", ".dylib", ".bin", ".wasm", ".zip", ".tar", ".gz", ".tgz", ".7z", ".rar", ".iso", ".img", ".dmg", ".pkg", ".deb", ".rpm", ".pyc", ".pyd", ".pyo", ".o", ".a", ".lib", ".obj":
+		return true
 	}
 	return false
 }
