@@ -27,6 +27,12 @@ func TestE2E_MultiUserExecutionMatrixAndIsolation(t *testing.T) {
 
 	execHandler := NewExecutionHandler(cfg, nil)
 
+	ownerToken := createTestJWT(jwtSecret, "user-owner", "owner", "owner@example.com")
+	editorToken := createTestJWT(jwtSecret, "user-editor", "editor", "editor@example.com")
+	viewerToken := createTestJWT(jwtSecret, "user-viewer", "viewer", "viewer@example.com")
+	hybridToken := createTestJWT(jwtSecret, "user-hybrid", "hybrid", "hybrid@example.com")
+	unauthorizedToken := createTestJWT(jwtSecret, "user-stranger", "stranger", "stranger@example.com")
+
 	// Mock LiveSync API server with multi-user permissions
 	mockAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -63,19 +69,19 @@ func TestE2E_MultiUserExecutionMatrixAndIsolation(t *testing.T) {
 		// Access evaluation endpoint
 		if r.URL.Path == "/api/folders/e2e-project-alpha/access" {
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "Bearer "+createTestJWT(jwtSecret, "user-owner", "owner", "owner@example.com") {
+			if authHeader == "Bearer "+ownerToken {
 				_ = json.NewEncoder(w).Encode(map[string]string{"accessLevel": "Owner"})
 				return
 			}
-			if authHeader == "Bearer "+createTestJWT(jwtSecret, "user-editor", "editor", "editor@example.com") {
+			if authHeader == "Bearer "+editorToken {
 				_ = json.NewEncoder(w).Encode(map[string]string{"accessLevel": "Edit"})
 				return
 			}
-			if authHeader == "Bearer "+createTestJWT(jwtSecret, "user-viewer", "viewer", "viewer@example.com") {
+			if authHeader == "Bearer "+viewerToken {
 				_ = json.NewEncoder(w).Encode(map[string]string{"accessLevel": "View"})
 				return
 			}
-			if authHeader == "Bearer "+createTestJWT(jwtSecret, "user-hybrid", "hybrid", "hybrid@example.com") {
+			if authHeader == "Bearer "+hybridToken {
 				_ = json.NewEncoder(w).Encode(map[string]string{"accessLevel": "View"})
 				return
 			}
@@ -90,12 +96,6 @@ func TestE2E_MultiUserExecutionMatrixAndIsolation(t *testing.T) {
 	cfg.APIBaseURL = mockAPI.URL
 
 	handler := middleware.JWTAuth(cfg, execHandler.RunCode)
-
-	ownerToken := createTestJWT(jwtSecret, "user-owner", "owner", "owner@example.com")
-	editorToken := createTestJWT(jwtSecret, "user-editor", "editor", "editor@example.com")
-	viewerToken := createTestJWT(jwtSecret, "user-viewer", "viewer", "viewer@example.com")
-	hybridToken := createTestJWT(jwtSecret, "user-hybrid", "hybrid", "hybrid@example.com")
-	unauthorizedToken := createTestJWT(jwtSecret, "user-stranger", "stranger", "stranger@example.com")
 
 	// 1. Owner can execute project
 	t.Run("1. Owner Execution Authorized", func(t *testing.T) {

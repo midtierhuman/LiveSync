@@ -15,7 +15,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  - Nginx Gateway:    http://localhost:5038" -ForegroundColor White
     Write-Host "  - Go REST API:      http://localhost:5038/api/ (Internal: 8080)" -ForegroundColor White
     Write-Host "  - Node Realtime:    http://localhost:5038/hubs/ (Internal: 5000)" -ForegroundColor White
-    Write-Host "  - Python Sandbox:   http://localhost:5038/api/execution/ (Internal: 50051)" -ForegroundColor White
+    Write-Host "  - Python AI Engine: http://localhost:5038/api/ai/ (Internal gRPC: 50051)" -ForegroundColor White
     Write-Host "  - Angular Frontend: http://localhost:4000" -ForegroundColor White
     Write-Host ""
     Write-Host "To view logs, run: docker compose logs -f" -ForegroundColor Gray

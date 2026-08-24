@@ -4,10 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "LiveSync Polyglot Sandbox Service"
+    app_name: str = "LiveSync AI Intelligence Service"
     environment: str = "Development"
-    default_timeout_ms: int = 15000
-    max_timeout_ms: int = 120000
 
     # -------------------------------------------------------------------------
     # LOCAL LLM (llama.cpp / OpenAI-compatible Local Server)

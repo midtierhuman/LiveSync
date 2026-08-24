@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    logger.info("Initializing LiveSync Ultra-Light Python & JavaScript Sandbox gRPC Worker...")
+    logger.info("Initializing LiveSync AI Intelligence & AST Streaming gRPC Worker...")
     logger.info(f"Environment: {settings.environment}")
 
     # Start the gRPC server on port 50051
     grpc_port = 50051
     server = serve_grpc(port=grpc_port)
-    logger.info(f"⚡ LiveSync gRPC Sandbox Service running on port {grpc_port}")
+    logger.info(f"⚡ LiveSync gRPC AI Service running on port {grpc_port}")
 
     # Handle graceful termination signals
     def handle_shutdown(signum, frame):
@@ -26,7 +26,7 @@ def main():
         logger.info(f"Received {sig_name}. Gracefully stopping gRPC server...")
         stop_event = server.stop(grace=5)
         stop_event.wait(timeout=5)
-        logger.info("LiveSync gRPC Sandbox Service stopped cleanly.")
+        logger.info("LiveSync gRPC AI Service stopped cleanly.")
         sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_shutdown)

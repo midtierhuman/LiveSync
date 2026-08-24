@@ -12,16 +12,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Create non-root runtime user early to prevent file layer duplication
-RUN useradd --create-home --uid 10001 sandbox
+RUN useradd --create-home --uid 10001 livesync
 
 # Install Python requirements with pip cache mount
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
 # Copy application source code with user ownership directly
-COPY --chown=sandbox:sandbox . .
+COPY --chown=livesync:livesync . .
 
-USER sandbox
+USER livesync
 
 EXPOSE 50051
 

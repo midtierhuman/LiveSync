@@ -81,7 +81,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("⚡ LiveSync Go API Gateway listening on port %s (gRPC target: %s)", cfg.Port, cfg.SandboxGRPCURL)
+		log.Printf("⚡ LiveSync Go API Gateway listening on port %s (gRPC target: %s)", cfg.Port, cfg.AIGRPCURL)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server startup error: %v", err)
 		}

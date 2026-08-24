@@ -205,6 +205,7 @@ graph TD
 - **Gateway SSE Bridge (`/api/ai/stream`)**: Go Gateway ingests the internal gRPC binary stream, applies JWT access verification, and streams Server-Sent Events (SSE) directly to the Angular UI for instant Cursor-style typing animations.
 - **AST Big-O Complexity Analyzer**: Sub-millisecond static abstract syntax tree analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$, $\mathcal{O}(\log N)$) and Space complexity.
 - **Hybrid AI Inference Chain**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) with Google Gemini cloud fallback and zero-cost offline AST structural analysis.
+- **Unconstrained AI Microservice Architecture (`ARCH-14`)**: Cleared legacy sandbox memory limits (512M) and sandbox runtime metadata, optimizing memory throughput for multi-thousand token LLM streaming buffers and complex AST graphs.
 
 ### C. Core REST API & Security (`livesync-api`)
 - **Zero-Trust JWT Cryptographic Authentication**: Validates HMAC-SHA256 tokens with issuer and audience verification across all endpoints.

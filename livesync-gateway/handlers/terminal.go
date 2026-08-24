@@ -122,25 +122,28 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		absWsDir = workspaceDir
 	}
 
-	// Locate shared sandbox virtualenv if present
-	sandboxVenvPath, _ := filepath.Abs("../livesync-sandbox/venv")
-	sandboxScripts := filepath.Join(sandboxVenvPath, "Scripts")
-	if runtime.GOOS != "windows" {
-		sandboxScripts = filepath.Join(sandboxVenvPath, "bin")
+	// Locate shared Python virtualenv if present
+	aiVenvPath, _ := filepath.Abs("../livesync-ai/.venv")
+	if _, statErr := os.Stat(aiVenvPath); statErr != nil {
+		aiVenvPath, _ = filepath.Abs("../livesync-ai/venv")
 	}
-	sandboxSitePackages := filepath.Join(sandboxVenvPath, "Lib", "site-packages")
+	aiScripts := filepath.Join(aiVenvPath, "Scripts")
 	if runtime.GOOS != "windows" {
-		sandboxSitePackages = filepath.Join(sandboxVenvPath, "lib", "python3.14", "site-packages")
+		aiScripts = filepath.Join(aiVenvPath, "bin")
+	}
+	aiSitePackages := filepath.Join(aiVenvPath, "Lib", "site-packages")
+	if runtime.GOOS != "windows" {
+		aiSitePackages = filepath.Join(aiVenvPath, "lib", "python3.14", "site-packages")
 	}
 
 	envPath := os.Getenv("PATH")
-	if _, statErr := os.Stat(sandboxScripts); statErr == nil {
-		envPath = sandboxScripts + string(os.PathListSeparator) + envPath
+	if _, statErr := os.Stat(aiScripts); statErr == nil {
+		envPath = aiScripts + string(os.PathListSeparator) + envPath
 	}
 
 	pythonPath := absWsDir
-	if _, statErr := os.Stat(sandboxSitePackages); statErr == nil {
-		pythonPath = pythonPath + string(os.PathListSeparator) + sandboxSitePackages
+	if _, statErr := os.Stat(aiSitePackages); statErr == nil {
+		pythonPath = pythonPath + string(os.PathListSeparator) + aiSitePackages
 	}
 
 	nodePath := filepath.Join(absWsDir, "node_modules")

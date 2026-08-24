@@ -22,9 +22,6 @@ func NewAIClient(cfg *config.Config) (*AIClient, error) {
 
 	targetURL := cfg.AIGRPCURL
 	if targetURL == "" {
-		targetURL = cfg.SandboxGRPCURL
-	}
-	if targetURL == "" {
 		targetURL = "127.0.0.1:50051"
 	}
 

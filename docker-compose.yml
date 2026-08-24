@@ -82,11 +82,6 @@ services:
     build:
       context: ./livesync-ai
       dockerfile: Dockerfile
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 512M
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
@@ -130,7 +125,6 @@ services:
       - PORT=8081
       - LIVESYNC_API_BASE_URL=http://api:8080
       - LIVESYNC_AI_GRPC_URL=ai:50051
-      - LIVESYNC_SANDBOX_GRPC_URL=ai:50051
       - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8080}
       - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-Qwen2.5-Coder-14B-Instruct-Q4_K_M}
       - LIVESYNC_JWT_SECRET=${LIVESYNC_JWT_SECRET:-LiveSync-Development-Only-Secret-Change-Me!}
@@ -162,7 +156,7 @@ services:
   #   volumes:
   #     - ./livesync-infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
   #   depends_on:
-  #     - sandbox
+  #     - ai
   #
   # grafana:
   #   image: grafana/grafana:latest
