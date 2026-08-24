@@ -8,6 +8,7 @@ import urllib.request
 from typing import Any, Generator, NamedTuple
 from app.config import settings
 from app.services.complexity_analyzer import complexity_analyzer
+from app.services.workspace_client import workspace_client
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,76 @@ class AiChunkResult(NamedTuple):
     is_final: bool
 
 
+WORKSPACE_TOOLS_GEMINI = [
+    {
+        "function_declarations": [
+            {
+                "name": "list_workspace_files",
+                "description": "List all file paths and document IDs in the user workspace/project to explore the file tree.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "workspace_id": {
+                            "type": "STRING",
+                            "description": "The workspace or project ID (optional, defaults to current active project)."
+                        }
+                    }
+                }
+            },
+            {
+                "name": "read_workspace_file",
+                "description": "Fetch the complete source code or contents of a specific file in the workspace by relative path or document ID on demand.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "file_path_or_id": {
+                            "type": "STRING",
+                            "description": "The relative file path (e.g., 'src/main.ts') or document UUID to read."
+                        }
+                    },
+                    "required": ["file_path_or_id"]
+                }
+            }
+        ]
+    }
+]
+
+WORKSPACE_TOOLS_OPENAI = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_workspace_files",
+            "description": "List all file paths and document IDs in the user workspace/project to explore the file tree.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string", "description": "The workspace or project ID."}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_workspace_file",
+            "description": "Fetch the complete source code or contents of a specific file in the workspace by relative path or document ID on demand.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path_or_id": {"type": "string", "description": "The relative file path or document ID."}
+                },
+                "required": ["file_path_or_id"]
+            }
+        }
+    }
+]
+
+
 class AiAssistantService:
     """
     Universal High-Performance AI Assistant & Structural Streaming Engine.
-    Supports real-time token streaming via Google Gemini API (streamGenerateContent),
+    Supports real-time token streaming via Google Gemini API (streamGenerateContent)
+    with on-demand workspace Tool/Function Calling against livesync-api,
     Local OpenAI-compatible LLMs (llama.cpp / Ollama / vLLM with SSE streaming),
     and sub-millisecond offline AST Big-O Complexity & Code Structure Analysis.
     """
@@ -50,6 +117,8 @@ class AiAssistantService:
         model: str | None = None,
         project_files: list[Any] | None = None,
         provider: str | None = None,
+        project_id: str | None = None,
+        user_token: str | None = None,
     ) -> Generator[AiChunkResult, None, None]:
         lang = (language or "python").lower().strip()
         act = (action or "explain").lower().strip()
@@ -74,7 +143,16 @@ class AiAssistantService:
 
         if prefer_gemini and (settings.enable_gemini_fallback or user_api_key) and api_key:
             gemini_stream = self._stream_gemini_api(
-                act, lang, code, api_key, custom_prompt, model=model, project_files=project_files, is_antigravity=bool(user_api_key or provider == "antigravity")
+                act,
+                lang,
+                code,
+                api_key,
+                custom_prompt,
+                model=model,
+                project_files=project_files,
+                is_antigravity=bool(user_api_key or provider == "antigravity"),
+                project_id=project_id,
+                user_token=user_token,
             )
             has_yielded = False
             for chunk in gemini_stream:
@@ -85,7 +163,16 @@ class AiAssistantService:
 
         # 3. Secondary Provider: Local LLM with SSE token streaming
         if getattr(settings, "enable_local_llm_fallback", True):
-            local_stream = self._stream_local_llm_api(act, lang, code, custom_prompt, model=model, project_files=project_files)
+            local_stream = self._stream_local_llm_api(
+                act,
+                lang,
+                code,
+                custom_prompt,
+                model=model,
+                project_files=project_files,
+                project_id=project_id,
+                user_token=user_token,
+            )
             has_yielded = False
             for chunk in local_stream:
                 has_yielded = True
@@ -96,7 +183,16 @@ class AiAssistantService:
         # 4. Fallback Gemini Call (if Local LLM was tried first)
         if not prefer_gemini and (settings.enable_gemini_fallback or user_api_key) and api_key:
             gemini_stream = self._stream_gemini_api(
-                act, lang, code, api_key, custom_prompt, model=model, project_files=project_files, is_antigravity=bool(user_api_key or provider == "antigravity")
+                act,
+                lang,
+                code,
+                api_key,
+                custom_prompt,
+                model=model,
+                project_files=project_files,
+                is_antigravity=bool(user_api_key or provider == "antigravity"),
+                project_id=project_id,
+                user_token=user_token,
             )
             has_yielded = False
             for chunk in gemini_stream:
@@ -135,6 +231,8 @@ class AiAssistantService:
         model: str | None = None,
         project_files: list[Any] | None = None,
         provider: str | None = None,
+        project_id: str | None = None,
+        user_token: str | None = None,
     ) -> AiAnalysisResult:
         """Unary request wrapper over the streaming engine for backward compatibility."""
         accumulated_text = ""
@@ -151,11 +249,13 @@ class AiAssistantService:
             model=model,
             project_files=project_files,
             provider=provider,
+            project_id=project_id,
+            user_token=user_token,
         ):
             if chunk.delta:
                 accumulated_text += chunk.delta
             if chunk.provider:
-                provider = chunk.provider
+                res_provider = chunk.provider
             if chunk.suggestions:
                 suggestions = chunk.suggestions
             if chunk.generated_code:
@@ -173,8 +273,67 @@ class AiAssistantService:
             explanation=accumulated_text or "AI analysis complete.",
             suggestions=suggestions,
             generated_code=generated_code,
-            provider=provider,
+            provider=res_provider,
         )
+
+    def _execute_workspace_tool(
+        self,
+        name: str,
+        args: dict[str, Any],
+        project_id: str | None = None,
+        user_token: str | None = None,
+        project_files: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        target_pid = args.get("workspace_id") or project_id
+        if name == "list_workspace_files":
+            if target_pid and user_token:
+                manifest_files = workspace_client.fetch_workspace_manifest(target_pid, user_token)
+                if manifest_files:
+                    file_list = [
+                        {
+                            "path": f.get("path") or f.get("title", ""),
+                            "documentId": f.get("documentId", ""),
+                            "isLocked": f.get("isLocked", False),
+                        }
+                        for f in manifest_files
+                    ]
+                    return {"files": file_list, "total": len(file_list)}
+            if project_files:
+                file_list = [
+                    {"path": pf.get("path") if isinstance(pf, dict) else getattr(pf, "path", "")}
+                    for pf in project_files
+                ]
+                return {"files": file_list, "total": len(file_list)}
+            return {"files": [], "message": "No workspace files found or not in project context."}
+
+        elif name == "read_workspace_file":
+            target = str(args.get("file_path_or_id", "")).strip()
+            # 1. Check in-memory snapshot if passed
+            if project_files:
+                for pf in project_files:
+                    p_path = pf.get("path") if isinstance(pf, dict) else getattr(pf, "path", "")
+                    p_content = pf.get("content") if isinstance(pf, dict) else getattr(pf, "content", "")
+                    if target and (target == p_path or target in p_path or (p_path and p_path.endswith(target))):
+                        return {"path": p_path, "content": p_content}
+
+            # 2. Query livesync-api via manifest or document endpoint
+            if target_pid and user_token:
+                manifest_files = workspace_client.fetch_workspace_manifest(target_pid, user_token)
+                for f in manifest_files:
+                    f_path = f.get("path") or f.get("title", "")
+                    f_id = f.get("documentId", "")
+                    if target in (f_path, f_id) or (f_path and target in f_path) or (f_path and f_path.endswith(target)):
+                        content = f.get("content")
+                        if content is not None:
+                            return {"path": f_path, "content": content}
+                        if f_id:
+                            doc = workspace_client.fetch_document_content(f_id, user_token)
+                            if doc:
+                                return {"path": f_path, "content": doc.get("content", "")}
+
+            return {"error": f"File '{target}' not found in workspace."}
+
+        return {"error": f"Unknown tool function: {name}"}
 
     def _build_user_instruction(self, action: str, custom_prompt: str | None) -> str:
         action_descriptions = {
@@ -205,6 +364,8 @@ class AiAssistantService:
         model: str | None = None,
         project_files: list[Any] | None = None,
         is_antigravity: bool = False,
+        project_id: str | None = None,
+        user_token: str | None = None,
     ) -> Generator[AiChunkResult, None, None]:
         models = list(settings.gemini_models)
         if model and model not in models:
@@ -217,7 +378,7 @@ class AiAssistantService:
 
         project_context = ""
         if project_files:
-            project_context = "\n\nWHOLE-PROJECT WORKSPACE CONTEXT:\n"
+            project_context = "\n\nIN-MEMORY WORKSPACE CONTEXT:\n"
             for pf in project_files:
                 p_path = pf.get("path") if isinstance(pf, dict) else getattr(pf, "path", "")
                 p_content = pf.get("content") if isinstance(pf, dict) else getattr(pf, "content", "")
@@ -234,114 +395,175 @@ Active File Code Context:
 {project_context}
 CRITICAL INSTRUCTIONS:
 1. Be direct, focused, and pinpoint. Do NOT include generic pleasantries or conversational filler.
-2. Provide a crisp, structured markdown breakdown with bullet points.
-3. If writing or modifying code, provide complete, production-ready code blocks.
-4. When whole-project files are provided, leverage imports, dependencies, and cross-file references to answer accurately.
+2. If you need to inspect other files in the workspace, use your `list_workspace_files` or `read_workspace_file` tools.
+3. Provide a crisp, structured markdown breakdown with bullet points.
+4. If writing or modifying code, provide complete, production-ready code blocks.
 5. Conclude with 1-3 actionable improvement suggestions."""
-
-        payload = json.dumps({
-            "contents": [{"parts": [{"text": prompt_text}]}],
-            "generationConfig": {
-                "maxOutputTokens": 4096,
-                "temperature": 0.2,
-            },
-        }).encode("utf-8")
 
         base_url = settings.gemini_base_url.rstrip("/")
 
         for m in models:
-            url = f"{base_url}/{m}:streamGenerateContent?key={api_key}&alt=sse"
-            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
             provider_prefix = "Google Antigravity" if is_antigravity else "Google Gemini"
             provider_name = f"{provider_prefix} ({m})"
 
-            try:
-                with urllib.request.urlopen(req, timeout=35) as resp:
-                    yield AiChunkResult(
-                        delta="",
-                        stage="analyzing",
-                        action=action,
-                        language=language,
-                        provider=provider_name,
-                        suggestions=[],
-                        generated_code=None,
-                        is_final=False,
-                    )
+            # Try request with tool calling first, fallback to standard if tools not supported on model
+            use_tools = bool(project_id or user_token or project_files)
+            for attempt_tools in ([True, False] if use_tools else [False]):
+                contents: list[dict[str, Any]] = [
+                    {"role": "user", "parts": [{"text": prompt_text}]}
+                ]
+                tool_iterations = 0
+                max_tool_iterations = 3
+                executed_successfully = False
 
-                    accumulated_text = ""
-                    raw_lines = []
+                while tool_iterations <= max_tool_iterations:
+                    payload_dict: dict[str, Any] = {
+                        "contents": contents,
+                        "generationConfig": {
+                            "maxOutputTokens": 4096,
+                            "temperature": 0.2,
+                        },
+                    }
+                    if attempt_tools:
+                        payload_dict["tools"] = WORKSPACE_TOOLS_GEMINI
+
+                    payload = json.dumps(payload_dict).encode("utf-8")
+                    url = f"{base_url}/{m}:streamGenerateContent?key={api_key}&alt=sse"
+                    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+
                     try:
-                        for line in resp:
-                            raw_lines.append(line)
-                    except Exception:
-                        pass
+                        with urllib.request.urlopen(req, timeout=35) as resp:
+                            if tool_iterations == 0:
+                                yield AiChunkResult(
+                                    delta="",
+                                    stage="analyzing",
+                                    action=action,
+                                    language=language,
+                                    provider=provider_name,
+                                    suggestions=[],
+                                    generated_code=None,
+                                    is_final=False,
+                                )
 
-                    if not raw_lines and hasattr(resp, "read"):
-                        try:
-                            content_bytes = resp.read()
-                            if content_bytes:
-                                raw_lines = content_bytes.splitlines()
-                        except Exception:
-                            pass
+                            accumulated_text = ""
+                            raw_lines = []
+                            try:
+                                for line in resp:
+                                    raw_lines.append(line)
+                            except Exception:
+                                pass
 
-                    for raw_line in raw_lines:
-                        if isinstance(raw_line, (bytes, bytearray)):
-                            line = raw_line.decode("utf-8", errors="replace").strip()
-                        else:
-                            line = str(raw_line).strip()
+                            if not raw_lines and hasattr(resp, "read"):
+                                try:
+                                    content_bytes = resp.read()
+                                    if content_bytes:
+                                        raw_lines = content_bytes.splitlines()
+                                except Exception:
+                                    pass
 
-                        if not line:
-                            continue
+                            function_call_detected: dict[str, Any] | None = None
 
-                        if line.startswith("data:"):
-                            json_str = line[5:].strip()
-                            if not json_str:
-                                continue
-                        else:
-                            json_str = line
+                            for raw_line in raw_lines:
+                                if isinstance(raw_line, (bytes, bytearray)):
+                                    line = raw_line.decode("utf-8", errors="replace").strip()
+                                else:
+                                    line = str(raw_line).strip()
 
-                        try:
-                            chunk_data = json.loads(json_str)
-                            candidates = chunk_data.get("candidates", [])
-                            if candidates:
-                                parts = candidates[0].get("content", {}).get("parts", [])
-                                for part in parts:
-                                    text = part.get("text", "")
-                                    if text:
-                                        accumulated_text += text
-                                        yield AiChunkResult(
-                                            delta=text,
-                                            stage="streaming",
-                                            action=action,
-                                            language=language,
-                                            provider=provider_name,
-                                            suggestions=[],
-                                            generated_code=None,
-                                            is_final=False,
-                                        )
-                        except Exception:
-                            continue
+                                if not line:
+                                    continue
 
-                    if accumulated_text:
-                        code_extracted = self._extract_code_blocks(accumulated_text)
-                        suggestions = self._extract_suggestions(accumulated_text)
-                        yield AiChunkResult(
-                            delta="",
-                            stage="complete",
-                            action=action,
-                            language=language,
-                            provider=provider_name,
-                            suggestions=suggestions,
-                            generated_code=code_extracted,
-                            is_final=True,
-                        )
-                        return
-            except urllib.error.HTTPError as http_err:
-                logger.warning(f"Gemini streaming error HTTP {http_err.code} ({m}): {http_err.reason}")
-                continue
-            except Exception as ex:
-                logger.warning(f"Gemini streaming connection error ({m}): {ex}")
-                continue
+                                if line.startswith("data:"):
+                                    json_str = line[5:].strip()
+                                    if not json_str:
+                                        continue
+                                else:
+                                    json_str = line
+
+                                try:
+                                    chunk_data = json.loads(json_str)
+                                    candidates = chunk_data.get("candidates", [])
+                                    if candidates:
+                                        parts = candidates[0].get("content", {}).get("parts", [])
+                                        for part in parts:
+                                            # Check for tool / function call
+                                            if "functionCall" in part:
+                                                function_call_detected = part["functionCall"]
+                                                break
+                                            text = part.get("text", "")
+                                            if text:
+                                                accumulated_text += text
+                                                yield AiChunkResult(
+                                                    delta=text,
+                                                    stage="streaming",
+                                                    action=action,
+                                                    language=language,
+                                                    provider=provider_name,
+                                                    suggestions=[],
+                                                    generated_code=None,
+                                                    is_final=False,
+                                                )
+                                except Exception:
+                                    continue
+
+                            if function_call_detected:
+                                tool_iterations += 1
+                                fn_name = function_call_detected.get("name", "")
+                                fn_args = function_call_detected.get("args", {})
+                                yield AiChunkResult(
+                                    delta=f"\n🔍 *AI dynamic workspace query (`{fn_name}`)...*\n\n",
+                                    stage="analyzing",
+                                    action=action,
+                                    language=language,
+                                    provider=provider_name,
+                                    suggestions=[],
+                                    generated_code=None,
+                                    is_final=False,
+                                )
+
+                                tool_res = self._execute_workspace_tool(
+                                    fn_name, fn_args, project_id=project_id, user_token=user_token, project_files=project_files
+                                )
+
+                                contents.append({
+                                    "role": "model",
+                                    "parts": [{"functionCall": function_call_detected}]
+                                })
+                                contents.append({
+                                    "role": "user",
+                                    "parts": [{
+                                        "functionResponse": {
+                                            "name": fn_name,
+                                            "response": {"result": tool_res}
+                                        }
+                                    }]
+                                })
+                                continue  # Next turn in tool calling loop
+
+                            if accumulated_text:
+                                code_extracted = self._extract_code_blocks(accumulated_text)
+                                suggestions = self._extract_suggestions(accumulated_text)
+                                yield AiChunkResult(
+                                    delta="",
+                                    stage="complete",
+                                    action=action,
+                                    language=language,
+                                    provider=provider_name,
+                                    suggestions=suggestions,
+                                    generated_code=code_extracted,
+                                    is_final=True,
+                                )
+                                executed_successfully = True
+                                break
+
+                    except urllib.error.HTTPError as http_err:
+                        logger.warning(f"Gemini streaming error HTTP {http_err.code} ({m}): {http_err.reason}")
+                        break
+                    except Exception as ex:
+                        logger.warning(f"Gemini streaming connection error ({m}): {ex}")
+                        break
+
+                if executed_successfully:
+                    return
 
     def _stream_local_llm_api(
         self,
@@ -351,6 +573,8 @@ CRITICAL INSTRUCTIONS:
         custom_prompt: str | None = None,
         model: str | None = None,
         project_files: list[Any] | None = None,
+        project_id: str | None = None,
+        user_token: str | None = None,
     ) -> Generator[AiChunkResult, None, None]:
         urls_to_try = [
             (settings.local_llm_url or "http://127.0.0.1:8080").rstrip("/"),
@@ -365,7 +589,7 @@ CRITICAL INSTRUCTIONS:
 
         project_context = ""
         if project_files:
-            project_context = "\n\nWHOLE-PROJECT WORKSPACE CONTEXT:\n"
+            project_context = "\n\nIN-MEMORY WORKSPACE CONTEXT:\n"
             for pf in project_files:
                 p_path = pf.get("path") if isinstance(pf, dict) else getattr(pf, "path", "")
                 p_content = pf.get("content") if isinstance(pf, dict) else getattr(pf, "content", "")
@@ -384,28 +608,32 @@ CRITICAL INSTRUCTIONS:
 1. Be direct, focused, and pinpoint without generic conversational filler.
 2. Provide a crisp, structured markdown breakdown with bullet points.
 3. If writing code, provide complete, production-ready code blocks.
-4. When whole-project files are provided, leverage imports, dependencies, and cross-file references to answer accurately.
-5. Conclude with 1-3 actionable suggestions."""
+4. Conclude with 1-3 actionable suggestions."""
 
-        base_payload = {
-            "messages": [
-                {"role": "system", "content": "You are a concise, pinpoint AI coding assistant."},
-                {"role": "user", "content": prompt_text},
-            ],
-            "model": target_model,
-            "temperature": 0.2,
-            "top_p": 0.95,
-            "max_tokens": 4096,
-            "stream": True,
-        }
+        messages = [
+            {"role": "system", "content": "You are a concise, pinpoint AI coding assistant."},
+            {"role": "user", "content": prompt_text},
+        ]
 
         endpoint_path = settings.local_llm_chat_endpoint or "/v1/chat/completions"
 
         for base_url in urls_to_try:
             endpoint = f"{base_url}{endpoint_path}"
+            provider_name = f"Local LLM ({target_model})"
+
+            base_payload: dict[str, Any] = {
+                "messages": messages,
+                "model": target_model,
+                "temperature": 0.2,
+                "top_p": 0.95,
+                "max_tokens": 4096,
+                "stream": True,
+            }
+            if project_id or user_token or project_files:
+                base_payload["tools"] = WORKSPACE_TOOLS_OPENAI
+
             payload_bytes = json.dumps(base_payload).encode("utf-8")
             req = urllib.request.Request(endpoint, data=payload_bytes, headers={"Content-Type": "application/json"})
-            provider_name = f"Local LLM ({target_model})"
 
             try:
                 with urllib.request.urlopen(req, timeout=20) as resp:
@@ -678,5 +906,3 @@ if __name__ == '__main__':
 
 
 ai_assistant_service = AiAssistantService()
-
-

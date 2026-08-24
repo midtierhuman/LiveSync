@@ -216,6 +216,7 @@ type AiAnalysisRequest struct {
 	ProjectId     string                 `protobuf:"bytes,7,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	ProjectFiles  []*ProjectFile         `protobuf:"bytes,8,rep,name=project_files,json=projectFiles,proto3" json:"project_files,omitempty"`
 	Provider      string                 `protobuf:"bytes,9,opt,name=provider,proto3" json:"provider,omitempty"`
+	UserToken     string                 `protobuf:"bytes,10,opt,name=user_token,json=userToken,proto3" json:"user_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -309,6 +310,13 @@ func (x *AiAnalysisRequest) GetProjectFiles() []*ProjectFile {
 func (x *AiAnalysisRequest) GetProvider() string {
 	if x != nil {
 		return x.Provider
+	}
+	return ""
+}
+
+func (x *AiAnalysisRequest) GetUserToken() string {
+	if x != nil {
+		return x.UserToken
 	}
 	return ""
 }
@@ -510,7 +518,7 @@ const file_ai_proto_rawDesc = "" +
 	"\tlanguages\x18\x01 \x03(\v2\x16.ai.LanguageDescriptorR\tlanguages\";\n" +
 	"\vProjectFile\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"\x9c\x02\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"\xbb\x02\n" +
 	"\x11AiAnalysisRequest\x12\x16\n" +
 	"\x06action\x18\x01 \x01(\tR\x06action\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x12\n" +
@@ -522,7 +530,10 @@ const file_ai_proto_rawDesc = "" +
 	"\n" +
 	"project_id\x18\a \x01(\tR\tprojectId\x124\n" +
 	"\rproject_files\x18\b \x03(\v2\x0f.ai.ProjectFileR\fprojectFiles\x12\x1a\n" +
-	"\bprovider\x18\t \x01(\tR\bprovider\"\xcf\x01\n" +
+	"\bprovider\x18\t \x01(\tR\bprovider\x12\x1d\n" +
+	"\n" +
+	"user_token\x18\n" +
+	" \x01(\tR\tuserToken\"\xcf\x01\n" +
 	"\x12AiAnalysisResponse\x12\x16\n" +
 	"\x06action\x18\x01 \x01(\tR\x06action\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12 \n" +

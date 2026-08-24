@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/livesync/livesync-gateway/config"
+	"github.com/livesync/livesync-gateway/middleware"
 	"github.com/livesync/livesync-gateway/pb"
 )
 
@@ -72,6 +74,15 @@ func (h *AIHandler) AnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		apiKey = r.Header.Get("X-Antigravity-Key")
 	}
 
+	userToken := middleware.GetUserToken(r.Context())
+	if userToken == "" {
+		if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+			userToken = strings.TrimPrefix(authHeader, "Bearer ")
+		} else if queryToken := r.URL.Query().Get("token"); queryToken != "" {
+			userToken = queryToken
+		}
+	}
+
 	var pbFiles []*pb.ProjectFile
 	for _, pf := range reqPayload.ProjectFiles {
 		if pf.Path != "" {
@@ -95,9 +106,15 @@ func (h *AIHandler) AnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		ProjectId:    reqPayload.ProjectID,
 		ProjectFiles: pbFiles,
 		Provider:     reqPayload.Provider,
+		UserToken:    userToken,
 	})
 	if err != nil {
-		http.Error(w, `{"error":"gRPC AI worker error: `+err.Error()+`"}`, http.StatusBadGateway)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "gRPC AI worker error: " + err.Error(),
+			"code":  "BAD_GATEWAY",
+		})
 		return
 	}
 
@@ -121,7 +138,11 @@ func (h *AIHandler) AnalyzeCode(w http.ResponseWriter, r *http.Request) {
 func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, `{"error":"Streaming unsupported by response writer"}`, http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Streaming unsupported by response writer",
+		})
 		return
 	}
 
@@ -150,6 +171,15 @@ func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		apiKey = r.Header.Get("X-Antigravity-Key")
 	}
 
+	userToken := middleware.GetUserToken(r.Context())
+	if userToken == "" {
+		if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+			userToken = strings.TrimPrefix(authHeader, "Bearer ")
+		} else if queryToken := r.URL.Query().Get("token"); queryToken != "" {
+			userToken = queryToken
+		}
+	}
+
 	if reqPayload.Action == "" {
 		reqPayload.Action = "explain"
 	}
@@ -167,13 +197,6 @@ func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
-
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
@@ -187,8 +210,14 @@ func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		ProjectId:    reqPayload.ProjectID,
 		ProjectFiles: pbFiles,
 		Provider:     reqPayload.Provider,
+		UserToken:    userToken,
 	})
 	if err != nil {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no")
+		w.WriteHeader(http.StatusOK)
 		errChunk := map[string]interface{}{
 			"delta":    "⚠️ Failed to connect to AI gRPC stream: " + err.Error(),
 			"stage":    "error",
@@ -200,6 +229,13 @@ func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 		return
 	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
 
 	for {
 		chunk, err := grpcStream.Recv()

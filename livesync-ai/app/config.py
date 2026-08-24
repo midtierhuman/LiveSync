@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     local_llm_url: str = "http://127.0.0.1:8080"
     local_llm_chat_endpoint: str = "/v1/chat/completions"
+    api_base_url: str = "http://127.0.0.1:8080"
 
     # Registered Local Models List
     local_llm_models: list[str] = [

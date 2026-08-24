@@ -32,6 +32,8 @@ class AIServiceServicer(ai_pb2_grpc.AIServiceServicer):
             model=request.model if request.model else None,
             project_files=project_files,
             provider=request.provider if request.provider else None,
+            project_id=request.project_id if request.project_id else None,
+            user_token=request.user_token if request.user_token else None,
         )
         return ai_pb2.AiAnalysisResponse(
             action=res.action,
@@ -57,6 +59,8 @@ class AIServiceServicer(ai_pb2_grpc.AIServiceServicer):
             model=request.model if request.model else None,
             project_files=project_files,
             provider=request.provider if request.provider else None,
+            project_id=request.project_id if request.project_id else None,
+            user_token=request.user_token if request.user_token else None,
         ):
             yield ai_pb2.AiAnalysisChunk(
                 delta=chunk.delta,

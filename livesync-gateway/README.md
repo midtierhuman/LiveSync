@@ -17,9 +17,10 @@ High-performance, zero-trust API Gateway, interactive PTY Live Terminal engine, 
    - Watches workspace disk trees and pushes real-time `fs_change` JSON events over WebSocket whenever terminal commands (`mkdir`, `touch`, `npm create vite`) modify files, synchronizing the UI Explorer instantly without polling.
    - Built-in hash-based self-change suppression registry to decouple server-side atomic sync from raw terminal output.
 
-3. **Universal AI Streaming Proxy (`/api/ai/stream`), BYO-Auth Bridge (`FEAT-14`) & CORS Preflight (`SEC-07`)**:
+3. **Universal AI Streaming Proxy (`/api/ai/stream`), gRPC Connection Handshake & Auth Forwarding (`ARCH-16`)**:
    - Ingests binary gRPC streams from `livesync-ai` over HTTP/2 and flushes Server-Sent Events (SSE) directly to the Angular UI for live token-by-token synthesis typing animations.
-   - Forwards client-provided `X-AI-Api-Key`, agent `provider`, and `projectFiles` repository snapshots directly to internal `livesync-ai` gRPC workers.
+   - Establishes downstream gRPC streaming handshake *before* committing HTTP 200 SSE headers, preventing browser `ERR_INCOMPLETE_CHUNKED_ENCODING` exceptions on upstream unavailability.
+   - Forwards client-provided `X-AI-Api-Key`, caller JWT bearer authorization, agent `provider`, and `projectId` directly to internal `livesync-ai` gRPC workers for dynamic on-demand workspace tool calling.
    - Implements strict CORS preflight handler allowing `X-AI-Api-Key`, `X-Antigravity-Key`, `Authorization`, and `Content-Type`.
 
 4. **Multi-Tier Token Bucket Rate Limiting (`SEC-05`)**:

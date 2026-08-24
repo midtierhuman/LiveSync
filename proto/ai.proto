@@ -36,6 +36,7 @@ message AiAnalysisRequest {
   string project_id = 7;
   repeated ProjectFile project_files = 8;
   string provider = 9;
+  string user_token = 10;
 }
 
 message AiAnalysisResponse {

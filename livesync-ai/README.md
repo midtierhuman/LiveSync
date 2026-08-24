@@ -10,13 +10,14 @@ High-performance AI code intelligence and static AST complexity analysis microse
    - Streams live token deltas (`AiAnalysisChunk`) directly to the Go Gateway over HTTP/2 gRPC.
    - Powers real-time, Cursor-style typing animations in the Angular IDE Assistant dock without multi-second blank delays.
 
-2. **Multi-Tenant BYO-Key & Whole-Project Context Injection (`FEAT-14`)**:
-   - Accepts per-user Google Antigravity / Gemini credentials (`user_api_key`), isolating quota enforcement to individual accounts.
-   - Accepts snapshots of all workspace files (`project_files`), formatting complete multi-file repository contexts into system prompts with cross-file symbol and dependency awareness.
+2. **On-Demand Tool Calling & RBAC-Aware Workspace Retrieval (`ARCH-16`)**:
+   - Implements autonomous function/tool calling (`list_workspace_files`, `read_workspace_file`) against `livesync-api` over internal authenticated REST (`/api/folders/:id/manifest`, `/api/documents/:id`).
+   - Forwards caller JWT Bearer tokens, ensuring the AI model can only inspect files the requesting user is strictly authorized to view.
+   - Eliminates bloated client-side payload transfers by fetching only relevant file contents dynamically during model reasoning.
 
 3. **Multi-Model Hybrid Inference Chain**:
-   - **Google Antigravity / Gemini API (`streamGenerateContent`)**: Real-time SSE token generation with automatic model fallback (`gemini-3.5-flash`, `gemini-flash-latest`, `gemini-3.1-flash-lite`).
-   - **Local OpenAI-Compatible Server (`llama.cpp` / `Ollama` / `LM Studio`)**: Direct SSE chunked generation with `stream: true`.
+   - **Google Antigravity / Gemini API (`streamGenerateContent`)**: Real-time SSE token generation with automatic model fallback (`gemini-3.5-flash`, `gemini-flash-latest`, `gemini-3.1-flash-lite`) and multi-turn tool calling loops.
+   - **Local OpenAI-Compatible Server (`llama.cpp` / `Ollama` / `LM Studio`)**: Direct SSE chunked generation with `stream: true` and tool calling function declarations.
    - **AST Big-O Complexity Engine (`complexity_analyzer.py`)**: Sub-millisecond static AST parser calculating algorithmic Time ($\mathcal{O}(1)$, $\mathcal{O}(N)$, $\mathcal{O}(N \log N)$, $\mathcal{O}(N^2)$) and Space complexity.
    - **Zero-Cost Offline AST Fallback**: Automated structural analysis, PEP 8 / ES6 refactoring, and unit test generation fixtures when offline.
 

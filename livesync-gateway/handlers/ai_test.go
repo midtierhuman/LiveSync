@@ -127,3 +127,32 @@ func TestAIHandler_StreamAnalyzeCode_SSE(t *testing.T) {
 		t.Fatalf("expected streamed delta in body, got %s", body)
 	}
 }
+
+type mockFailingAIServiceClient struct {
+	pb.AIServiceClient
+}
+
+func (m *mockFailingAIServiceClient) StreamAnalyzeCode(ctx context.Context, in *pb.AiAnalysisRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[pb.AiAnalysisChunk], error) {
+	return nil, context.DeadlineExceeded
+}
+
+func TestAIHandler_StreamAnalyzeCode_GRPCFailure(t *testing.T) {
+	cfg := &config.Config{}
+	aiHandler := NewAIHandler(cfg, &mockFailingAIServiceClient{})
+
+	reqBody := `{"action":"explain","language":"python","code":"x = 1"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/stream", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+
+	aiHandler.StreamAnalyzeCode(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 SSE format for stream error chunk, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Failed to connect to AI gRPC stream") {
+		t.Fatalf("expected failure error chunk, got %s", body)
+	}
+}
+

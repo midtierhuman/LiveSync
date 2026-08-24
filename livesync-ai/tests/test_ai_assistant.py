@@ -76,3 +76,37 @@ def test_ai_assistant_local_llm_model_payload():
         payload2 = json.loads(post_requests2[1].data.decode("utf-8"))
         assert payload2.get("model") == "Custom-Qwen-Model"
 
+
+def test_ai_assistant_workspace_tool_execution():
+    from unittest.mock import MagicMock
+
+    # 1. In-memory fallback
+    mock_files = [{"path": "src/utils.py", "content": "def helper(): pass"}]
+    res_list = ai_assistant_service._execute_workspace_tool(
+        "list_workspace_files", {}, project_files=mock_files
+    )
+    assert res_list["total"] == 1
+    assert res_list["files"][0]["path"] == "src/utils.py"
+
+    res_read = ai_assistant_service._execute_workspace_tool(
+        "read_workspace_file", {"file_path_or_id": "src/utils.py"}, project_files=mock_files
+    )
+    assert res_read["content"] == "def helper(): pass"
+
+    # 2. Remote livesync-api integration via workspace_client
+    with patch("app.services.workspace_client.workspace_client.fetch_workspace_manifest") as mock_manifest:
+        mock_manifest.return_value = [
+            {"path": "src/app.ts", "documentId": "doc-123", "content": "console.log('LiveSync');"}
+        ]
+        res_remote_list = ai_assistant_service._execute_workspace_tool(
+            "list_workspace_files", {}, project_id="folder-1", user_token="jwt-test-token"
+        )
+        assert res_remote_list["total"] == 1
+        assert res_remote_list["files"][0]["documentId"] == "doc-123"
+
+        res_remote_read = ai_assistant_service._execute_workspace_tool(
+            "read_workspace_file", {"file_path_or_id": "src/app.ts"}, project_id="folder-1", user_token="jwt-test-token"
+        )
+        assert res_remote_read["content"] == "console.log('LiveSync');"
+
+

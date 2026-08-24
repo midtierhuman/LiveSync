@@ -4,7 +4,7 @@ import grpc
 import warnings
 
 try:
-    from . import ai_pb2 as ai__pb2
+    from app.pb import ai_pb2 as ai__pb2
 except ImportError:
     import ai_pb2 as ai__pb2
 
