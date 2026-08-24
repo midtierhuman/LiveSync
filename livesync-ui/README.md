@@ -1,56 +1,57 @@
-# 🌐 LiveSync UI Client (`livesync-ui`)
+# 💻 LiveSync Cloud IDE Frontend (`livesync-ui`)
 
-> **Angular 22 Zoneless Reactive Code Editor, CodeMirror 6, xterm.js Terminal & Package Manager**
-
-The `livesync-ui` service is the web frontend client for LiveSync. Built with Angular 22 using Zoneless change detection and Signals, it provides a fast, frictionless cloud workspace for real-time collaborative development.
+Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Angular 22** featuring Zoneless Signals, CodeMirror 6, and xterm.js.
 
 ---
 
-## 🚀 Key Features
+## 🚀 Key Architecture & Components
 
-- **📝 CodeMirror 6 Canvas**: High-performance syntax highlighting, multiple cursor tracking, smart autocompletion, Prettier code formatting, and word wrap with 0-waste vertical layout connecting directly to editor tabs.
-- **🧭 VS Code-Style Activity Bar & Sidebar Dock**: Modern 48px left icon rail toggling full-featured sidebar panels for Project Explorer, Package Manager Hub (npm/PyPI), AI Pair Assistant, and Threaded Code Comments.
-- **📊 Modern Status Bar**: Live WebSocket connection state, collaborator presence, automatic save status, cursor coordinates (`Ln X, Col Y`), character encoding (`UTF-8`), and extension-inferred language mode (`TypeScript`, `Python`, `Go`, `JavaScript`, etc.).
-- **📺 Integrated Workspace Terminal**: Slide-up bi-directional `xterm.js` canvas connected to the Go Gateway PTY shell over WebSockets with keyboard shortcut support (`Ctrl+\``).
-- **📦 Embedded Package Manager**: Direct search, installation, and status tracking for Python (`pip`) and JavaScript (`npm`) dependencies right within the sidebar or modal.
-- **🤝 Multiplayer Presence & Follow Mode**: Real-time collaborator avatars, spectator follow mode with auto-scroll, and inline threaded code comments.
-- **⚡ Native IDE Keyboard Shortcuts**: `Escape` (dismiss inline creation, menus, and modals), `Ctrl+S` / `Cmd+S` (instant manual document save), `Ctrl+B` / `Cmd+B` (toggle sidebar dock), `Ctrl+\`` / `Cmd+\`` (toggle live terminal).
-- **📁 Virtual Filesystem & Inline Path Creation**: VS Code-style inline file/folder input with path support (`src/utils/math.ts`), `Escape` cancellation, directory drag-and-drop upload, and 1-click project ZIP export.
+1. **CodeMirror 6 Collaborative Editor**:
+   - Modern CodeMirror 6 editor with custom reactive extensions.
+   - Dynamic Compartments dynamically toggling read-only states for locked/view-only files.
+   - Remote presence `StateField` rendering real-time collaborator carets and translucent multi-line selection ranges.
+
+2. **Persistent In-Memory Terminal Dock (`xterm.js`)**:
+   - Zero-teardown terminal instances retaining PTY WebSocket connections, scrollback history, and running processes across panel toggles.
+   - Multi-terminal tab manager with automatic `FitAddon` layout recalculation on drawer resizes.
+
+3. **Streaming AI Pair Assistant Dock**:
+   - Connected directly to Go Gateway's `/api/ai/stream` (SSE).
+   - Renders live token-by-token Cursor-style synthesis typing animations with syntax-highlighted code blocks, Big-O complexity badges, and 1-click "Apply to Editor" actions.
+
+4. **Unified 48px Activity Bar & Sidebar Dock**:
+   - Consolidates Explorer, Search & Replace (`Ctrl+Shift+F`), Package Hub (live NPM/PyPI search), Run & Debug, AI Assistant, and Collaborators into a single sidebar without floating modal clutter.
+
+5. **Backend-Authoritative Virtual Filesystem (VFS) & Delta Execution**:
+   - Lightweight execution requests transmitting only dirty active file overlays rather than dumping entire multi-megabyte source trees.
 
 ---
 
-## 🛠️ Development & Build Commands
+## ⌨️ Global IDE Keyboard Shortcuts
 
-### Start Local Development Server
+| Shortcut | Action |
+| :--- | :--- |
+| `Ctrl+P` / `Cmd+P` | Quick Open fuzzy file switcher |
+| `Ctrl+Shift+F` | Workspace-Wide Multi-File Search & Replace |
+| `Ctrl+\`` | Toggle Live Terminal Bottom Dock |
+| `Ctrl+B` | Toggle Sidebar Activity Dock |
+| `Ctrl+S` | Save active document draft |
+| `Escape` | Dismiss modal / inline create inputs |
+
+---
+
+## 🛠️ Local Development & Testing
+
 ```bash
+# Install dependencies
+npm install
+
+# Run unit test suite (Karma + Chrome headless)
+npm test -- --watch=false
+
+# Build production bundle
+npm run build
+
+# Run development dev server (Port 4200)
 npm start
 ```
-Runs the application on `http://localhost:4200/` with hot reloading.
-
-### Run Unit Tests
-```bash
-npm test -- --watch=false
-```
-Executes the Angular Jasmine/Karma test suite.
-
-### Build Production Bundle
-```bash
-npm run build
-```
-Compiles and optimizes the production bundle into `dist/LiveSync`.
-
----
-
-## 🏗️ Architecture & Component Hierarchy
-
-- **`src/app/features/editor/`**: Primary code editing workspace, CodeMirror instance lifecycle, status bar, and toolbar controls.
-- **`src/app/features/workspace/`**: Multi-file tab manager, project folder tree explorer, breadcrumbs, and drag-and-drop file organization.
-- **`src/app/features/dashboard/`**: User project catalog, shared documents overview, and quick-create modals.
-- **`src/app/services/`**:
-  - `auth.service.ts`: JWT authentication, token storage, and session validation.
-  - `document.service.ts`: REST document CRUD, access permissions, and AI assistant proxying.
-  - `folder.service.ts`: Project hierarchy, subfolder trees, and folder sharing.
-  - `realtime.service.ts`: Multiplexed Socket.IO client for CRDT operational transforms, presence, and comments.
-  - `live-terminal.service.ts`: `xterm.js` terminal manager, PTY WebSocket client, and disk file synchronization.
-  - `package-manager.service.ts`: Direct package search, reactive autocomplete, and installation status.
-

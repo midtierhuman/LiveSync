@@ -141,12 +141,18 @@ LiveSync/
 
 ---
 
-## 📚 Technical Documentation
+## 📚 Technical Documentation & Issue Tracking
 
-Comprehensive architectural specifications and roadmap trackers are located in the [`docs/`](./docs/ARCHITECTURE.md) folder:
+Comprehensive architectural specifications and agile milestone trackers:
 
 - **[Architecture & Technical Specifications (`docs/ARCHITECTURE.md`)](./docs/ARCHITECTURE.md)**: System topography, polyglot rationale, formal OT/CRDT conflict resolution proofs ($TP_1$), service deep-dives, and competitive benchmark matrix.
-- **[Project Roadmap & Test Verification Matrix (`docs/PROJECT_ROADMAP.md`)](./docs/PROJECT_ROADMAP.md)**: Milestones, completed features, active backlog, and full polyglot test verification guide.
+- **[GitHub Issues & Milestones Tracker](https://github.com/subhadipnayek/LiveSync/issues)**: Active backlogs, completed task history, and release milestones.
+- **[Microservice Documentation]**:
+  - [`livesync-gateway/README.md`](./livesync-gateway/README.md): Go 1.26 API Gateway, PTY Terminal Engine & Token Bucket Rate Limiter
+  - [`livesync-ai/README.md`](./livesync-ai/README.md): Python 3.14 Native gRPC Server, AST Big-O Complexity Analyzer & Token Streaming
+  - [`livesync-api/README.md`](./livesync-api/README.md): Go 1.26 Identity, Storage Quota Guard & Redis Stream Write-Behind Consumer
+  - [`livesync-realtime/README.md`](./livesync-realtime/README.md): Node.js 24 + Socket.IO 4.8 $TP_1$ Conflict Resolver & Presence Hub
+  - [`livesync-ui/README.md`](./livesync-ui/README.md): Angular 22 Zoneless Cloud IDE Client, CodeMirror 6 & xterm.js Dock
 
 ---
 
