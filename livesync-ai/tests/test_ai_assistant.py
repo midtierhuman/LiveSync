@@ -110,3 +110,26 @@ def test_ai_assistant_workspace_tool_execution():
         assert res_remote_read["content"] == "console.log('LiveSync');"
 
 
+def test_complexity_analyzer_memoization_cache():
+    from app.services.complexity_analyzer import complexity_analyzer
+    complexity_analyzer.clear_cache()
+
+    code1 = "def square(n):\n    return n * n"
+    res1 = complexity_analyzer.analyze("python", code1)
+    assert res1.time_complexity == "O(1)"
+
+    stats1 = complexity_analyzer.get_cache_stats()
+    assert stats1["hits"] == 0
+    assert stats1["misses"] == 1
+    assert stats1["size"] == 1
+
+    # Second call should hit the SHA-256 LRU cache
+    res2 = complexity_analyzer.analyze("python", code1)
+    assert res2 == res1
+
+    stats2 = complexity_analyzer.get_cache_stats()
+    assert stats2["hits"] == 1
+    assert stats2["misses"] == 1
+
+
+
