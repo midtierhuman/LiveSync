@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -89,11 +90,42 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Health check
+	// Health & Telemetry Probes (ARCH-09)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"UP","service":"livesync-api","engine":"Go 1.26"}`))
+	})
+
+	r.Get("/health/liveness", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"UP","probe":"liveness","service":"livesync-api"}`))
+	})
+
+	r.Get("/health/readiness", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		dbErr := db.Pool.Ping(r.Context())
+		rdbErr := redisClient.Ping(r.Context()).Err()
+
+		if dbErr != nil || rdbErr != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"status":   "DOWN",
+				"probe":    "readiness",
+				"database": dbErr == nil,
+				"redis":    rdbErr == nil,
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":   "UP",
+			"probe":    "readiness",
+			"database": "connected",
+			"redis":    "connected",
+		})
 	})
 
 	// Mount Routes

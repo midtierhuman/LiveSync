@@ -70,9 +70,26 @@ app.use(
 
 app.use(express.json());
 
-// Healthcheck route
+// Health & Telemetry Probes (ARCH-09)
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'UP', service: 'livesync-realtime' });
+});
+
+app.get('/health/liveness', (_req, res) => {
+  res.status(200).json({ status: 'UP', probe: 'liveness', service: 'livesync-realtime' });
+});
+
+app.get('/health/readiness', async (_req, res) => {
+  try {
+    const pingRes = await redisClient.ping();
+    if (pingRes === 'PONG') {
+      res.status(200).json({ status: 'UP', probe: 'readiness', redis: 'connected' });
+    } else {
+      res.status(503).json({ status: 'DOWN', probe: 'readiness', redis: 'unresponsive' });
+    }
+  } catch (err: any) {
+    res.status(503).json({ status: 'DOWN', probe: 'readiness', redis: 'disconnected', error: err?.message });
+  }
 });
 
 const server = http.createServer(app);

@@ -54,11 +54,23 @@ func main() {
 		wsSyncHandler.HandleWorkspaceSync(w, r)
 	}
 
-	// Routes
+	// Health & Telemetry Probes (ARCH-09)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"UP","service":"livesync-gateway","version":"1.0.0"}`))
+	})
+
+	mux.HandleFunc("/health/liveness", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"UP","probe":"liveness","service":"livesync-gateway"}`))
+	})
+
+	mux.HandleFunc("/health/readiness", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"UP","probe":"readiness","service":"livesync-gateway","aiGrpcTarget":cfg.AIServiceTarget}`))
 	})
 
 	mux.HandleFunc("/api/execution/languages", middleware.GeneralLimiter.Limit(middleware.JWTAuth(cfg, execHandler.GetLanguages)))
