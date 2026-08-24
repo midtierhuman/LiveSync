@@ -1017,10 +1017,17 @@
     <main class="workspace-content editor-workspace">
       <!-- Editor Tabs Bar -->
       <div class="editor-tabs-bar">
-        @for (tab of openTabs(); track tab.id) {
+        @for (tab of openTabs(); track tab.id; let i = $index) {
           <div
             class="editor-tab"
             [class.active]="activeTabId() === tab.id"
+            [class.tab-dragging]="draggedTabIndex() === i"
+            [class.tab-drag-over]="dragOverTabIndex() === i"
+            draggable="true"
+            (dragstart)="onTabDragStart(i, $event)"
+            (dragover)="onTabDragOver(i, $event)"
+            (dragend)="onTabDragEnd()"
+            (drop)="onTabDrop(i, $event)"
             (click)="switchTab(tab.id)"
           >
             <mat-icon class="tab-file-icon" [class]="getLanguageBadge(tab.title).class">{{ getLanguageBadge(tab.title).icon }}</mat-icon>

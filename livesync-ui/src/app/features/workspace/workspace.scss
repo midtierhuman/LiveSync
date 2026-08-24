@@ -1822,6 +1822,16 @@
         border-top: 2px solid #38bdf8;
       }
 
+      &.tab-dragging {
+        opacity: 0.45;
+        cursor: grabbing;
+      }
+
+      &.tab-drag-over {
+        border-left: 2px solid #38bdf8 !important;
+        background: rgba(56, 189, 248, 0.12) !important;
+      }
+
       .tab-file-icon {
         font-size: 15px;
         width: 15px;

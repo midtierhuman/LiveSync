@@ -291,9 +291,11 @@ export class Workspace implements OnInit {
   private resizeAiDockStartX = 0;
   private resizeAiDockStartWidth = 0;
 
-  // Tabs state
+  // Tabs state & Drag-Drop Reordering (FEAT-17)
   openTabs = signal<Array<{ id: string; title: string }>>([]);
   activeTabId = signal<string>('');
+  draggedTabIndex = signal<number | null>(null);
+  dragOverTabIndex = signal<number | null>(null);
 
   // Active Project Scope
   scopedProject = signal<FolderDto | null>(null);
@@ -2258,6 +2260,47 @@ export class Workspace implements OnInit {
   getActiveTabTitle(): string {
     const active = this.openTabs().find((t) => t.id === this.activeTabId());
     return active ? active.title : '';
+  }
+
+  onTabDragStart(index: number, event: DragEvent): void {
+    this.draggedTabIndex.set(index);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  onTabDragOver(index: number, event: DragEvent): void {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+    this.dragOverTabIndex.set(index);
+  }
+
+  onTabDrop(targetIndex: number, event: DragEvent): void {
+    event.preventDefault();
+    const fromIndex = this.draggedTabIndex();
+    if (fromIndex === null || fromIndex === targetIndex) {
+      this.draggedTabIndex.set(null);
+      this.dragOverTabIndex.set(null);
+      return;
+    }
+
+    this.openTabs.update((tabs) => {
+      const copy = [...tabs];
+      const [moved] = copy.splice(fromIndex, 1);
+      copy.splice(targetIndex, 0, moved);
+      return copy;
+    });
+
+    this.draggedTabIndex.set(null);
+    this.dragOverTabIndex.set(null);
+  }
+
+  onTabDragEnd(): void {
+    this.draggedTabIndex.set(null);
+    this.dragOverTabIndex.set(null);
   }
 
   openCreateFolderModal() {

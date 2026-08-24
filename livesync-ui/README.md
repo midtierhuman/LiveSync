@@ -31,7 +31,11 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
 5. **Unified 48px Activity Bar & Sidebar Dock**:
    - Consolidates Explorer, Search & Replace (`Ctrl+Shift+F`), Package Hub (live NPM/PyPI search), Run & Debug, AI Assistant, and Collaborators into a single sidebar without floating modal clutter.
 
-6. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
+6. **Interactive Tab Reordering & File Explorer Drag-and-Drop (`FEAT-17`)**:
+   - HTML5 drag-and-drop tab bar reordering with real-time insertion indicator and active tab selection stability.
+   - Explorer tree drag-and-drop file/folder moves updating VFS state, parent folder relationships, and broadcasting `WorkspaceChange` to active collaborator rooms.
+
+7. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
    - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
    - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
    - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs and debounced keystroke edits prior to terminal and compilation execution.
