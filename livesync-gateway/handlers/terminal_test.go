@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -111,5 +112,38 @@ func TestTerminalBufferPool(t *testing.T) {
 		t.Fatalf("Expected buffer of size %d from pool, got %v", TerminalBufferSize, bufPtr2)
 	}
 	PutTerminalBuffer(bufPtr2)
+}
+
+func TestTerminalPTYLoadAndStressMatrix(t *testing.T) {
+	const concurrentSessions = 100
+	const iterationsPerSession = 50
+
+	errChan := make(chan error, concurrentSessions)
+
+	for i := 0; i < concurrentSessions; i++ {
+		go func(sessionID int) {
+			for j := 0; j < iterationsPerSession; j++ {
+				bufPtr := GetTerminalBuffer()
+				if bufPtr == nil || len(*bufPtr) != TerminalBufferSize {
+					errChan <- fmt.Errorf("session %d iteration %d: invalid buffer", sessionID, j)
+					return
+				}
+
+				// Simulate high-throughput stdout writes
+				(*bufPtr)[0] = byte(sessionID % 256)
+				(*bufPtr)[TerminalBufferSize-1] = byte(j % 256)
+
+				PutTerminalBuffer(bufPtr)
+			}
+			errChan <- nil
+		}(i)
+	}
+
+	for i := 0; i < concurrentSessions; i++ {
+		err := <-errChan
+		if err != nil {
+			t.Fatalf("High-concurrency PTY stress test failed: %v", err)
+		}
+	}
 }
 

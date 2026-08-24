@@ -38,6 +38,9 @@ High-performance, zero-trust API Gateway, interactive PTY Live Terminal engine, 
 6. **Live Public Registry Search**:
    - Direct live search proxies querying official NPM (`registry.npmjs.org`) and PyPI (`pypi.org`) registries.
 
+7. **Terminal PTY Load & Memory Stress Test Matrix (`TEST-02`)**:
+   - Automated stress testing matrix allocating 100 concurrent PTY sessions, measuring CPU/RAM buffer recycling throughput under load.
+
 ---
 
 ## 📡 HTTP & WebSocket Endpoints (Port `8081`)
