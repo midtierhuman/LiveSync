@@ -19,10 +19,12 @@ func Connect(ctx context.Context, connString string) (*DB, error) {
 		return nil, fmt.Errorf("unable to parse database config: %w", err)
 	}
 
-	config.MaxConns = 25
-	config.MinConns = 2
-	config.MaxConnLifetime = 30 * time.Minute
-	config.MaxConnIdleTime = 5 * time.Minute
+	// Auto-scaling connection pool settings with idle reclamation (PERF-09)
+	config.MaxConns = 50
+	config.MinConns = 5
+	config.MaxConnLifetime = 60 * time.Minute
+	config.MaxConnIdleTime = 10 * time.Minute
+	config.HealthCheckPeriod = 1 * time.Minute
 
 	var pool *pgxpool.Pool
 	var pingErr error
@@ -33,7 +35,7 @@ func Connect(ctx context.Context, connString string) (*DB, error) {
 		if err == nil {
 			pingErr = pool.Ping(ctx)
 			if pingErr == nil {
-				log.Println("✅ Connected to PostgreSQL database pool successfully.")
+				log.Println("✅ Connected to PostgreSQL database pool successfully with health check & auto-reclaim.")
 				return &DB{Pool: pool}, nil
 			}
 			pool.Close()
@@ -43,6 +45,35 @@ func Connect(ctx context.Context, connString string) (*DB, error) {
 	}
 
 	return nil, fmt.Errorf("failed to connect to PostgreSQL after retries: %v", pingErr)
+}
+
+// ExecuteWithRetry executes a database operation with exponential backoff on transient errors (PERF-09)
+func (db *DB) ExecuteWithRetry(ctx context.Context, maxAttempts int, op func(ctx context.Context) error) error {
+	var err error
+	backoff := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		err = op(ctx)
+		if err == nil {
+			return nil
+		}
+
+		if attempt == maxAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+			backoff *= 2
+			if backoff > 1*time.Second {
+				backoff = 1 * time.Second
+			}
+		}
+	}
+
+	return err
 }
 
 func (db *DB) Close() {

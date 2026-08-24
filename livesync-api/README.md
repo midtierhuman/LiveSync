@@ -6,8 +6,9 @@ High-performance, lightweight identity, RBAC authorization, and persistence micr
 
 ## ⚡ Overview & Architecture
 
-1. **PostgreSQL 17 Storage & `pgxpool`**:
-   - Connection pool management with statement preparation caching and automatic transient retry.
+1. **PostgreSQL 17 Storage, Connection Auto-Scaling & Health Checks (`PERF-09`)**:
+   - High-throughput `pgxpool` configuration (50 max conns, 5 min conns, 1-min health check period, 10-min idle reclaim).
+   - `ExecuteWithRetry` exponential backoff query runner for transient database dropouts.
    - Recursive CTE manifest engine reconstructing directory hierarchies in a single database roundtrip.
 
 2. **Batch Stream Persistence & PostgreSQL UNNEST Upserts (`PERF-14`)**:
