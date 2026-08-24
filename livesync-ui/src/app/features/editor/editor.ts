@@ -1555,27 +1555,105 @@ export class Editor implements OnInit {
       },
     ]);
 
+    const aiMsgId = `ai-${Date.now()}`;
+    this.chatMessages.update((msgs) => [
+      ...msgs,
+      {
+        id: aiMsgId,
+        sender: 'ai',
+        text: '',
+        action,
+        suggestions: [],
+        generatedCode: undefined,
+        provider: 'AI Assistant (Synthesizing...)',
+        timestamp: timeStr,
+      },
+    ]);
+
     try {
       const language = this.selectedExecutionLanguage() || this.currentLanguage() || 'python';
       const code = this.codeSignal();
-      const result = await this.documentService.aiAssistant(docId, action, language, code, customPrompt);
-      this.aiResult.set(result);
 
-      this.chatMessages.update((msgs) => [
-        ...msgs,
-        {
-          id: `ai-${Date.now()}`,
-          sender: 'ai',
-          text: result.explanation,
-          action: result.action,
-          suggestions: result.suggestions,
-          generatedCode: result.generatedCode || undefined,
-          provider: result.provider || 'Local LLM (llama.cpp)',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
+      let accumulatedText = '';
+      let currentProvider = 'AI Pair Assistant';
+      let currentSuggestions: string[] = [];
+      let currentCode: string | undefined = undefined;
+
+      const result = await this.documentService.streamAiAssistant(
+        action,
+        language,
+        code,
+        customPrompt,
+        (chunk) => {
+          if (chunk.delta) {
+            accumulatedText += chunk.delta;
+          }
+          if (chunk.provider) {
+            currentProvider = chunk.provider;
+          }
+          if (chunk.suggestions && chunk.suggestions.length > 0) {
+            currentSuggestions = chunk.suggestions;
+          }
+          if (chunk.generatedCode) {
+            currentCode = chunk.generatedCode;
+          }
+
+          this.chatMessages.update((msgs) =>
+            msgs.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    text: accumulatedText,
+                    provider: currentProvider,
+                    suggestions: currentSuggestions,
+                    generatedCode: currentCode,
+                  }
+                : m
+            )
+          );
+        }
+      );
+
+      this.aiResult.set(result);
+      this.chatMessages.update((msgs) =>
+        msgs.map((m) =>
+          m.id === aiMsgId
+            ? {
+                ...m,
+                text: result.explanation || accumulatedText,
+                action: result.action,
+                suggestions: result.suggestions?.length ? result.suggestions : currentSuggestions,
+                generatedCode: result.generatedCode || currentCode || undefined,
+                provider: result.provider || currentProvider,
+              }
+            : m
+        )
+      );
     } catch (error: unknown) {
-      this.aiError.set('AI assistant request failed. Please verify endpoint connectivity.');
+      // Graceful fallback to unary AI endpoint if stream encounters connection error
+      try {
+        const language = this.selectedExecutionLanguage() || this.currentLanguage() || 'python';
+        const code = this.codeSignal();
+        const result = await this.documentService.aiAssistant(docId, action, language, code, customPrompt);
+        this.aiResult.set(result);
+        this.chatMessages.update((msgs) =>
+          msgs.map((m) =>
+            m.id === aiMsgId
+              ? {
+                  ...m,
+                  text: result.explanation,
+                  action: result.action,
+                  suggestions: result.suggestions,
+                  generatedCode: result.generatedCode || undefined,
+                  provider: result.provider || 'AI Assistant',
+                }
+              : m
+          )
+        );
+      } catch {
+        this.aiError.set('AI assistant request failed. Please verify endpoint connectivity.');
+        this.chatMessages.update((msgs) => msgs.filter((m) => m.id !== aiMsgId));
+      }
     } finally {
       this.isAiLoading.set(false);
     }

@@ -34,6 +34,25 @@ class AIServiceServicer(ai_pb2_grpc.AIServiceServicer):
             provider=res.provider,
         )
 
+    def StreamAnalyzeCode(self, request, context):
+        for chunk in ai_assistant_service.stream_analyze(
+            action=request.action,
+            language=request.language,
+            code=request.code,
+            custom_prompt=request.prompt if request.prompt else None,
+            model=request.model if request.model else None,
+        ):
+            yield ai_pb2.AiAnalysisChunk(
+                delta=chunk.delta,
+                stage=chunk.stage,
+                action=chunk.action,
+                language=chunk.language,
+                provider=chunk.provider,
+                suggestions=chunk.suggestions,
+                generated_code=chunk.generated_code or "",
+                is_final=chunk.is_final,
+            )
+
 
 def serve_grpc(port: int = 50051):
     import grpc
@@ -45,4 +64,5 @@ def serve_grpc(port: int = 50051):
     server.start()
     logger.info(f"⚡ LiveSync AI gRPC Server listening on port {port}")
     return server
+
 

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { appEndpoints } from '../app-endpoints';
+import { AuthService } from './auth.service';
 
 export interface DocumentDto {
   id: string;
@@ -74,6 +75,17 @@ export interface AiAnalysisResponse {
   provider?: string;
 }
 
+export interface AiStreamChunk {
+  delta: string;
+  stage: string;
+  action: string;
+  language: string;
+  provider: string;
+  suggestions?: string[];
+  generatedCode?: string;
+  isFinal: boolean;
+}
+
 interface MessageResponse {
   message: string;
 }
@@ -84,6 +96,7 @@ interface MessageResponse {
 })
 export class DocumentService {
   private readonly http = inject(HttpClient);
+  private readonly authService = inject(AuthService);
   private readonly apiUrl = `${appEndpoints.apiBaseUrl}/api/documents`;
   private readonly sandboxUrl = appEndpoints.sandboxBaseUrl || appEndpoints.apiBaseUrl;
 
@@ -213,6 +226,91 @@ export class DocumentService {
       console.error('Error running AI assistant:', error);
       throw error;
     }
+  }
+
+  async streamAiAssistant(
+    action: string,
+    language: string,
+    code?: string,
+    prompt?: string,
+    onChunk?: (chunk: AiStreamChunk) => void,
+    signal?: AbortSignal,
+  ): Promise<AiAnalysisResponse> {
+    const token = this.authService.token();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${this.sandboxUrl}/api/ai/stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action, language, code, prompt }),
+      signal,
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(`AI Stream request failed with status: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let fullExplanation = '';
+    let finalProvider = 'AI Pair Assistant';
+    let finalSuggestions: string[] = [];
+    let finalCode: string | undefined = undefined;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data:')) {
+            const jsonStr = trimmed.substring(5).trim();
+            if (!jsonStr) continue;
+            try {
+              const chunk: AiStreamChunk = JSON.parse(jsonStr);
+              if (chunk.delta) {
+                fullExplanation += chunk.delta;
+              }
+              if (chunk.provider) {
+                finalProvider = chunk.provider;
+              }
+              if (chunk.suggestions && chunk.suggestions.length > 0) {
+                finalSuggestions = chunk.suggestions;
+              }
+              if (chunk.generatedCode) {
+                finalCode = chunk.generatedCode;
+              }
+              if (onChunk) {
+                onChunk(chunk);
+              }
+            } catch {}
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return {
+      action,
+      language,
+      explanation: fullExplanation,
+      suggestions: finalSuggestions,
+      generatedCode: finalCode,
+      provider: finalProvider,
+    };
   }
 
   async deleteDocument(id: string): Promise<void> {

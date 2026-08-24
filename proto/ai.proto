@@ -7,6 +7,7 @@ option go_package = "github.com/livesync/livesync-gateway/pb";
 service AIService {
   rpc GetLanguages (Empty) returns (LanguagesResponse);
   rpc AnalyzeCode (AiAnalysisRequest) returns (AiAnalysisResponse);
+  rpc StreamAnalyzeCode (AiAnalysisRequest) returns (stream AiAnalysisChunk);
 }
 
 message Empty {}
@@ -35,4 +36,15 @@ message AiAnalysisResponse {
   repeated string suggestions = 4;
   string generated_code = 5;
   string provider = 6;
+}
+
+message AiAnalysisChunk {
+  string delta = 1;
+  string stage = 2;              // "analyzing", "streaming", "complete", "error"
+  string action = 3;
+  string language = 4;
+  string provider = 5;
+  repeated string suggestions = 6;
+  string generated_code = 7;
+  bool is_final = 8;
 }

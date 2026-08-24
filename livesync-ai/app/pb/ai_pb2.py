@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08\x61i.proto\x12\x02\x61i\"\x07\n\x05\x45mpty\"8\n\x12LanguageDescriptor\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\">\n\x11LanguagesResponse\x12)\n\tlanguages\x18\x01 \x03(\x0b\x32\x16.ai.LanguageDescriptor\"b\n\x11\x41iAnalysisRequest\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\t\x12\x0e\n\x06prompt\x18\x04 \x01(\t\x12\r\n\x05model\x18\x05 \x01(\t\"\x8a\x01\n\x12\x41iAnalysisResponse\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x13\n\x0b\x65xplanation\x18\x03 \x01(\t\x12\x13\n\x0bsuggestions\x18\x04 \x03(\t\x12\x16\n\x0egenerated_code\x18\x05 \x01(\t\x12\x10\n\x08provider\x18\x06 \x01(\t2{\n\tAIService\x12\x30\n\x0cGetLanguages\x12\t.ai.Empty\x1a\x15.ai.LanguagesResponse\x12<\n\x0b\x41nalyzeCode\x12\x15.ai.AiAnalysisRequest\x1a\x16.ai.AiAnalysisResponseB)Z\'github.com/livesync/livesync-gateway/pbb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08\x61i.proto\x12\x02\x61i\"\x07\n\x05\x45mpty\"8\n\x12LanguageDescriptor\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\">\n\x11LanguagesResponse\x12)\n\tlanguages\x18\x01 \x03(\x0b\x32\x16.ai.LanguageDescriptor\"b\n\x11\x41iAnalysisRequest\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\t\x12\x0e\n\x06prompt\x18\x04 \x01(\t\x12\r\n\x05model\x18\x05 \x01(\t\"\x8a\x01\n\x12\x41iAnalysisResponse\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x13\n\x0b\x65xplanation\x18\x03 \x01(\t\x12\x13\n\x0bsuggestions\x18\x04 \x03(\t\x12\x16\n\x0egenerated_code\x18\x05 \x01(\t\x12\x10\n\x08provider\x18\x06 \x01(\t\"\xa2\x01\n\x0f\x41iAnalysisChunk\x12\r\n\x05\x64\x65lta\x18\x01 \x01(\t\x12\r\n\x05stage\x18\x02 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x03 \x01(\t\x12\x10\n\x08language\x18\x04 \x01(\t\x12\x10\n\x08provider\x18\x05 \x01(\t\x12\x13\n\x0bsuggestions\x18\x06 \x03(\t\x12\x16\n\x0egenerated_code\x18\x07 \x01(\t\x12\x10\n\x08is_final\x18\x08 \x01(\x08\x32\xbe\x01\n\tAIService\x12\x30\n\x0cGetLanguages\x12\t.ai.Empty\x1a\x15.ai.LanguagesResponse\x12<\n\x0b\x41nalyzeCode\x12\x15.ai.AiAnalysisRequest\x1a\x16.ai.AiAnalysisResponse\x12\x41\n\x11StreamAnalyzeCode\x12\x15.ai.AiAnalysisRequest\x1a\x13.ai.AiAnalysisChunk0\x01\x42)Z\'github.com/livesync/livesync-gateway/pbb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -42,6 +42,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_AIANALYSISREQUEST']._serialized_end=245
   _globals['_AIANALYSISRESPONSE']._serialized_start=248
   _globals['_AIANALYSISRESPONSE']._serialized_end=386
-  _globals['_AISERVICE']._serialized_start=388
-  _globals['_AISERVICE']._serialized_end=511
+  _globals['_AIANALYSISCHUNK']._serialized_start=389
+  _globals['_AIANALYSISCHUNK']._serialized_end=551
+  _globals['_AISERVICE']._serialized_start=554
+  _globals['_AISERVICE']._serialized_end=744
 # @@protoc_insertion_point(module_scope)

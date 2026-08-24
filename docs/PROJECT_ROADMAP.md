@@ -28,6 +28,8 @@
 ### **Milestone 18: Backend-Authoritative Compilation, Storage Quotas & Dependency Isolation** (ACTIVE 🔄)
 - [x] **ARCH-13: Backend-Authoritative Project Hydration, Dependency Ingestion Shield & Storage Quota Guard** (`livesync-ui`, `livesync-gateway`, `livesync-api`)
   - Transition client-side execution from payload-heavy snapshot dumping to pure backend-authoritative project manifest hydration, implement strict multi-tier dependency shields against `node_modules`/binary ingestion to PostgreSQL, and enforce tight project quotas (max 30 files, 256KB per file, 2MB workspace cap).
+- [x] **FEAT-20: Universal gRPC AI Token Streaming & Polyglot Mesh Integration** (`livesync-ai`, `livesync-gateway`, `livesync-ui`)
+  - Implement bidirectional and server-side gRPC token streaming (`StreamAnalyzeCode` -> `stream AiAnalysisChunk`) from Python AI engine to Go Gateway, expose zero-latency Server-Sent Events (SSE) `/api/ai/stream`, enable internal microservice gRPC client pooling, integrate live typing in Angular AI Assistant dock, and prune dead legacy fallback routines.
 
 ---
 

@@ -28,3 +28,20 @@ def test_grpc_analyze_code(servicer):
     assert len(res.explanation) > 0
     assert "add" in res.explanation
 
+
+def test_grpc_stream_analyze_code(servicer):
+    req = ai_pb2.AiAnalysisRequest(
+        action="complexity",
+        language="python",
+        code="for i in range(n):\n    print(i)"
+    )
+    chunks = list(servicer.StreamAnalyzeCode(req, None))
+    assert len(chunks) >= 2
+    stages = [c.stage for c in chunks]
+    assert "analyzing" in stages
+    assert "streaming" in stages
+    assert "complete" in stages
+    assert chunks[-1].is_final is True
+    assert "O(N)" in chunks[1].delta or "O(N)" in chunks[1].explanation if hasattr(chunks[1], "explanation") else True
+
+

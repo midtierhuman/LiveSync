@@ -5,7 +5,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from typing import Any, NamedTuple
+from typing import Any, Generator, NamedTuple
 from app.config import settings
 from app.services.complexity_analyzer import complexity_analyzer
 
@@ -21,91 +21,154 @@ class AiAnalysisResult(NamedTuple):
     provider: str
 
 
+class AiChunkResult(NamedTuple):
+    delta: str
+    stage: str  # "analyzing", "streaming", "complete", "error"
+    action: str
+    language: str
+    provider: str
+    suggestions: list[str]
+    generated_code: str | None
+    is_final: bool
+
+
 class AiAssistantService:
     """
-    Hybrid High-Speed AI Assistant & Structural Engine.
-    Supports local llama.cpp / OpenAI-compatible local server, free Google Gemini API
-    (gemini-flash-lite-latest) with automatic multi-model fallback, Groq API,
-    and an instant zero-cost offline AST structural analyzer as a fallback.
+    Universal High-Performance AI Assistant & Structural Streaming Engine.
+    Supports real-time token streaming via Google Gemini API (streamGenerateContent),
+    Local OpenAI-compatible LLMs (llama.cpp / Ollama / vLLM with SSE streaming),
+    and sub-millisecond offline AST Big-O Complexity & Code Structure Analysis.
     """
 
-    def analyze(self, action: str, language: str, code: str, user_api_key: str | None = None, custom_prompt: str | None = None, model: str | None = None) -> AiAnalysisResult:
+    def stream_analyze(
+        self,
+        action: str,
+        language: str,
+        code: str,
+        user_api_key: str | None = None,
+        custom_prompt: str | None = None,
+        model: str | None = None,
+    ) -> Generator[AiChunkResult, None, None]:
         lang = (language or "python").lower().strip()
         act = (action or "explain").lower().strip()
 
-        # 1. Primary Provider Check: Gemini API (Preferred when GEMINI_API_KEY is available or requested)
-        api_key = user_api_key or settings.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        prefer_gemini = getattr(settings, "default_ai_provider", "gemini") == "gemini" or (model and "gemini" in model.lower())
+        # 1. AST-Specific Actions (Fast Path)
+        if act in ("complexity", "bigo"):
+            yield from self._stream_ast_complexity(act, lang, code)
+            return
+
+        # 2. Primary Provider: Google Gemini API with real-time SSE token streaming
+        api_key = (
+            user_api_key
+            or settings.gemini_api_key
+            or os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+        )
+        prefer_gemini = (
+            getattr(settings, "default_ai_provider", "gemini") == "gemini"
+            or (model and "gemini" in model.lower())
+        )
 
         if prefer_gemini and settings.enable_gemini_fallback and api_key:
-            gemini_res = self._call_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
-            if gemini_res:
-                return gemini_res
+            gemini_stream = self._stream_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
+            has_yielded = False
+            for chunk in gemini_stream:
+                has_yielded = True
+                yield chunk
+            if has_yielded:
+                return
 
-        # 2. Local LLM API (llama.cpp / OpenAI-compatible local server)
+        # 3. Secondary Provider: Local LLM with SSE token streaming
         if getattr(settings, "enable_local_llm_fallback", True):
-            local_res = self._call_local_llm_api(act, lang, code, custom_prompt, model=model)
-            if local_res:
-                return local_res
+            local_stream = self._stream_local_llm_api(act, lang, code, custom_prompt, model=model)
+            has_yielded = False
+            for chunk in local_stream:
+                has_yielded = True
+                yield chunk
+            if has_yielded:
+                return
 
-        # 3. Secondary Gemini Call (if Local LLM was tried first but failed)
+        # 4. Fallback Gemini Call (if Local LLM was tried first)
         if not prefer_gemini and settings.enable_gemini_fallback and api_key:
-            gemini_res = self._call_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
-            if gemini_res:
-                return gemini_res
+            gemini_stream = self._stream_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
+            has_yielded = False
+            for chunk in gemini_stream:
+                has_yielded = True
+                yield chunk
+            if has_yielded:
+                return
 
-        # 4. Check for Groq API (Only if enable_groq_fallback is True)
-        if settings.enable_groq_fallback:
-            groq_key = os.environ.get("GROQ_API_KEY") or settings.groq_api_key
-            if groq_key:
-                llm_res = self._call_groq_api(act, lang, code, groq_key)
-                if llm_res:
-                    return llm_res
-
-        # 5. Fast CPU AST Structural Analyzer (Only if enable_ast_fallback is True)
+        # 5. Offline AST Structural Engine Fallback
         if settings.enable_ast_fallback:
-            if act in ("complexity", "bigo"):
-                comp = complexity_analyzer.analyze(lang, code)
-                explanation = f"### ⏱️ AST Big-O Complexity Analysis ({lang.upper()})\n\n"
-                explanation += f"- **Time Complexity**: `{comp.time_complexity}`\n"
-                explanation += f"- **Space Complexity**: `{comp.space_complexity}`\n\n"
-                explanation += comp.explanation
-                return AiAnalysisResult(
-                    action="complexity",
-                    language=lang,
-                    explanation=explanation,
-                    suggestions=["Optimize nested loops and memory allocations."],
-                    generated_code=None,
-                    provider="Local CPU AST Complexity Engine"
-                )
-            elif act == "explain":
-                return self._explain_code(lang, code)
-            elif act == "refactor":
-                return self._refactor_code(lang, code)
-            elif act in ("generate-tests", "tests"):
-                return self._generate_unit_tests(lang, code)
-            elif act in ("suggest", "autocomplete"):
-                return self._suggest_code(lang, code)
-            else:
-                return self._explain_code(lang, code)
+            yield from self._stream_ast_fallback(act, lang, code)
+            return
 
-        # Explicit failure result when primary providers fail and fallbacks are disabled
-        return AiAnalysisResult(
+        # Final Offline Error Chunk
+        yield AiChunkResult(
+            delta="⚠️ **AI Service Unavailable**: Unable to reach Google Gemini API or Local LLM server.",
+            stage="error",
             action=act,
             language=lang,
-            explanation="⚠️ **AI Service Unavailable**: Unable to reach Google Gemini API or Local LLM server.",
+            provider="AI Assistant Engine (Offline)",
             suggestions=[
                 "Verify your GEMINI_API_KEY in .env configuration.",
-                "Ensure local LLM or internet connectivity is active."
+                "Ensure local LLM (llama.cpp/Ollama) or internet connectivity is active.",
             ],
             generated_code=None,
-            provider="AI Assistant Engine (Offline)",
+            is_final=True,
+        )
+
+    def analyze(
+        self,
+        action: str,
+        language: str,
+        code: str,
+        user_api_key: str | None = None,
+        custom_prompt: str | None = None,
+        model: str | None = None,
+    ) -> AiAnalysisResult:
+        """Unary request wrapper over the streaming engine for backward compatibility."""
+        accumulated_text = ""
+        provider = "Local CPU AST Engine"
+        suggestions: list[str] = []
+        generated_code: str | None = None
+
+        for chunk in self.stream_analyze(
+            action=action,
+            language=language,
+            code=code,
+            user_api_key=user_api_key,
+            custom_prompt=custom_prompt,
+            model=model,
+        ):
+            if chunk.delta:
+                accumulated_text += chunk.delta
+            if chunk.provider:
+                provider = chunk.provider
+            if chunk.suggestions:
+                suggestions = chunk.suggestions
+            if chunk.generated_code:
+                generated_code = chunk.generated_code
+
+        # If generated code wasn't explicitly extracted from JSON, try parsing markdown code blocks
+        if not generated_code and "```" in accumulated_text:
+            extracted = self._extract_code_blocks(accumulated_text)
+            if extracted:
+                generated_code = extracted
+
+        return AiAnalysisResult(
+            action=action,
+            language=language,
+            explanation=accumulated_text or "AI analysis complete.",
+            suggestions=suggestions,
+            generated_code=generated_code,
+            provider=provider,
         )
 
     def _build_user_instruction(self, action: str, custom_prompt: str | None) -> str:
         action_descriptions = {
-            "complexity": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code. State the exact Big-O notation for both Time and Space complexity followed by concise mathematical reasoning.",
-            "bigo": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code. State the exact Big-O notation for both Time and Space complexity followed by concise mathematical reasoning.",
+            "complexity": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code with concise mathematical reasoning.",
+            "bigo": "Perform a rigorous Big-O Time Complexity O(...) and Space Complexity O(...) analysis of the code with concise mathematical reasoning.",
             "explain": "Explain the core logic, architecture, and step-by-step execution flow of this code directly and concisely.",
             "refactor": "Refactor, optimize, and modernize this code according to language best practices and clean code standards.",
             "generate-tests": "Generate a full unit test suite covering normal inputs, edge cases, and error scenarios for this code.",
@@ -119,219 +182,17 @@ class AiAssistantService:
         desc = action_descriptions.get(act_key, f"Action requested: {action}")
         if custom_prompt:
             return f"User Prompt / Task: {custom_prompt}\nContext / Goal: {desc}"
-        else:
-            return f"Task: {desc}"
+        return f"Task: {desc}"
 
-    def _call_local_llm_api(self, action: str, language: str, code: str, custom_prompt: str | None = None, model: str | None = None) -> AiAnalysisResult | None:
-        primary_url = (settings.local_llm_url or "http://127.0.0.1:8080").rstrip("/")
-        urls_to_try = [primary_url]
-
-        env_url = os.environ.get("LOCAL_LLM_URL")
-        if env_url and env_url.rstrip("/") not in urls_to_try:
-            urls_to_try.append(env_url.rstrip("/"))
-
-        # Try popular local LLM ports (8080: llama.cpp, 11434: Ollama, 1234: LM Studio)
-        default_urls = [
-            "http://127.0.0.1:8080",
-            "http://localhost:8080",
-            "http://127.0.0.1:11434",
-            "http://localhost:11434",
-            "http://127.0.0.1:1234",
-            "http://localhost:1234",
-        ]
-        for d_url in default_urls:
-            if d_url not in urls_to_try:
-                urls_to_try.append(d_url)
-
-        user_instruction = self._build_user_instruction(action, custom_prompt)
-
-        # Attempt to auto-discover active model from /v1/models endpoint
-        discovered_model: str | None = None
-        working_base_url: str | None = None
-
-        for base_url in urls_to_try:
-            try:
-                models_req = urllib.request.Request(f"{base_url}/v1/models")
-                with urllib.request.urlopen(models_req, timeout=1.5) as m_resp:
-                    m_data = json.loads(m_resp.read().decode("utf-8"))
-                    if m_data.get("data") and len(m_data["data"]) > 0:
-                        discovered_model = m_data["data"][0].get("id")
-                        working_base_url = base_url
-                        logger.info(f"Auto-discovered local LLM model '{discovered_model}' on {base_url}")
-                        break
-            except Exception:
-                pass
-
-        target_model = model or discovered_model or os.environ.get("LOCAL_LLM_MODEL") or settings.local_llm_model
-
-        prompt_text = f"""You are a high-precision, senior AI pair programmer.
-{user_instruction}
-Language: {language}
-Current Code Context:
-```{language}
-{code}
-```
-
-CRITICAL INSTRUCTIONS:
-1. Be direct, focused, and pinpoint. Do NOT include generic pleasantries, filler phrases, or rambling summaries.
-2. In "explanation", provide a crisp, structured markdown breakdown with bullet points focusing strictly on what was asked.
-3. If code is requested or modified, place the full, complete, production-ready implementation in "generated_code".
-4. In "suggestions", provide 1-3 practical, actionable tips.
-
-Respond strictly with a JSON object:
-{{
-  "explanation": "concise pinpoint explanation in markdown",
-  "suggestions": ["suggestion 1", "suggestion 2"],
-  "generated_code": "full code or null"
-}}"""
-
-        endpoint_path = settings.local_llm_chat_endpoint
-        candidate_urls = [working_base_url] if working_base_url else urls_to_try
-
-        for base_url in candidate_urls:
-            if not base_url:
-                continue
-            endpoint = f"{base_url}{endpoint_path}"
-
-            # Prepare candidate payloads (with/without model, with/without response_format)
-            payload_variants: list[dict[str, Any]] = []
-
-            base_payload: dict[str, Any] = {
-                "messages": [
-                    {"role": "system", "content": "You are a concise, pinpoint AI coding assistant. Output strictly valid JSON without conversational filler."},
-                    {"role": "user", "content": prompt_text}
-                ],
-                "temperature": 0.2,
-                "top_p": 0.95,
-                "max_tokens": 4096,
-                "stream": False,
-            }
-
-            if target_model:
-                payload_variants.append({**base_payload, "model": target_model, "response_format": {"type": "json_object"}})
-                payload_variants.append({**base_payload, "model": target_model})
-            
-            payload_variants.append({**base_payload, "response_format": {"type": "json_object"}})
-            payload_variants.append(base_payload)
-
-            for p_dict in payload_variants:
-                payload = json.dumps(p_dict).encode("utf-8")
-                req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type": "application/json"})
-                try:
-                    with urllib.request.urlopen(req, timeout=20) as resp:
-                        data = json.loads(resp.read().decode("utf-8"))
-                        choices = data.get("choices")
-                        if not choices:
-                            continue
-                        content = choices[0]["message"]["content"].strip()
-                        
-                        if content.startswith("```"):
-                            lines = content.splitlines()
-                            if lines[0].startswith("```"):
-                                lines = lines[1:]
-                            if lines and lines[-1].startswith("```"):
-                                lines = lines[:-1]
-                            content = "\n".join(lines).strip()
-
-                        explanation_str = content
-                        suggestions_list = []
-                        generated_code_str = None
-
-                        try:
-                            res_json = json.loads(content)
-                            if isinstance(res_json, dict):
-                                explanation_str = self._parse_explanation_content(res_json.get("explanation", content))
-                                suggestions_list = self._parse_suggestions_content(res_json.get("suggestions"))
-
-                                generated_code_raw = res_json.get("generated_code") or res_json.get("generatedCode") or res_json.get("code")
-                                if isinstance(generated_code_raw, dict):
-                                    generated_code_str = json.dumps(generated_code_raw, indent=2)
-                                elif generated_code_raw:
-                                    generated_code_str = str(generated_code_raw)
-                        except Exception:
-                            match = re.search(r'\{[\s\S]*\}', content)
-                            if match:
-                                try:
-                                    res_json = json.loads(match.group(0))
-                                    if isinstance(res_json, dict):
-                                        explanation_str = self._parse_explanation_content(res_json.get("explanation", content))
-                                        suggestions_list = self._parse_suggestions_content(res_json.get("suggestions"))
-                                        generated_code_raw = res_json.get("generated_code") or res_json.get("generatedCode") or res_json.get("code")
-                                        if isinstance(generated_code_raw, dict):
-                                            generated_code_str = json.dumps(generated_code_raw, indent=2)
-                                        elif generated_code_raw:
-                                            generated_code_str = str(generated_code_raw)
-                                except Exception:
-                                    pass
-
-                        used_model = p_dict.get("model") or target_model or "local"
-                        provider_name = f"Local LLM ({used_model})"
-
-                        return AiAnalysisResult(
-                            action=action,
-                            language=language,
-                            explanation=explanation_str,
-                            suggestions=suggestions_list,
-                            generated_code=generated_code_str,
-                            provider=provider_name
-                        )
-                except urllib.error.HTTPError as http_err:
-                    logger.warning(f"Local LLM HTTP Error {http_err.code} for {endpoint}: {http_err.reason}")
-                    continue
-                except Exception as ex:
-                    logger.warning(f"Local LLM connection error for {endpoint}: {ex}")
-                    break
-
-        return None
-
-    def _parse_explanation_content(self, explanation_raw: Any) -> str:
-        if isinstance(explanation_raw, str):
-            cleaned = explanation_raw.strip()
-            if (cleaned.startswith("{") and cleaned.endswith("}")) or (cleaned.startswith("[") and cleaned.endswith("]")):
-                try:
-                    nested = json.loads(cleaned)
-                    return self._parse_explanation_content(nested)
-                except Exception:
-                    pass
-            return cleaned
-
-        if isinstance(explanation_raw, dict):
-            if "explanation" in explanation_raw:
-                return self._parse_explanation_content(explanation_raw["explanation"])
-            explanation_str = "### 💡 AI Code Analysis\n\n"
-            for k, v in explanation_raw.items():
-                if isinstance(v, dict):
-                    explanation_str += f"#### {k.capitalize()}\n"
-                    for sub_k, sub_v in v.items():
-                        explanation_str += f"- **{sub_k}**: {sub_v}\n"
-                elif isinstance(v, list):
-                    explanation_str += f"#### {k.capitalize()}\n" + "\n".join(f"- {item}" for item in v) + "\n"
-                else:
-                    explanation_str += f"- **{k.capitalize()}**: {v}\n"
-            return explanation_str
-
-        if isinstance(explanation_raw, list):
-            return "\n".join(f"- {item}" for item in explanation_raw)
-
-        return str(explanation_raw or "AI analysis complete.")
-
-    def _parse_suggestions_content(self, suggestions_raw: Any) -> list[str]:
-        if isinstance(suggestions_raw, str):
-            cleaned = suggestions_raw.strip()
-            if cleaned.startswith("[") and cleaned.endswith("]"):
-                try:
-                    nested = json.loads(cleaned)
-                    return self._parse_suggestions_content(nested)
-                except Exception:
-                    pass
-            return [cleaned] if cleaned else []
-
-        if isinstance(suggestions_raw, list):
-            return [str(s) for s in suggestions_raw]
-
-        return []
-
-    def _call_gemini_api(self, action: str, language: str, code: str, api_key: str, custom_prompt: str | None = None, model: str | None = None) -> AiAnalysisResult | None:
+    def _stream_gemini_api(
+        self,
+        action: str,
+        language: str,
+        code: str,
+        api_key: str,
+        custom_prompt: str | None = None,
+        model: str | None = None,
+    ) -> Generator[AiChunkResult, None, None]:
         models = list(settings.gemini_models)
         if model and model not in models:
             models.insert(0, model)
@@ -340,7 +201,6 @@ Respond strictly with a JSON object:
             models.insert(0, model)
 
         user_instruction = self._build_user_instruction(action, custom_prompt)
-
         prompt_text = f"""You are a high-precision, senior AI pair programmer.
 {user_instruction}
 Language: {language}
@@ -350,132 +210,352 @@ Current Code Context:
 ```
 
 CRITICAL INSTRUCTIONS:
-1. Be direct, focused, and pinpoint. Do NOT include generic pleasantries, filler phrases, or rambling summaries.
-2. In "explanation", provide a crisp, structured markdown breakdown with bullet points focusing strictly on what was asked.
-3. If code is requested or modified, place the full, complete, production-ready implementation in "generated_code".
-4. In "suggestions", provide 1-3 practical, actionable tips.
+1. Be direct, focused, and pinpoint. Do NOT include generic pleasantries or conversational filler.
+2. Provide a crisp, structured markdown breakdown with bullet points.
+3. If writing or modifying code, provide complete, production-ready code blocks.
+4. Conclude with 1-3 actionable improvement suggestions."""
 
-Respond strictly with a JSON object:
-{{
-  "explanation": "concise pinpoint explanation in markdown",
-  "suggestions": ["suggestion 1", "suggestion 2"],
-  "generated_code": "full code or null"
-}}"""
         payload = json.dumps({
             "contents": [{"parts": [{"text": prompt_text}]}],
             "generationConfig": {
-                "responseMimeType": "application/json",
                 "maxOutputTokens": 4096,
-                "temperature": 0.2
-            }
+                "temperature": 0.2,
+            },
         }).encode("utf-8")
 
         base_url = settings.gemini_base_url.rstrip("/")
+
         for m in models:
-            url = f"{base_url}/{m}:generateContent?key={api_key}"
+            url = f"{base_url}/{m}:streamGenerateContent?key={api_key}&alt=sse"
             req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            provider_name = f"Google Gemini ({m})"
+
             try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    candidates = data.get("candidates", [])
-                    if not candidates:
-                        continue
-                    text = candidates[0]["content"]["parts"][0]["text"].strip()
-                    
-                    if text.startswith("```"):
-                        lines = text.splitlines()
-                        if lines[0].startswith("```"):
-                            lines = lines[1:]
-                        if lines and lines[-1].startswith("```"):
-                            lines = lines[:-1]
-                        text = "\n".join(lines).strip()
-
-                    res_json = None
-                    try:
-                        res_json = json.loads(text)
-                    except Exception:
-                        match = re.search(r'\{[\s\S]*\}', text)
-                        if match:
-                            try:
-                                res_json = json.loads(match.group(0))
-                            except Exception:
-                                pass
-
-                    if not isinstance(res_json, dict):
-                        res_json = {
-                            "explanation": text,
-                            "suggestions": [],
-                            "generated_code": None
-                        }
-
-                    explanation_str = self._parse_explanation_content(res_json.get("explanation", text))
-                    suggestions_list = self._parse_suggestions_content(res_json.get("suggestions"))
-
-                    generated_code_raw = res_json.get("generated_code") or res_json.get("generatedCode") or res_json.get("code")
-                    if isinstance(generated_code_raw, dict):
-                        generated_code_str = json.dumps(generated_code_raw, indent=2)
-                    elif generated_code_raw:
-                        generated_code_str = str(generated_code_raw)
-                    else:
-                        generated_code_str = None
-
-                    return AiAnalysisResult(
+                with urllib.request.urlopen(req, timeout=35) as resp:
+                    yield AiChunkResult(
+                        delta="",
+                        stage="analyzing",
                         action=action,
                         language=language,
-                        explanation=explanation_str,
-                        suggestions=suggestions_list,
-                        generated_code=generated_code_str,
-                        provider=f"Google Gemini API ({m})"
+                        provider=provider_name,
+                        suggestions=[],
+                        generated_code=None,
+                        is_final=False,
                     )
+
+                    accumulated_text = ""
+                    raw_lines = []
+                    try:
+                        for line in resp:
+                            raw_lines.append(line)
+                    except Exception:
+                        pass
+
+                    if not raw_lines and hasattr(resp, "read"):
+                        try:
+                            content_bytes = resp.read()
+                            if content_bytes:
+                                raw_lines = content_bytes.splitlines()
+                        except Exception:
+                            pass
+
+                    for raw_line in raw_lines:
+                        if isinstance(raw_line, (bytes, bytearray)):
+                            line = raw_line.decode("utf-8", errors="replace").strip()
+                        else:
+                            line = str(raw_line).strip()
+
+                        if not line:
+                            continue
+
+                        if line.startswith("data:"):
+                            json_str = line[5:].strip()
+                            if not json_str:
+                                continue
+                        else:
+                            json_str = line
+
+                        try:
+                            chunk_data = json.loads(json_str)
+                            candidates = chunk_data.get("candidates", [])
+                            if candidates:
+                                parts = candidates[0].get("content", {}).get("parts", [])
+                                for part in parts:
+                                    text = part.get("text", "")
+                                    if text:
+                                        accumulated_text += text
+                                        yield AiChunkResult(
+                                            delta=text,
+                                            stage="streaming",
+                                            action=action,
+                                            language=language,
+                                            provider=provider_name,
+                                            suggestions=[],
+                                            generated_code=None,
+                                            is_final=False,
+                                        )
+                        except Exception:
+                            continue
+
+                    if accumulated_text:
+                        code_extracted = self._extract_code_blocks(accumulated_text)
+                        suggestions = self._extract_suggestions(accumulated_text)
+                        yield AiChunkResult(
+                            delta="",
+                            stage="complete",
+                            action=action,
+                            language=language,
+                            provider=provider_name,
+                            suggestions=suggestions,
+                            generated_code=code_extracted,
+                            is_final=True,
+                        )
+                        return
             except urllib.error.HTTPError as http_err:
-                if http_err.code in (429, 404, 400, 503):
-                    logger.warning(f"Gemini API HTTP {http_err.code} ({m}): {http_err.reason}, falling back to next model...")
-                    continue
-                logger.warning(f"Gemini API HTTP Error {http_err.code} ({m}): {http_err.reason}")
+                logger.warning(f"Gemini streaming error HTTP {http_err.code} ({m}): {http_err.reason}")
+                continue
             except Exception as ex:
-                logger.warning(f"Gemini API Error ({m}): {ex}")
+                logger.warning(f"Gemini streaming connection error ({m}): {ex}")
+                continue
 
-        return None
+    def _stream_local_llm_api(
+        self,
+        action: str,
+        language: str,
+        code: str,
+        custom_prompt: str | None = None,
+        model: str | None = None,
+    ) -> Generator[AiChunkResult, None, None]:
+        urls_to_try = [
+            (settings.local_llm_url or "http://127.0.0.1:8080").rstrip("/"),
+            "http://127.0.0.1:11434",
+            "http://localhost:11434",
+            "http://127.0.0.1:1234",
+            "http://localhost:1234",
+        ]
 
-    def _call_groq_api(self, action: str, language: str, code: str, api_key: str) -> AiAnalysisResult | None:
-        url = settings.groq_base_url
-        prompt_text = f"""Action: {action}, Language: {language}
-Code:
+        target_model = model or os.environ.get("LOCAL_LLM_MODEL") or settings.local_llm_model or "local-model"
+        user_instruction = self._build_user_instruction(action, custom_prompt)
+        prompt_text = f"""You are a high-precision, senior AI pair programmer.
+{user_instruction}
+Language: {language}
+Current Code Context:
 ```{language}
 {code}
 ```
-Format JSON output with: {{"explanation": "...", "suggestions": ["..."], "generated_code": "..."}}"""
 
-        payload = json.dumps({
-            "model": settings.groq_model,
+CRITICAL INSTRUCTIONS:
+1. Be direct, focused, and pinpoint without generic conversational filler.
+2. Provide a crisp, structured markdown breakdown with bullet points.
+3. If writing code, provide complete, production-ready code blocks.
+4. Conclude with 1-3 actionable suggestions."""
+
+        base_payload = {
             "messages": [
-                {"role": "system", "content": "You are a code assistant. Output JSON only."},
-                {"role": "user", "content": prompt_text}
+                {"role": "system", "content": "You are a concise, pinpoint AI coding assistant."},
+                {"role": "user", "content": prompt_text},
             ],
-            "response_format": {"type": "json_object"}
-        }).encode("utf-8")
+            "model": target_model,
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "max_tokens": 4096,
+            "stream": True,
+        }
 
-        req = urllib.request.Request(url, data=payload, headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        })
-        try:
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                text = data["choices"][0]["message"]["content"]
-                res_json = json.loads(text)
-                return AiAnalysisResult(
-                    action=action,
-                    language=language,
-                    explanation=str(res_json.get("explanation", "AI analysis complete.")),
-                    suggestions=[str(s) for s in res_json.get("suggestions", [])],
-                    generated_code=str(res_json.get("generated_code")) if res_json.get("generated_code") else None,
-                    provider=f"Groq API ({settings.groq_model})"
-                )
-        except Exception:
-            return None
+        endpoint_path = settings.local_llm_chat_endpoint or "/v1/chat/completions"
 
-    def _explain_code(self, lang: str, code: str) -> AiAnalysisResult:
+        for base_url in urls_to_try:
+            endpoint = f"{base_url}{endpoint_path}"
+            payload_bytes = json.dumps(base_payload).encode("utf-8")
+            req = urllib.request.Request(endpoint, data=payload_bytes, headers={"Content-Type": "application/json"})
+            provider_name = f"Local LLM ({target_model})"
+
+            try:
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    yield AiChunkResult(
+                        delta="",
+                        stage="analyzing",
+                        action=action,
+                        language=language,
+                        provider=provider_name,
+                        suggestions=[],
+                        generated_code=None,
+                        is_final=False,
+                    )
+
+                    accumulated_text = ""
+                    raw_lines = []
+                    try:
+                        for line in resp:
+                            raw_lines.append(line)
+                    except Exception:
+                        pass
+
+                    if not raw_lines and hasattr(resp, "read"):
+                        try:
+                            content_bytes = resp.read()
+                            if content_bytes:
+                                raw_lines = content_bytes.splitlines()
+                        except Exception:
+                            pass
+
+                    for raw_line in raw_lines:
+                        if isinstance(raw_line, (bytes, bytearray)):
+                            line = raw_line.decode("utf-8", errors="replace").strip()
+                        else:
+                            line = str(raw_line).strip()
+
+                        if not line:
+                            continue
+
+                        # Check for SSE data line
+                        if line.startswith("data:"):
+                            json_str = line[5:].strip()
+                            if not json_str:
+                                continue
+                            if json_str == "[DONE]":
+                                break
+                        else:
+                            json_str = line
+
+                        try:
+                            chunk_data = json.loads(json_str)
+                            # Handle stream delta format
+                            choices = chunk_data.get("choices", [])
+                            if choices:
+                                delta_content = choices[0].get("delta", {}).get("content", "")
+                                if not delta_content and "message" in choices[0]:
+                                    delta_content = choices[0]["message"].get("content", "")
+                                if delta_content:
+                                    accumulated_text += delta_content
+                                    yield AiChunkResult(
+                                        delta=delta_content,
+                                        stage="streaming",
+                                        action=action,
+                                        language=language,
+                                        provider=provider_name,
+                                        suggestions=[],
+                                        generated_code=None,
+                                        is_final=False,
+                                    )
+                        except Exception:
+                            continue
+
+                    if accumulated_text:
+                        code_extracted = self._extract_code_blocks(accumulated_text)
+                        suggestions = self._extract_suggestions(accumulated_text)
+                        yield AiChunkResult(
+                            delta="",
+                            stage="complete",
+                            action=action,
+                            language=language,
+                            provider=provider_name,
+                            suggestions=suggestions,
+                            generated_code=code_extracted,
+                            is_final=True,
+                        )
+                        return
+            except Exception as ex:
+                logger.debug(f"Local LLM endpoint {endpoint} not reachable: {ex}")
+                continue
+
+    def _stream_ast_complexity(self, action: str, language: str, code: str) -> Generator[AiChunkResult, None, None]:
+        comp = complexity_analyzer.analyze(language, code)
+        explanation = f"### ⏱️ AST Big-O Complexity Analysis ({language.upper()})\n\n"
+        explanation += f"- **Time Complexity**: `{comp.time_complexity}`\n"
+        explanation += f"- **Space Complexity**: `{comp.space_complexity}`\n\n"
+        explanation += comp.explanation
+
+        provider_name = "Local CPU AST Complexity Engine"
+        yield AiChunkResult(
+            delta="",
+            stage="analyzing",
+            action=action,
+            language=language,
+            provider=provider_name,
+            suggestions=[],
+            generated_code=None,
+            is_final=False,
+        )
+
+        yield AiChunkResult(
+            delta=explanation,
+            stage="streaming",
+            action=action,
+            language=language,
+            provider=provider_name,
+            suggestions=["Optimize nested loops and memory allocations for large inputs."],
+            generated_code=None,
+            is_final=False,
+        )
+
+        yield AiChunkResult(
+            delta="",
+            stage="complete",
+            action=action,
+            language=language,
+            provider=provider_name,
+            suggestions=["Optimize nested loops and memory allocations for large inputs."],
+            generated_code=None,
+            is_final=True,
+        )
+
+    def _stream_ast_fallback(self, action: str, language: str, code: str) -> Generator[AiChunkResult, None, None]:
+        provider_name = "Local CPU AST Engine"
+        explanation = ""
+        suggestions = ["Ensure clean variable scoping and error handling."]
+        generated_code = None
+
+        if action == "explain":
+            explanation = self._generate_ast_explanation(language, code)
+        elif action == "refactor":
+            explanation = "### ⚡ Code Refactoring & Modernization\n\nApplied language best practices and clean scoping."
+            generated_code = self._generate_ast_refactor(language, code)
+            suggestions = ["Click 'Apply to Editor' to update your source code."]
+        elif action in ("generate-tests", "tests"):
+            explanation = f"### 🛠️ Generated Unit Test Suite ({language.upper()})\n\nGenerated automated unit test fixtures."
+            generated_code = self._generate_ast_tests(language, code)
+            suggestions = ["Run the generated test suite in your workspace terminal."]
+        elif action in ("suggest", "autocomplete"):
+            explanation = "### ✨ Code Completion Suggestion\n\nGenerated next logical code snippet."
+            generated_code = self._generate_ast_suggestion(language, code)
+        else:
+            explanation = self._generate_ast_explanation(language, code)
+
+        yield AiChunkResult(
+            delta="",
+            stage="analyzing",
+            action=action,
+            language=language,
+            provider=provider_name,
+            suggestions=[],
+            generated_code=None,
+            is_final=False,
+        )
+
+        yield AiChunkResult(
+            delta=explanation,
+            stage="streaming",
+            action=action,
+            language=language,
+            provider=provider_name,
+            suggestions=suggestions,
+            generated_code=generated_code,
+            is_final=False,
+        )
+
+        yield AiChunkResult(
+            delta="",
+            stage="complete",
+            action=action,
+            language=language,
+            provider=provider_name,
+            suggestions=suggestions,
+            generated_code=generated_code,
+            is_final=True,
+        )
+
+    def _generate_ast_explanation(self, lang: str, code: str) -> str:
         if lang in ("python", "py"):
             try:
                 tree = ast.parse(code)
@@ -483,147 +563,83 @@ Format JSON output with: {{"explanation": "...", "suggestions": ["..."], "genera
                 classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
                 imports = [node for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))]
 
-                explanation = "### 💡 Python Code Analysis\n\n"
+                explanation = "### 💡 Python Code Structure\n\n"
                 explanation += f"- **Classes**: Found {len(classes)} class definition(s).\n"
-                explanation += f"- **Functions**: Found {len(funcs)} function(s).\n"
-                explanation += f"- **Imports**: {len(imports)} module import statement(s).\n\n"
-
+                explanation += f"- **Functions**: Found {len(funcs)} function definition(s).\n"
+                explanation += f"- **Imports**: Found {len(imports)} module import(s).\n\n"
                 if funcs:
                     explanation += "#### Function Signatures:\n"
                     for fn in funcs:
                         args = [arg.arg for arg in fn.args.args]
                         explanation += f"- `def {fn.name}({', '.join(args)})`\n"
-
-                suggestions = [
-                    "Add explicit parameter type hints (e.g. `n: int -> int`).",
-                    "Ensure function docstrings follow PEP 257 standard.",
-                    "Include boundary input checks for empty or negative arguments."
-                ]
-
-                return AiAnalysisResult("explain", lang, explanation, suggestions, None, "Local CPU AST Engine")
+                return explanation
             except Exception:
                 pass
 
         lines = [line.strip() for line in code.splitlines() if line.strip()]
-        funcs_count = len(re.findall(r'(def|function|class|public|private|void|int|string)\s+[a-zA-Z0-9_]+', code))
+        return (
+            f"### 💡 Code Structure Analysis ({lang.upper()})\n\n"
+            f"- **Active Code Lines**: {len(lines)}\n"
+            f"- **Execution Flow**: Structured sequential and block operations.\n"
+        )
 
-        explanation = f"### 💡 Code Structure Analysis ({lang.upper()})\n\n"
-        explanation += f"- **Line Count**: {len(lines)} active code lines.\n"
-        explanation += f"- **Detected Symbols**: ~{funcs_count} functions/declarations.\n"
-        explanation += "- **Control Flow**: Implements structured sequential and block operations.\n"
-
-        suggestions = [
-            "Extract complex nested conditions into descriptive boolean variables.",
-            "Use modular helper functions to maintain single responsibility.",
-            "Add defensive exception handling blocks."
-        ]
-
-        return AiAnalysisResult("explain", lang, explanation, suggestions, None, "Local CPU AST Engine")
-
-    def _refactor_code(self, lang: str, code: str) -> AiAnalysisResult:
-        suggestions = []
-        refactored = code
-
+    def _generate_ast_refactor(self, lang: str, code: str) -> str:
         if lang in ("python", "py"):
-            if "for i in range(len(" in code:
-                suggestions.append("Modernized Loop: Replaced `for i in range(len(...))` with `enumerate()`.")
-                refactored = re.sub(r'for\s+i\s+in\s+range\(len\(([^)]+)\)\):', r'for i, item in enumerate(\1):', refactored)
+            refactored = re.sub(
+                r"for\s+i\s+in\s+range\(len\(([^)]+)\)\):",
+                r"for i, item in enumerate(\1):",
+                code,
+            )
+            return refactored
+        if lang in ("javascript", "js", "typescript", "ts"):
+            return code.replace("var ", "const ")
+        return code
 
-            if "%" in code or ".format(" in code:
-                suggestions.append("Modernized Strings: Replaced legacy string formatting with f-strings.")
-
-            if not suggestions:
-                suggestions.append("Code is clean! Applied standard PEP 8 formatting and clean code structure.")
-
-            explanation = "### ⚡ Code Refactoring & Optimization\n\nOptimized loops, variable scoping, and code readability."
-
-        elif lang in ("javascript", "js", "typescript", "ts"):
-            if "var " in code:
-                suggestions.append("Modern Scoping: Converted legacy `var` to scoped `const` / `let`.")
-                refactored = refactored.replace("var ", "const ")
-
-            if not suggestions:
-                suggestions.append("Code follows modern ES6+ standards.")
-
-            explanation = "### ⚡ ES6+ Refactoring & Optimization\n\nApplied modern scoping rules."
-
-        else:
-            suggestions = [
-                "Enclose disposable resources in `using` or `try-with-resources` blocks.",
-                "Replace magic numbers with named constants."
-            ]
-            explanation = f"### ⚡ Refactoring Recommendations ({lang.upper()})\n\nApplied language best practices."
-
-        return AiAnalysisResult("refactor", lang, explanation, suggestions, refactored, "Local CPU AST Engine")
-
-    def _generate_unit_tests(self, lang: str, code: str) -> AiAnalysisResult:
+    def _generate_ast_tests(self, lang: str, code: str) -> str:
         if lang in ("python", "py"):
-            funcs = re.findall(r'def\s+([a-zA-Z0-9_]+)\s*\(', code)
-            target = funcs[0] if funcs else "target_func"
-
-            test_code = f"""import unittest
-from script import {target}
+            funcs = re.findall(r"def\s+([a-zA-Z0-9_]+)\s*\(", code)
+            target = funcs[0] if funcs else "target_function"
+            return f"""import unittest
 
 class Test{target.capitalize()}(unittest.TestCase):
-    def test_{target}_valid_input(self):
+    def test_{target}_execution(self):
         # Assert expected behavior for valid inputs
-        self.assertIsNotNone({target})
-
-    def test_{target}_edge_case(self):
-        # Test boundary input handling
-        pass
+        self.assertTrue(True)
 
 if __name__ == '__main__':
     unittest.main()
 """
-            explanation = f"### 🛠️ Generated Unit Test Suite (Python unittest)\n\nCreated automated unit tests for `{target}`."
-            suggestions = ["Click 'Apply to Editor' to append the test suite to your code."]
-
-        elif lang in ("javascript", "js", "typescript", "ts"):
-            test_code = """describe('Code Execution Tests', () => {
-    test('should execute cleanly without throwing', () => {
-        expect(() => {
-            // Function call test
-        }).not.toThrow();
+        return """describe('Code Execution Suite', () => {
+    test('should execute cleanly without exceptions', () => {
+        expect(true).toBe(true);
     });
 });
 """
-            explanation = "### 🛠️ Generated Unit Test Suite (Jest)\n\nCreated Jest test suite."
-            suggestions = ["Run tests directly in your test runner."]
 
-        else:
-            test_code = """using Xunit;
-
-public class CodeTests
-{
-    [Fact]
-    public void TestExecution_ShouldSucceed()
-    {
-        Assert.True(true);
-    }
-}
-"""
-            explanation = "### 🛠️ Generated Unit Test Suite (xUnit)\n\nCreated xUnit test fixture."
-            suggestions = ["Run `dotnet test` in your project."]
-
-        return AiAnalysisResult("generate-tests", lang, explanation, suggestions, test_code, "Local CPU AST Engine")
-
-    def _suggest_code(self, lang: str, code: str) -> AiAnalysisResult:
+    def _generate_ast_suggestion(self, lang: str, code: str) -> str:
         lines = code.splitlines()
         last_line = lines[-1].strip() if lines else ""
+        if "def " in last_line or "function " in last_line:
+            return '    """\n    Auto-generated docstring.\n    """\n    pass'
+        return "// Next step completion\nconsole.log('Execution ready');"
 
-        if "def " in last_line or "function " in last_line or "class " in last_line:
-            snippet = "    \"\"\"\n    Auto-generated docstring.\n    \"\"\"\n    pass"
-        elif "if " in last_line:
-            snippet = "    return True\nelse:\n    return False"
-        else:
-            snippet = "// Code completion suggestion\nconsole.log('Execution finished');"
+    def _extract_code_blocks(self, text: str) -> str | None:
+        matches = re.findall(r"```(?:\w+)?\n([\s\S]*?)```", text)
+        if matches:
+            return matches[-1].strip()
+        return None
 
-        explanation = "### ✨ Code Completion Suggestion\n\nGenerated next logical snippet."
-        suggestions = ["Click 'Apply to Editor' to insert."]
-
-        return AiAnalysisResult("suggest", lang, explanation, suggestions, snippet, "Local CPU AST Engine")
+    def _extract_suggestions(self, text: str) -> list[str]:
+        suggestions = []
+        for line in text.splitlines():
+            line_str = line.strip()
+            if line_str.startswith("- ") and len(line_str) > 5 and not line_str.startswith("- **"):
+                suggestions.append(line_str[2:].strip())
+            elif re.match(r"^\d+\.\s+", line_str):
+                suggestions.append(re.sub(r"^\d+\.\s+", "", line_str).strip())
+        return suggestions[:3] if suggestions else ["Verify input boundary conditions and edge cases."]
 
 
 ai_assistant_service = AiAssistantService()
+
 

@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AIService_GetLanguages_FullMethodName = "/ai.AIService/GetLanguages"
-	AIService_AnalyzeCode_FullMethodName  = "/ai.AIService/AnalyzeCode"
+	AIService_GetLanguages_FullMethodName      = "/ai.AIService/GetLanguages"
+	AIService_AnalyzeCode_FullMethodName       = "/ai.AIService/AnalyzeCode"
+	AIService_StreamAnalyzeCode_FullMethodName = "/ai.AIService/StreamAnalyzeCode"
 )
 
 // AIServiceClient is the client API for AIService service.
@@ -29,6 +30,7 @@ const (
 type AIServiceClient interface {
 	GetLanguages(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*LanguagesResponse, error)
 	AnalyzeCode(ctx context.Context, in *AiAnalysisRequest, opts ...grpc.CallOption) (*AiAnalysisResponse, error)
+	StreamAnalyzeCode(ctx context.Context, in *AiAnalysisRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AiAnalysisChunk], error)
 }
 
 type aIServiceClient struct {
@@ -59,12 +61,32 @@ func (c *aIServiceClient) AnalyzeCode(ctx context.Context, in *AiAnalysisRequest
 	return out, nil
 }
 
+func (c *aIServiceClient) StreamAnalyzeCode(ctx context.Context, in *AiAnalysisRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AiAnalysisChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AIService_ServiceDesc.Streams[0], AIService_StreamAnalyzeCode_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[AiAnalysisRequest, AiAnalysisChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AIService_StreamAnalyzeCodeClient = grpc.ServerStreamingClient[AiAnalysisChunk]
+
 // AIServiceServer is the server API for AIService service.
 // All implementations must embed UnimplementedAIServiceServer
 // for forward compatibility.
 type AIServiceServer interface {
 	GetLanguages(context.Context, *Empty) (*LanguagesResponse, error)
 	AnalyzeCode(context.Context, *AiAnalysisRequest) (*AiAnalysisResponse, error)
+	StreamAnalyzeCode(*AiAnalysisRequest, grpc.ServerStreamingServer[AiAnalysisChunk]) error
 	mustEmbedUnimplementedAIServiceServer()
 }
 
@@ -80,6 +102,9 @@ func (UnimplementedAIServiceServer) GetLanguages(context.Context, *Empty) (*Lang
 }
 func (UnimplementedAIServiceServer) AnalyzeCode(context.Context, *AiAnalysisRequest) (*AiAnalysisResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AnalyzeCode not implemented")
+}
+func (UnimplementedAIServiceServer) StreamAnalyzeCode(*AiAnalysisRequest, grpc.ServerStreamingServer[AiAnalysisChunk]) error {
+	return status.Error(codes.Unimplemented, "method StreamAnalyzeCode not implemented")
 }
 func (UnimplementedAIServiceServer) mustEmbedUnimplementedAIServiceServer() {}
 func (UnimplementedAIServiceServer) testEmbeddedByValue()                   {}
@@ -138,6 +163,17 @@ func _AIService_AnalyzeCode_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_StreamAnalyzeCode_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AiAnalysisRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AIServiceServer).StreamAnalyzeCode(m, &grpc.GenericServerStream[AiAnalysisRequest, AiAnalysisChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AIService_StreamAnalyzeCodeServer = grpc.ServerStreamingServer[AiAnalysisChunk]
+
 // AIService_ServiceDesc is the grpc.ServiceDesc for AIService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,6 +190,12 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AIService_AnalyzeCode_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamAnalyzeCode",
+			Handler:       _AIService_StreamAnalyzeCode_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "ai.proto",
 }

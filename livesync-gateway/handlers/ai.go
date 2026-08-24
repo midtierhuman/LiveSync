@@ -87,6 +87,108 @@ func (h *AIHandler) AnalyzeCode(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, `{"error":"Streaming unsupported by response writer"}`, http.StatusInternalServerError)
+		return
+	}
+
+	var reqPayload AiHTTPRequest
+	if r.Method == http.MethodPost {
+		body, err := io.ReadAll(r.Body)
+		if err == nil && len(body) > 0 {
+			_ = json.Unmarshal(body, &reqPayload)
+		}
+	} else if r.Method == http.MethodGet {
+		reqPayload.Action = r.URL.Query().Get("action")
+		reqPayload.Language = r.URL.Query().Get("language")
+		reqPayload.Code = r.URL.Query().Get("code")
+		reqPayload.Prompt = r.URL.Query().Get("prompt")
+		reqPayload.Model = r.URL.Query().Get("model")
+	}
+
+	if reqPayload.Action == "" {
+		reqPayload.Action = "explain"
+	}
+	if reqPayload.Language == "" {
+		reqPayload.Language = "python"
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	grpcStream, err := h.grpcClient.StreamAnalyzeCode(ctx, &pb.AiAnalysisRequest{
+		Action:   reqPayload.Action,
+		Language: reqPayload.Language,
+		Code:     reqPayload.Code,
+		Prompt:   reqPayload.Prompt,
+		Model:    reqPayload.Model,
+	})
+	if err != nil {
+		errChunk := map[string]interface{}{
+			"delta":    "⚠️ Failed to connect to AI gRPC stream: " + err.Error(),
+			"stage":    "error",
+			"isFinal":  true,
+			"provider": "LiveSync Gateway",
+		}
+		jsonBytes, _ := json.Marshal(errChunk)
+		w.Write([]byte("data: " + string(jsonBytes) + "\n\n"))
+		flusher.Flush()
+		return
+	}
+
+	for {
+		chunk, err := grpcStream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			errChunk := map[string]interface{}{
+				"delta":    "⚠️ Stream interrupted: " + err.Error(),
+				"stage":    "error",
+				"isFinal":  true,
+				"provider": "LiveSync Gateway",
+			}
+			jsonBytes, _ := json.Marshal(errChunk)
+			w.Write([]byte("data: " + string(jsonBytes) + "\n\n"))
+			flusher.Flush()
+			break
+		}
+
+		var genCode *string
+		if chunk.GeneratedCode != "" {
+			genCode = &chunk.GeneratedCode
+		}
+
+		httpChunk := map[string]interface{}{
+			"delta":         chunk.Delta,
+			"stage":         chunk.Stage,
+			"action":        chunk.Action,
+			"language":      chunk.Language,
+			"provider":      chunk.Provider,
+			"suggestions":   chunk.Suggestions,
+			"generatedCode": genCode,
+			"isFinal":       chunk.IsFinal,
+		}
+
+		jsonBytes, _ := json.Marshal(httpChunk)
+		w.Write([]byte("data: " + string(jsonBytes) + "\n\n"))
+		flusher.Flush()
+
+		if chunk.IsFinal {
+			break
+		}
+	}
+}
+
 func (h *AIHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	models := []string{
@@ -108,3 +210,4 @@ func (h *AIHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(res)
 }
+

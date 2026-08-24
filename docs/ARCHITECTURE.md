@@ -199,9 +199,11 @@ graph TD
 - **OS Read-Only Lock Enforcement (`chmod 0444`)**: Locked or view-only files receive OS read-only permissions on disk, preventing unauthorized modifications from terminal scripts.
 - **Thread-Safe WebSocket Multiplexing (`SafeWSConn`)**: Mutex-locked writes prevent concurrent frame corruption during high-throughput stdout bursts.
 
-### B. Python AI Intelligence Worker (`livesync-ai`)
-- **Native HTTP/2 gRPC Interface (`port 50051`)**: Communicates exclusively with the Gateway via `proto/ai.proto` with zero public HTTP route exposure.
-- **AST Big-O Complexity Analyzer**: Static abstract syntax tree analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$, $\mathcal{O}(\log N)$) and Space complexity.
+### B. Python AI Intelligence & Streaming Worker (`livesync-ai`)
+- **Universal HTTP/2 gRPC Interface (`port 50051`)**: Serves an internal polyglot gRPC mesh (`proto/ai.proto`) accessible to `livesync-gateway` and `livesync-api` with zero public web exposure.
+- **Continuous gRPC Token Streaming (`StreamAnalyzeCode`)**: Server-streaming RPC yielding `stream AiAnalysisChunk` deltas in real time from Google Gemini API (`streamGenerateContent`) and local OpenAI-compatible endpoints (`stream: true`).
+- **Gateway SSE Bridge (`/api/ai/stream`)**: Go Gateway ingests the internal gRPC binary stream, applies JWT access verification, and streams Server-Sent Events (SSE) directly to the Angular UI for instant Cursor-style typing animations.
+- **AST Big-O Complexity Analyzer**: Sub-millisecond static abstract syntax tree analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$, $\mathcal{O}(\log N)$) and Space complexity.
 - **Hybrid AI Inference Chain**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) with Google Gemini cloud fallback and zero-cost offline AST structural analysis.
 
 ### C. Core REST API & Security (`livesync-api`)

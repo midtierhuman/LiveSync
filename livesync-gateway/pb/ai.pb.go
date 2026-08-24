@@ -313,6 +313,106 @@ func (x *AiAnalysisResponse) GetProvider() string {
 	return ""
 }
 
+type AiAnalysisChunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Delta         string                 `protobuf:"bytes,1,opt,name=delta,proto3" json:"delta,omitempty"`
+	Stage         string                 `protobuf:"bytes,2,opt,name=stage,proto3" json:"stage,omitempty"` // "analyzing", "streaming", "complete", "error"
+	Action        string                 `protobuf:"bytes,3,opt,name=action,proto3" json:"action,omitempty"`
+	Language      string                 `protobuf:"bytes,4,opt,name=language,proto3" json:"language,omitempty"`
+	Provider      string                 `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
+	Suggestions   []string               `protobuf:"bytes,6,rep,name=suggestions,proto3" json:"suggestions,omitempty"`
+	GeneratedCode string                 `protobuf:"bytes,7,opt,name=generated_code,json=generatedCode,proto3" json:"generated_code,omitempty"`
+	IsFinal       bool                   `protobuf:"varint,8,opt,name=is_final,json=isFinal,proto3" json:"is_final,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AiAnalysisChunk) Reset() {
+	*x = AiAnalysisChunk{}
+	mi := &file_ai_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AiAnalysisChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AiAnalysisChunk) ProtoMessage() {}
+
+func (x *AiAnalysisChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AiAnalysisChunk.ProtoReflect.Descriptor instead.
+func (*AiAnalysisChunk) Descriptor() ([]byte, []int) {
+	return file_ai_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *AiAnalysisChunk) GetDelta() string {
+	if x != nil {
+		return x.Delta
+	}
+	return ""
+}
+
+func (x *AiAnalysisChunk) GetStage() string {
+	if x != nil {
+		return x.Stage
+	}
+	return ""
+}
+
+func (x *AiAnalysisChunk) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *AiAnalysisChunk) GetLanguage() string {
+	if x != nil {
+		return x.Language
+	}
+	return ""
+}
+
+func (x *AiAnalysisChunk) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *AiAnalysisChunk) GetSuggestions() []string {
+	if x != nil {
+		return x.Suggestions
+	}
+	return nil
+}
+
+func (x *AiAnalysisChunk) GetGeneratedCode() string {
+	if x != nil {
+		return x.GeneratedCode
+	}
+	return ""
+}
+
+func (x *AiAnalysisChunk) GetIsFinal() bool {
+	if x != nil {
+		return x.IsFinal
+	}
+	return false
+}
+
 var File_ai_proto protoreflect.FileDescriptor
 
 const file_ai_proto_rawDesc = "" +
@@ -336,10 +436,20 @@ const file_ai_proto_rawDesc = "" +
 	"\vexplanation\x18\x03 \x01(\tR\vexplanation\x12 \n" +
 	"\vsuggestions\x18\x04 \x03(\tR\vsuggestions\x12%\n" +
 	"\x0egenerated_code\x18\x05 \x01(\tR\rgeneratedCode\x12\x1a\n" +
-	"\bprovider\x18\x06 \x01(\tR\bprovider2{\n" +
+	"\bprovider\x18\x06 \x01(\tR\bprovider\"\xf1\x01\n" +
+	"\x0fAiAnalysisChunk\x12\x14\n" +
+	"\x05delta\x18\x01 \x01(\tR\x05delta\x12\x14\n" +
+	"\x05stage\x18\x02 \x01(\tR\x05stage\x12\x16\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\x12\x1a\n" +
+	"\blanguage\x18\x04 \x01(\tR\blanguage\x12\x1a\n" +
+	"\bprovider\x18\x05 \x01(\tR\bprovider\x12 \n" +
+	"\vsuggestions\x18\x06 \x03(\tR\vsuggestions\x12%\n" +
+	"\x0egenerated_code\x18\a \x01(\tR\rgeneratedCode\x12\x19\n" +
+	"\bis_final\x18\b \x01(\bR\aisFinal2\xbe\x01\n" +
 	"\tAIService\x120\n" +
 	"\fGetLanguages\x12\t.ai.Empty\x1a\x15.ai.LanguagesResponse\x12<\n" +
-	"\vAnalyzeCode\x12\x15.ai.AiAnalysisRequest\x1a\x16.ai.AiAnalysisResponseB)Z'github.com/livesync/livesync-gateway/pbb\x06proto3"
+	"\vAnalyzeCode\x12\x15.ai.AiAnalysisRequest\x1a\x16.ai.AiAnalysisResponse\x12A\n" +
+	"\x11StreamAnalyzeCode\x12\x15.ai.AiAnalysisRequest\x1a\x13.ai.AiAnalysisChunk0\x01B)Z'github.com/livesync/livesync-gateway/pbb\x06proto3"
 
 var (
 	file_ai_proto_rawDescOnce sync.Once
@@ -353,22 +463,25 @@ func file_ai_proto_rawDescGZIP() []byte {
 	return file_ai_proto_rawDescData
 }
 
-var file_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_ai_proto_goTypes = []any{
 	(*Empty)(nil),              // 0: ai.Empty
 	(*LanguageDescriptor)(nil), // 1: ai.LanguageDescriptor
 	(*LanguagesResponse)(nil),  // 2: ai.LanguagesResponse
 	(*AiAnalysisRequest)(nil),  // 3: ai.AiAnalysisRequest
 	(*AiAnalysisResponse)(nil), // 4: ai.AiAnalysisResponse
+	(*AiAnalysisChunk)(nil),    // 5: ai.AiAnalysisChunk
 }
 var file_ai_proto_depIdxs = []int32{
 	1, // 0: ai.LanguagesResponse.languages:type_name -> ai.LanguageDescriptor
 	0, // 1: ai.AIService.GetLanguages:input_type -> ai.Empty
 	3, // 2: ai.AIService.AnalyzeCode:input_type -> ai.AiAnalysisRequest
-	2, // 3: ai.AIService.GetLanguages:output_type -> ai.LanguagesResponse
-	4, // 4: ai.AIService.AnalyzeCode:output_type -> ai.AiAnalysisResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
+	3, // 3: ai.AIService.StreamAnalyzeCode:input_type -> ai.AiAnalysisRequest
+	2, // 4: ai.AIService.GetLanguages:output_type -> ai.LanguagesResponse
+	4, // 5: ai.AIService.AnalyzeCode:output_type -> ai.AiAnalysisResponse
+	5, // 6: ai.AIService.StreamAnalyzeCode:output_type -> ai.AiAnalysisChunk
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -385,7 +498,7 @@ func file_ai_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ai_proto_rawDesc), len(file_ai_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
