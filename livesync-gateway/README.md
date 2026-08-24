@@ -6,9 +6,10 @@ High-performance, zero-trust API Gateway, interactive PTY Live Terminal engine, 
 
 ## 🚀 Key Architecture & Capabilities
 
-1. **Native OS Pseudo-Terminal (PTY) Multiplexing**:
+1. **Native OS Pseudo-Terminal (PTY) Multiplexing & High-Throughput I/O Recycling (`PERF-12`)**:
    - **Windows**: Native ConPTY (`CreatePseudoConsole`) executing `powershell.exe -NoLogo`.
    - **Linux/macOS/Docker**: Unix PTY (`github.com/creack/pty`) executing `/bin/bash`.
+   - **High-Throughput `sync.Pool` Byte Slice Recycling (`PERF-12`)**: Global 4KB buffer pool for stdout/stderr pumps eliminating repetitive heap allocations and GC pauses during high-output commands (`npm install`, `cat big.log`, `cargo build`).
    - Anchored directly in project workspaces (`./workspaces/{projectId}`) with sub-directory context (`subDir`).
    - OS-level read-only permissions (`chmod 0444`) on locked/view-only files to prevent terminal script tampering.
    - Platform-aware single line-ending normalization (`\n` on Linux/POSIX, `\r\n` on Windows ConPTY) for programmatic command dispatches (`run_command`), preventing duplicate prompt echoes.

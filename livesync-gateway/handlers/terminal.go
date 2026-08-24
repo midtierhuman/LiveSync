@@ -19,6 +19,29 @@ import (
 	"github.com/livesync/livesync-gateway/middleware"
 )
 
+const (
+	// TerminalBufferSize is the recycled buffer size for PTY I/O pumps (4KB)
+	TerminalBufferSize = 4096
+)
+
+// Global sync.Pool recycler eliminating repetitive 4KB heap allocations under heavy PTY throughput (PERF-12)
+var terminalBufferPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, TerminalBufferSize)
+		return &b
+	},
+}
+
+func GetTerminalBuffer() *[]byte {
+	return terminalBufferPool.Get().(*[]byte)
+}
+
+func PutTerminalBuffer(b *[]byte) {
+	if b != nil {
+		terminalBufferPool.Put(b)
+	}
+}
+
 type TerminalHandler struct {
 	cfg *config.Config
 }
@@ -227,11 +250,13 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		startWorkspaceWatcher(ctx, absWsDir, c)
 	}()
 
-	// Terminal stdout/stderr reader -> WebSocket
+	// Terminal stdout/stderr reader -> WebSocket (Recycled sync.Pool byte slices - PERF-12)
 	go func() {
 		defer wg.Done()
 		defer cancel()
-		buf := make([]byte, 4096)
+		bufPtr := GetTerminalBuffer()
+		defer PutTerminalBuffer(bufPtr)
+		buf := *bufPtr
 		for {
 			n, readErr := term.Read(buf)
 			if n > 0 {

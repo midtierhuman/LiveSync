@@ -91,3 +91,25 @@ func TestNormalizeTerminalCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestTerminalBufferPool(t *testing.T) {
+	bufPtr1 := GetTerminalBuffer()
+	if bufPtr1 == nil || len(*bufPtr1) != TerminalBufferSize {
+		t.Fatalf("Expected buffer of size %d, got %v", TerminalBufferSize, bufPtr1)
+	}
+
+	// Write dummy data into buffer
+	(*bufPtr1)[0] = 0xAA
+	(*bufPtr1)[1] = 0xBB
+
+	// Recycle to pool
+	PutTerminalBuffer(bufPtr1)
+
+	// Fetch again
+	bufPtr2 := GetTerminalBuffer()
+	if bufPtr2 == nil || len(*bufPtr2) != TerminalBufferSize {
+		t.Fatalf("Expected buffer of size %d from pool, got %v", TerminalBufferSize, bufPtr2)
+	}
+	PutTerminalBuffer(bufPtr2)
+}
+
