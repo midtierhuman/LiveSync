@@ -41,6 +41,10 @@ High-performance, zero-trust API Gateway, interactive PTY Live Terminal engine, 
 7. **Terminal PTY Load & Memory Stress Test Matrix (`TEST-02`)**:
    - Automated stress testing matrix allocating 100 concurrent PTY sessions, measuring CPU/RAM buffer recycling throughput under load.
 
+8. **Authoritative Backend Manifest Source-of-Truth Enforcement & DevTools Tamper Shield (`SEC-08`)**:
+   - Reconciles client workspace synchronization payloads against `livesync-api`'s PostgreSQL/Redis manifest during `POST /api/workspaces/{id}/sync`.
+   - Forces authoritative backend content for locked/view-only files, neutralizing client-side DevTools memory tampering while allowing legitimate unpersisted editor drafts on editable files.
+
 ---
 
 ## 📡 HTTP & WebSocket Endpoints (Port `8081`)

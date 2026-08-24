@@ -34,6 +34,53 @@ type ProjectManifestResponse struct {
 	Files       []ProjectManifestFile `json:"files"`
 }
 
+// FetchProjectManifest retrieves the full recursive project tree from livesync-api (/api/folders/:id/manifest).
+func FetchProjectManifest(ctx context.Context, cfg *config.Config, projectID, tokenStr string) (*ProjectManifestResponse, error) {
+	cleanID := strings.TrimSpace(projectID)
+	if cleanID == "" || cleanID == "default" || cleanID == "workspace_default" || cleanID == "temp" {
+		return nil, errors.New("cannot fetch manifest for ephemeral/default workspace")
+	}
+
+	if cfg == nil || cfg.APIBaseURL == "" {
+		return nil, errors.New("api base url not configured")
+	}
+
+	manifestURL := fmt.Sprintf("%s/api/folders/%s/manifest", strings.TrimRight(cfg.APIBaseURL, "/"), url.PathEscape(cleanID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, manifestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create manifest request: %w", err)
+	}
+
+	if tokenStr != "" {
+		req.Header.Set("Authorization", "Bearer "+tokenStr)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch project manifest: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
+		return nil, errors.New("forbidden: unauthorized to access project manifest")
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, errors.New("project not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("manifest request failed with status: %d", resp.StatusCode)
+	}
+
+	var manifest ProjectManifestResponse
+	if err := json.NewDecoder(resp.Body).Decode(&manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse project manifest: %w", err)
+	}
+
+	return &manifest, nil
+}
+
 // MaterializeWorkspaceFromManifest ensures that ./workspaces/{projectId} exists on disk.
 // If the workspace does not exist or is empty, it fetches the full recursive project tree
 // in a single batch query from livesync-api (/api/folders/:id/manifest) and materializes it on disk.
@@ -69,37 +116,9 @@ func MaterializeWorkspaceFromManifest(ctx context.Context, cfg *config.Config, p
 		return absWsDir, 0, nil
 	}
 
-	manifestURL := fmt.Sprintf("%s/api/folders/%s/manifest", strings.TrimRight(cfg.APIBaseURL, "/"), url.PathEscape(cleanID))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, manifestURL, nil)
+	manifest, err := FetchProjectManifest(ctx, cfg, projectID, tokenStr)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to create manifest request: %w", err)
-	}
-
-	if tokenStr != "" {
-		req.Header.Set("Authorization", "Bearer "+tokenStr)
-	}
-	req.Header.Set("Accept", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to fetch project manifest: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
-		return "", 0, errors.New("forbidden: unauthorized to access project manifest")
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return "", 0, errors.New("project not found")
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", 0, fmt.Errorf("manifest request failed with status: %d", resp.StatusCode)
-	}
-
-	var manifest ProjectManifestResponse
-	if err := json.NewDecoder(resp.Body).Decode(&manifest); err != nil {
-		return "", 0, fmt.Errorf("failed to parse project manifest: %w", err)
+		return absWsDir, 0, err
 	}
 
 	_ = os.MkdirAll(absWsDir, 0755)

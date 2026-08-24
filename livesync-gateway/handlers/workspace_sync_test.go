@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/livesync/livesync-gateway/config"
+	"github.com/livesync/livesync-gateway/middleware"
 )
 
 func TestSuppressionRegistry(t *testing.T) {
@@ -250,4 +251,106 @@ func TestWorkspaceSyncWithLockedFiles(t *testing.T) {
 		t.Errorf("expected filea.js to be writable, got mode %v", fileaInfo.Mode().Perm())
 	}
 }
+
+func TestWorkspaceSync_DevToolsTamperShield(t *testing.T) {
+	// 1. Setup mock LiveSync API server returning authoritative manifest
+	mockAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/folders/proj-tamper-test/access" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"accessLevel": "View"})
+			return
+		}
+		if r.URL.Path == "/api/folders/proj-tamper-test/manifest" {
+			manifest := ProjectManifestResponse{
+				ProjectID:   "proj-tamper-test",
+				ProjectName: "Tamper Test Project",
+				AccessLevel: "View",
+				TotalFiles:  2,
+				Files: []ProjectManifestFile{
+					{
+						Path:        "index.js",
+						Title:       "index.js",
+						Content:     "console.log('AUTHORITATIVE_ORIGINAL_INDEX_JS');",
+						IsLocked:    true,
+						AccessLevel: "View",
+					},
+					{
+						Path:        "filea.js",
+						Title:       "filea.js",
+						Content:     "console.log('original filea.js');",
+						IsLocked:    false,
+						AccessLevel: "Edit",
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(manifest)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockAPI.Close()
+
+	jwtSecret := "test-jwt-secret-tamper-shield-987"
+	cfg := &config.Config{
+		Port:       "8080",
+		APIBaseURL: mockAPI.URL,
+		JWTSecret:  jwtSecret,
+	}
+	syncHandler := NewWorkspaceSyncHandler(cfg)
+	handler := middleware.JWTAuth(cfg, syncHandler.HandleWorkspaceSync)
+	defer os.RemoveAll(filepath.Join(".", "workspaces", "proj-tamper-test"))
+
+	validToken := createTestJWT(jwtSecret, "user-viewer-test", "viewer", "viewer@example.com")
+
+	// 2. Client attempts to send tampered index.js and edited filea.js
+	tamperedPayload := WorkspaceSyncRequest{
+		ProjectID: "proj-tamper-test",
+		Files: map[string]string{
+			"index.js": "console.log('MALICIOUS_TAMPERED_IN_DEVTOOLS');",
+			"filea.js": "console.log('LEGITIMATE_USER_EDIT_IN_FILEA');",
+			"evil.sh":  "echo 'INJECTED_UNAUTHORIZED_FILE'",
+		},
+		LockedFiles: []string{}, // Client attempts to omit lockedFiles
+	}
+	payloadBytes, _ := json.Marshal(tamperedPayload)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/workspaces/proj-tamper-test/sync", bytes.NewReader(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+validToken)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d. Body: %s", resp.StatusCode, w.Body.String())
+	}
+
+	// 3. Verify disk contents in ./workspaces/proj-tamper-test
+	wsDir := filepath.Join(".", "workspaces", "proj-tamper-test")
+
+	// index.js MUST be the authoritative content from backend, NOT the client tamper
+	indexBytes, err := os.ReadFile(filepath.Join(wsDir, "index.js"))
+	if err != nil {
+		t.Fatalf("failed to read index.js on disk: %v", err)
+	}
+	if string(indexBytes) != "console.log('AUTHORITATIVE_ORIGINAL_INDEX_JS');" {
+		t.Fatalf("SECURITY VIOLATION: index.js was overwritten by client tamper! Content: %s", string(indexBytes))
+	}
+
+	// filea.js MUST contain the user's legitimate draft edit
+	fileaBytes, err := os.ReadFile(filepath.Join(wsDir, "filea.js"))
+	if err != nil {
+		t.Fatalf("failed to read filea.js on disk: %v", err)
+	}
+	if string(fileaBytes) != "console.log('LEGITIMATE_USER_EDIT_IN_FILEA');" {
+		t.Fatalf("expected filea.js to contain user edit, got: %s", string(fileaBytes))
+	}
+
+	// evil.sh MUST NOT exist because View user cannot inject new files
+	if _, statErr := os.Stat(filepath.Join(wsDir, "evil.sh")); statErr == nil {
+		t.Fatalf("SECURITY VIOLATION: View user was allowed to inject evil.sh!")
+	}
+}
+
 

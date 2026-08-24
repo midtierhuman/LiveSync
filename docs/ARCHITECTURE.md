@@ -279,3 +279,7 @@ graph TD
    - `livesync-ai` communicates exclusively with internal backend services over HTTP/2 gRPC (`port 50051`), exposing zero public HTTP routes to the internet.
 6. **Multi-Tenant AI & Preflight CORS Authorization (`SEC-07`)**:
    - Both `livesync-gateway` and `livesync-api` CORS preflight middleware explicitly negotiate `X-AI-Api-Key` and `X-Antigravity-Key` headers alongside standard JWT bearer headers, preventing browser cross-origin preflight rejections while preserving zero-trust authorization.
+7. **Authoritative Backend Manifest Source of Truth & DevTools Tamper Shield (`SEC-08`)**:
+   - When project execution or workspace disk sync (`POST /api/workspaces/{id}/sync`) is triggered by a collaborator, `livesync-gateway` fetches the authoritative project manifest from `livesync-api` (PostgreSQL + Redis).
+   - For all files where the user has `View` or revoked access (`isLocked == true`), client-supplied payload contents (e.g. from browser DevTools memory tampering) are strictly discarded and replaced with the authoritative backend content. Live unpersisted client draft overlays are permitted solely for files where the collaborator holds verified `Edit` or `Owner` permissions.
+

@@ -214,7 +214,59 @@ func (h *WorkspaceSyncHandler) HandleWorkspaceSync(w http.ResponseWriter, r *htt
 		}
 		_ = os.MkdirAll(absWsDir, 0755)
 
-		hashes, syncedCount, syncErr := SyncWorkspaceAtomicWithRegistry(absWsDir, req.Files, req.LockedFiles, h.registry)
+		filesToSync := make(map[string]string)
+		lockedFilesMap := make(map[string]bool)
+
+		// Authoritative Source of Truth Enforcement (SEC-08):
+		// If connected to livesync-api, reconcile client-provided files against the true backend manifest
+		manifest, manifestErr := FetchProjectManifest(r.Context(), h.cfg, projectID, tokenStr)
+		if manifestErr == nil && manifest != nil {
+			for _, mf := range manifest.Files {
+				if mf.Path == "" {
+					continue
+				}
+				cleanPath := filepath.ToSlash(filepath.Clean(mf.Path))
+				if mf.IsLocked || mf.AccessLevel == "View" {
+					// STRICT TAMPER SHIELD: Override client-provided data with backend authoritative content
+					filesToSync[cleanPath] = mf.Content
+					lockedFilesMap[cleanPath] = true
+				} else {
+					// Verified Edit / Owner permissions: allow live unpersisted editor buffer overlay
+					if clientContent, ok := req.Files[cleanPath]; ok {
+						filesToSync[cleanPath] = clientContent
+					} else if clientContent, ok := req.Files[mf.Path]; ok {
+						filesToSync[cleanPath] = clientContent
+					} else {
+						filesToSync[cleanPath] = mf.Content
+					}
+				}
+			}
+
+			// If caller has Edit/Owner on the project, permit new unpersisted files not yet in manifest
+			if manifest.AccessLevel == "Edit" || manifest.AccessLevel == "Owner" || accessLevel == "Edit" || accessLevel == "Owner" {
+				for relPath, content := range req.Files {
+					cleanPath := filepath.ToSlash(filepath.Clean(relPath))
+					if _, exists := filesToSync[cleanPath]; !exists {
+						filesToSync[cleanPath] = content
+					}
+				}
+			}
+		} else {
+			// Standalone / offline harness fallback
+			filesToSync = req.Files
+			for _, lf := range req.LockedFiles {
+				if lf != "" {
+					lockedFilesMap[filepath.ToSlash(filepath.Clean(lf))] = true
+				}
+			}
+		}
+
+		var lockedFiles []string
+		for lf := range lockedFilesMap {
+			lockedFiles = append(lockedFiles, lf)
+		}
+
+		hashes, syncedCount, syncErr := SyncWorkspaceAtomicWithRegistry(absWsDir, filesToSync, lockedFiles, h.registry)
 		if syncErr != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
