@@ -11,6 +11,7 @@ High-performance, zero-trust API Gateway, interactive PTY Live Terminal engine, 
    - **Linux/macOS/Docker**: Unix PTY (`github.com/creack/pty`) executing `/bin/bash`.
    - Anchored directly in project workspaces (`./workspaces/{projectId}`) with sub-directory context (`subDir`).
    - OS-level read-only permissions (`chmod 0444`) on locked/view-only files to prevent terminal script tampering.
+   - Platform-aware single line-ending normalization (`\n` on Linux/POSIX, `\r\n` on Windows ConPTY) for programmatic command dispatches (`run_command`), preventing duplicate prompt echoes.
 
 2. **Bi-Directional `fsnotify` Disk Watcher**:
    - Watches workspace disk trees and pushes real-time `fs_change` JSON events over WebSocket whenever terminal commands (`mkdir`, `touch`, `npm create vite`) modify files, synchronizing the UI Explorer instantly without polling.

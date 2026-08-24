@@ -68,3 +68,26 @@ func TestSyncWorkspaceFiles(t *testing.T) {
 		t.Logf("locked.py file perm: %v", info.Mode().Perm())
 	}
 }
+
+func TestNormalizeTerminalCommand(t *testing.T) {
+	tests := []struct {
+		input    string
+		targetOS string
+		expected string
+	}{
+		{"node index.js", "linux", "node index.js\n"},
+		{"node index.js\n", "linux", "node index.js\n"},
+		{"node index.js\r\n", "linux", "node index.js\r\n"},
+		{"python main.py", "darwin", "python main.py\n"},
+		{"python main.py", "windows", "python main.py\r\n"},
+		{"python main.py\r\n", "windows", "python main.py\r\n"},
+		{"export PORT=3000; node app.js", "linux", "export PORT=3000; node app.js\n"},
+	}
+
+	for _, tt := range tests {
+		got := normalizeTerminalCommandWithOS(tt.input, tt.targetOS)
+		if got != tt.expected {
+			t.Errorf("normalizeTerminalCommandWithOS(%q, %q) = %q, expected %q", tt.input, tt.targetOS, got, tt.expected)
+		}
+	}
+}

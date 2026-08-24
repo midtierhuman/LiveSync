@@ -264,10 +264,7 @@ func (h *TerminalHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 					_ = term.Resize(tMsg.Cols, tMsg.Rows)
 					continue
 				} else if tMsg.Action == "run_command" && tMsg.Data != "" {
-					cmdStr := tMsg.Data
-					if !strings.HasSuffix(cmdStr, "\n") && !strings.HasSuffix(cmdStr, "\r") {
-						cmdStr += "\r\n"
-					}
+					cmdStr := NormalizeTerminalCommand(tMsg.Data)
 					_, _ = term.Write([]byte(cmdStr))
 					continue
 				} else if (tMsg.Action == "input" || tMsg.Action == "stdin" || tMsg.Type == "input") && tMsg.Data != "" {
@@ -449,3 +446,18 @@ func syncWorkspaceFiles(wsDir string, files map[string]string, lockedFiles []str
 	_, _, _ = SyncWorkspaceAtomicWithRegistry(wsDir, files, lockedFiles, GetGlobalSuppressionRegistry())
 }
 
+// NormalizeTerminalCommand ensures command strings have a single platform-normalized line termination
+// avoiding duplicate PTY carriage-return/newline translation artifacts.
+func NormalizeTerminalCommand(cmdStr string) string {
+	return normalizeTerminalCommandWithOS(cmdStr, runtime.GOOS)
+}
+
+func normalizeTerminalCommandWithOS(cmdStr string, targetOS string) string {
+	if strings.HasSuffix(cmdStr, "\r\n") || strings.HasSuffix(cmdStr, "\n") || strings.HasSuffix(cmdStr, "\r") {
+		return cmdStr
+	}
+	if targetOS == "windows" {
+		return cmdStr + "\r\n"
+	}
+	return cmdStr + "\n"
+}

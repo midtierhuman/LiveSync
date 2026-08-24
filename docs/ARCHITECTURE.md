@@ -196,8 +196,8 @@ graph TD
   - **Windows**: Native Windows ConPTY (`CreatePseudoConsole`) running `powershell.exe -NoLogo`.
   - **Linux/macOS/Docker**: Unix PTY (`github.com/creack/pty`) running `/bin/bash`.
 - **Bi-Directional `fsnotify` Disk Watcher**: Monitors project workspaces on disk (`./workspaces/{projectId}`) and pushes real-time `fs_change` JSON frames over WebSocket when files/folders are created, modified, or deleted by terminal commands (`mkdir`, `touch`, `npm create vite`), keeping the UI Explorer synchronized without manual refreshes.
-- **OS Read-Only Lock Enforcement (`chmod 0444`)**: Locked or view-only files receive OS read-only permissions on disk, preventing unauthorized modifications from terminal scripts.
 - **Thread-Safe WebSocket Multiplexing (`SafeWSConn`)**: Mutex-locked writes prevent concurrent frame corruption during high-throughput stdout bursts.
+- **Platform-Aware Line Normalization (`BUG-11`)**: Automatically normalizes programmatic command dispatches (`run_command`) with platform-safe line feeds (`\n` on Linux/POSIX, `\r\n` on Windows ConPTY), eliminating duplicate prompt echo anomalies caused by PTY `ICRNL` translation.
 
 ### B. Python AI Intelligence & Streaming Worker (`livesync-ai`)
 - **Universal HTTP/2 gRPC Interface (`port 50051`)**: Serves an internal polyglot gRPC mesh (`proto/ai.proto`) accessible to `livesync-gateway` and `livesync-api` with zero public web exposure.
