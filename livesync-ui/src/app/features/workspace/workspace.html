@@ -1604,36 +1604,71 @@
     </div>
   }
 
-  <!-- Quick Open / Command Palette (Ctrl+P) -->
+  <!-- Quick Open / Command Palette (Ctrl+P & Ctrl+Shift+P - FEAT-16) -->
   @if (showQuickOpen()) {
     <div class="quick-open-backdrop" (click)="showQuickOpen.set(false)">
       <div class="quick-open-modal" (click)="$event.stopPropagation()">
         <div class="quick-open-input-row">
-          <mat-icon>search</mat-icon>
+          <mat-icon>{{ isCommandMode() ? 'terminal' : 'search' }}</mat-icon>
           <input
+            id="quick-open-input-field"
             #quickOpenInput
             type="text"
-            placeholder="Type a file name to open..."
+            [placeholder]="isCommandMode() ? '> Type a command to run (e.g. AI, Terminal, Save, View)...' : 'Type a file name to open (type > for commands)...'"
             [value]="quickOpenQuery()"
             (input)="quickOpenQuery.set($any($event.target).value)"
             (keydown)="handleQuickOpenKeyDown($event)"
             autofocus
           />
+          @if (quickOpenQuery()) {
+            <button class="btn-clear-query" (click)="quickOpenQuery.set(isCommandMode() ? '>' : ''); quickOpenSelectedIndex.set(0)">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
         </div>
 
         <div class="quick-open-results-list">
-          @for (doc of quickOpenResults(); track doc.id; let i = $index) {
-            <div
-              class="quick-open-item"
-              [class.selected]="i === quickOpenSelectedIndex()"
-              (click)="selectQuickOpenDoc(doc.id)"
-              (mouseenter)="quickOpenSelectedIndex.set(i)"
-            >
-              <mat-icon class="file-icon">description</mat-icon>
-              <span class="file-name">{{ doc.title }}</span>
-            </div>
-          } @empty {
-            <div class="quick-open-empty">No matching files found.</div>
+          @if (isCommandMode()) {
+            @for (cmd of quickOpenFilteredCommands(); track cmd.id; let i = $index) {
+              <div
+                class="quick-open-item command-item"
+                [class.selected]="i === quickOpenSelectedIndex()"
+                (click)="executeQuickOpenSelection()"
+                (mouseenter)="quickOpenSelectedIndex.set(i)"
+              >
+                <div class="item-left">
+                  <mat-icon class="cmd-icon">{{ cmd.icon }}</mat-icon>
+                  <div class="cmd-text-col">
+                    <span class="cmd-title">{{ cmd.title }}</span>
+                  </div>
+                </div>
+                @if (cmd.shortcut) {
+                  <span class="cmd-shortcut-badge">{{ cmd.shortcut }}</span>
+                }
+              </div>
+            } @empty {
+              <div class="quick-open-empty">No matching commands found.</div>
+            }
+          } @else {
+            @for (doc of quickOpenResults(); track doc.id; let i = $index) {
+              <div
+                class="quick-open-item file-item"
+                [class.selected]="i === quickOpenSelectedIndex()"
+                (click)="selectQuickOpenDoc(doc.id)"
+                (mouseenter)="quickOpenSelectedIndex.set(i)"
+              >
+                <div class="item-left">
+                  <mat-icon class="file-icon" [class]="getLanguageBadge(doc.title).class">{{ getLanguageBadge(doc.title).icon }}</mat-icon>
+                  <span class="file-name">{{ doc.title }}</span>
+                </div>
+                <span class="file-meta-scope">{{ scopedProject()?.name || 'Workspace' }}</span>
+              </div>
+            } @empty {
+              <div class="quick-open-empty">
+                <span>No matching files found.</span>
+                <button class="hint-command-btn" (click)="openCommandPalette()">Type <code>&gt;</code> to run commands</button>
+              </div>
+            }
           }
         </div>
       </div>

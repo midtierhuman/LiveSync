@@ -24,10 +24,14 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
    - Resilient workspace-level reactive dispatch: operates seamlessly across whole-project scope whether file tabs are actively open or empty.
    - Renders live token-by-token Cursor-style synthesis typing animations with syntax-highlighted code blocks, Big-O complexity badges, and 1-click "Apply to Editor" actions.
 
-4. **Unified 48px Activity Bar & Sidebar Dock**:
+4. **VS Code Command Palette & Quick Open Fuzzy Finder (`FEAT-16`)**:
+   - `Ctrl+Shift+P` / `Cmd+Shift+P` (or typing `>`): Spotlight modal executing 25+ IDE actions (Toggle Terminal, Dock Assistant Right/Left/Bottom, Format Code, Package Hub, Timeline, File creation).
+   - `Ctrl+P` / `Cmd+P`: Instant fuzzy file finder with keyboard up/down arrows and Enter to switch active editor tabs.
+
+5. **Unified 48px Activity Bar & Sidebar Dock**:
    - Consolidates Explorer, Search & Replace (`Ctrl+Shift+F`), Package Hub (live NPM/PyPI search), Run & Debug, AI Assistant, and Collaborators into a single sidebar without floating modal clutter.
 
-5. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
+6. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
    - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
    - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
    - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs and debounced keystroke edits prior to terminal and compilation execution.
@@ -38,7 +42,9 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
 
 | Shortcut | Action |
 | :--- | :--- |
+| `Ctrl+Shift+P` / `Cmd+Shift+P` | Open VS Code Command Palette (Actions / Commands) |
 | `Ctrl+P` / `Cmd+P` | Quick Open fuzzy file switcher |
+| `Ctrl+Alt+A` | Toggle LiveSync AI Pair Assistant Dock |
 | `Ctrl+Shift+F` | Workspace-Wide Multi-File Search & Replace |
 | `Ctrl+\`` | Toggle Live Terminal Bottom Dock |
 | `Ctrl+B` | Toggle Sidebar Activity Dock |

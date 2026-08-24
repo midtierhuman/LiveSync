@@ -592,13 +592,230 @@ export class Workspace implements OnInit {
     return 'python';
   }
 
-  // Quick Open / Command Palette (Ctrl+P)
+  // Quick Open / Command Palette (Ctrl+P & Ctrl+Shift+P - FEAT-16)
   showQuickOpen = signal(false);
   quickOpenQuery = signal('');
   quickOpenSelectedIndex = signal(0);
 
-  quickOpenResults = computed(() => {
+  readonly isCommandMode = computed(() => this.quickOpenQuery().startsWith('>'));
+
+  readonly commandList = computed<Array<{ id: string; title: string; category: string; icon: string; shortcut?: string; action: () => void }>>(() => [
+    {
+      id: 'ai.toggle',
+      title: 'LiveSync AI: Toggle AI Assistant Dock',
+      category: 'AI Assistant',
+      icon: 'auto_awesome',
+      shortcut: 'Ctrl+Alt+A',
+      action: () => this.toggleAiDock(),
+    },
+    {
+      id: 'ai.dock.right',
+      title: 'LiveSync AI: Dock to Right (Secondary Sidebar)',
+      category: 'AI Assistant',
+      icon: 'vertical_split',
+      action: () => this.setAiDockPosition('right'),
+    },
+    {
+      id: 'ai.dock.left',
+      title: 'LiveSync AI: Dock to Left Sidebar',
+      category: 'AI Assistant',
+      icon: 'view_sidebar',
+      action: () => this.setAiDockPosition('left'),
+    },
+    {
+      id: 'ai.dock.bottom',
+      title: 'LiveSync AI: Dock to Bottom Panel',
+      category: 'AI Assistant',
+      icon: 'vertical_align_bottom',
+      action: () => this.setAiDockPosition('bottom'),
+    },
+    {
+      id: 'ai.connect',
+      title: 'LiveSync AI: Configure API Keys & Agent Providers',
+      category: 'AI Assistant',
+      icon: 'key',
+      action: () => this.onOpenAiConnectModal(),
+    },
+    {
+      id: 'ai.explain',
+      title: 'LiveSync AI: Explain Active Code',
+      category: 'AI Assistant',
+      icon: 'lightbulb',
+      action: () => this.runAiQuickAction('explain'),
+    },
+    {
+      id: 'ai.refactor',
+      title: 'LiveSync AI: Refactor & Optimize Code',
+      category: 'AI Assistant',
+      icon: 'bolt',
+      action: () => this.runAiQuickAction('refactor'),
+    },
+    {
+      id: 'ai.tests',
+      title: 'LiveSync AI: Generate Unit Tests',
+      category: 'AI Assistant',
+      icon: 'build',
+      action: () => this.runAiQuickAction('generate-tests'),
+    },
+    {
+      id: 'ai.complexity',
+      title: 'LiveSync AI: Analyze Big-O Complexity',
+      category: 'AI Assistant',
+      icon: 'timer',
+      action: () => this.runAiQuickAction('complexity'),
+    },
+    {
+      id: 'terminal.toggle',
+      title: 'Terminal: Toggle Integrated Terminal Dock',
+      category: 'Terminal',
+      icon: 'terminal',
+      shortcut: 'Ctrl+`',
+      action: () => this.toggleTerminalInActiveEditor(),
+    },
+    {
+      id: 'terminal.new',
+      title: 'Terminal: Create New Terminal Tab',
+      category: 'Terminal',
+      icon: 'add',
+      action: () => this.liveTerminalService.createTab(),
+    },
+    {
+      id: 'terminal.clear',
+      title: 'Terminal: Clear Terminal Output',
+      category: 'Terminal',
+      icon: 'delete_sweep',
+      action: () => this.clearTerminal(),
+    },
+    {
+      id: 'terminal.restart',
+      title: 'Terminal: Restart Active Terminal',
+      category: 'Terminal',
+      icon: 'restart_alt',
+      action: () => this.restartTerminal(),
+    },
+    {
+      id: 'view.sidebar',
+      title: 'View: Toggle Primary Sidebar',
+      category: 'View',
+      icon: 'view_sidebar',
+      shortcut: 'Ctrl+B',
+      action: () => this.isSidebarOpen.update((open) => !open),
+    },
+    {
+      id: 'view.explorer',
+      title: 'View: Show File Explorer',
+      category: 'View',
+      icon: 'folder',
+      action: () => this.toggleSidebarView('explorer'),
+    },
+    {
+      id: 'view.search',
+      title: 'View: Workspace Search & Replace',
+      category: 'View',
+      icon: 'search',
+      shortcut: 'Ctrl+Shift+F',
+      action: () => this.openWorkspaceSearch(),
+    },
+    {
+      id: 'view.packages',
+      title: 'View: Package Hub (npm / PyPI)',
+      category: 'View',
+      icon: 'inventory_2',
+      action: () => this.toggleSidebarView('packages'),
+    },
+    {
+      id: 'view.run',
+      title: 'View: Run & Debug Configurations',
+      category: 'View',
+      icon: 'play_arrow',
+      action: () => this.toggleSidebarView('run'),
+    },
+    {
+      id: 'view.timeline',
+      title: 'View: Activity Timeline & Audit Trail',
+      category: 'View',
+      icon: 'history',
+      action: () => this.toggleSidebarView('timeline'),
+    },
+    {
+      id: 'file.newFile',
+      title: 'File: Create New File in Active Project',
+      category: 'File',
+      icon: 'note_add',
+      action: () => this.openCreateInFolder(this.scopedProject()?.id || null, 'file'),
+    },
+    {
+      id: 'file.newFolder',
+      title: 'File: Create New Folder in Active Project',
+      category: 'File',
+      icon: 'create_new_folder',
+      action: () => this.openCreateFolderModal(),
+    },
+    {
+      id: 'file.save',
+      title: 'File: Save Active Document',
+      category: 'File',
+      icon: 'save',
+      shortcut: 'Ctrl+S',
+      action: () => {
+        const inst = this.activeEditorInstance();
+        if (inst) void inst.triggerManualSave();
+      },
+    },
+    {
+      id: 'file.closeTab',
+      title: 'File: Close Active Tab',
+      category: 'File',
+      icon: 'close',
+      action: () => {
+        const id = this.activeTabId();
+        if (id) this.closeTab(id);
+      },
+    },
+    {
+      id: 'file.closeAllTabs',
+      title: 'File: Close All Tabs',
+      category: 'File',
+      icon: 'cancel',
+      action: () => {
+        this.openTabs.set([]);
+        this.activeTabId.set('');
+      },
+    },
+    {
+      id: 'editor.format',
+      title: 'Editor: Format Active Document',
+      category: 'Editor',
+      icon: 'format_align_left',
+      action: () => {
+        const inst = this.activeEditorInstance();
+        if (inst) void inst.formatCode();
+      },
+    },
+    {
+      id: 'workspace.projects',
+      title: 'Projects: Back to Projects Dashboard',
+      category: 'Navigation',
+      icon: 'dashboard',
+      action: () => this.goToDashboard(),
+    },
+  ]);
+
+  readonly quickOpenFilteredCommands = computed(() => {
+    const raw = this.quickOpenQuery().trim();
+    const query = raw.startsWith('>') ? raw.slice(1).trim().toLowerCase() : raw.toLowerCase();
+    const commands = this.commandList();
+    if (!query) return commands;
+    return commands.filter((c) =>
+      c.title.toLowerCase().includes(query) || c.category.toLowerCase().includes(query)
+    );
+  });
+
+  readonly quickOpenResults = computed(() => {
     const q = this.quickOpenQuery().toLowerCase().trim();
+    if (this.isCommandMode()) {
+      return [];
+    }
     const docs = [
       ...this.myDocuments(),
       ...this.sharedDocuments().map((s) => ({
@@ -609,36 +826,73 @@ export class Workspace implements OnInit {
     ];
 
     if (!q) {
-      return docs.slice(0, 15);
+      return docs.slice(0, 25);
     }
-    return docs.filter((d) => d.title && d.title.toLowerCase().includes(q)).slice(0, 15);
+    return docs.filter((d) => d.title && d.title.toLowerCase().includes(q)).slice(0, 25);
   });
 
+  openCommandPalette() {
+    this.showQuickOpen.set(true);
+    this.quickOpenQuery.set('>');
+    this.quickOpenSelectedIndex.set(0);
+    setTimeout(() => {
+      const input = document.getElementById('quick-open-input-field');
+      if (input) {
+        input.focus();
+        (input as HTMLInputElement).setSelectionRange(1, 1);
+      }
+    }, 50);
+  }
+
+  openQuickOpen() {
+    this.showQuickOpen.set(true);
+    this.quickOpenQuery.set('');
+    this.quickOpenSelectedIndex.set(0);
+    setTimeout(() => {
+      const input = document.getElementById('quick-open-input-field');
+      if (input) input.focus();
+    }, 50);
+  }
+
   toggleQuickOpen() {
-    this.showQuickOpen.update((v) => !v);
     if (this.showQuickOpen()) {
-      this.quickOpenQuery.set('');
-      this.quickOpenSelectedIndex.set(0);
+      this.showQuickOpen.set(false);
+    } else {
+      this.openQuickOpen();
     }
   }
 
   handleQuickOpenKeyDown(event: KeyboardEvent) {
-    const results = this.quickOpenResults();
+    const count = this.isCommandMode() ? this.quickOpenFilteredCommands().length : this.quickOpenResults().length;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      this.quickOpenSelectedIndex.update((i) => (i + 1) % Math.max(1, results.length));
+      this.quickOpenSelectedIndex.update((i) => (i + 1) % Math.max(1, count));
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      this.quickOpenSelectedIndex.update((i) => (i - 1 + results.length) % Math.max(1, results.length));
+      this.quickOpenSelectedIndex.update((i) => (i - 1 + count) % Math.max(1, count));
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      const idx = this.quickOpenSelectedIndex();
-      if (results[idx]) {
-        this.selectQuickOpenDoc(results[idx].id);
-      }
+      this.executeQuickOpenSelection();
     } else if (event.key === 'Escape') {
       event.preventDefault();
       this.showQuickOpen.set(false);
+    }
+  }
+
+  executeQuickOpenSelection() {
+    if (this.isCommandMode()) {
+      const commands = this.quickOpenFilteredCommands();
+      const idx = this.quickOpenSelectedIndex();
+      if (commands[idx]) {
+        this.showQuickOpen.set(false);
+        commands[idx].action();
+      }
+    } else {
+      const docs = this.quickOpenResults();
+      const idx = this.quickOpenSelectedIndex();
+      if (docs[idx]) {
+        this.selectQuickOpenDoc(docs[idx].id);
+      }
     }
   }
 
@@ -1495,14 +1749,28 @@ export class Workspace implements OnInit {
       return;
     }
 
-    // 5. Ctrl+P / Cmd+P -> Toggle Quick Open Command Palette
-    if (isCmdOrCtrl && (event.key === 'p' || event.key === 'P') && !event.shiftKey) {
+    // 5. Ctrl+Shift+P / Cmd+Shift+P -> Open VS Code Command Palette
+    if (isCmdOrCtrl && event.shiftKey && (event.key === 'p' || event.key === 'P')) {
       event.preventDefault();
-      this.toggleQuickOpen();
+      this.openCommandPalette();
       return;
     }
 
-    // 6. Ctrl+Shift+F / Cmd+Shift+F -> Focus Workspace Global Search
+    // 6. Ctrl+P / Cmd+P -> Open Quick Open Fuzzy File Finder
+    if (isCmdOrCtrl && !event.shiftKey && (event.key === 'p' || event.key === 'P')) {
+      event.preventDefault();
+      this.openQuickOpen();
+      return;
+    }
+
+    // 7. Ctrl+Alt+A -> Toggle AI Pair Assistant Dock
+    if (isCmdOrCtrl && event.altKey && (event.key === 'a' || event.key === 'A')) {
+      event.preventDefault();
+      this.toggleAiDock();
+      return;
+    }
+
+    // 8. Ctrl+Shift+F / Cmd+Shift+F -> Focus Workspace Global Search
     if (isCmdOrCtrl && event.shiftKey && (event.key === 'f' || event.key === 'F')) {
       event.preventDefault();
       this.openWorkspaceSearch();
@@ -1971,8 +2239,10 @@ export class Workspace implements OnInit {
     this.activeTabId.set(docId);
   }
 
-  closeTab(docId: string, event: Event) {
-    event.stopPropagation();
+  closeTab(docId: string, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
     const current = this.openTabs();
     const nextTabs = current.filter((t) => t.id !== docId);
     this.openTabs.set(nextTabs);
