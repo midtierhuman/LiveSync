@@ -82,7 +82,7 @@ export class ConflictResolver {
       return { ...baseInsert };
     }
 
-    if (baseInsert.position > deleteEnd) {
+    if (baseInsert.position >= deleteEnd) {
       return { ...baseInsert, position: baseInsert.position - concurrentDelete.length };
     }
 

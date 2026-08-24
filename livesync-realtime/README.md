@@ -26,6 +26,12 @@ High-throughput, real-time collaborative editing, presence, and CRDT/OT synchron
 5. **Fast-Path Cache-Aside ACL Evaluation (`PERF-05`)**:
    - Sub-millisecond $\mathcal{O}(1)$ Redis permission cache check rejecting unauthorized mutations for Viewers with `PermissionDenied` socket events.
 
+6. **Presence Delta Compression & Cursor Throttling (`PERF-15`)**:
+   - In-memory delta compression cache (`lastBroadcastCursor`) suppressing redundant socket transmissions when remote collaborators navigate code without selection shifts.
+
+7. **Multi-User High-Concurrency Chaos & CRDT Fuzzing Suite (`TEST-01`)**:
+   - Automated stress testing suite simulating 50+ concurrent client typing sessions, network jitter, randomized mutation permutations, and strict $TP_1$ mathematical convergence assertions.
+
 ---
 
 ## 📡 Socket.IO Protocol Events (Port `5000`)
