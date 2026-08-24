@@ -107,6 +107,9 @@ func (c *DocumentSaveStreamConsumer) pollSaveEvents(ctx context.Context) {
 		return
 	}
 
+	var batchItems []DocumentBatchSaveItem
+	var msgIDs []string
+
 	for _, stream := range streams {
 		for _, msg := range stream.Messages {
 			var (
@@ -126,17 +129,33 @@ func (c *DocumentSaveStreamConsumer) pollSaveEvents(ctx context.Context) {
 			}
 
 			if documentId != "" && content != "" {
-				updated, err := c.documentService.UpdateContentInternal(ctx, documentId, content, userId)
-				if err == nil && updated {
-					log.Printf("[Redis Stream Consumer] Flushed document %s to PostgreSQL (MessageId: %s)", documentId, msg.ID)
-				}
+				batchItems = append(batchItems, DocumentBatchSaveItem{
+					ID:         documentId,
+					Content:    content,
+					LastEditor: userId,
+				})
 			}
-
-			if c.groupCreated {
-				_ = c.rdb.XAck(ctx, StreamKey, ConsumerGroup, msg.ID).Err()
-			}
-			// Delete processed message from Redis stream to prevent unbounded stream growth
-			_ = c.rdb.XDel(ctx, StreamKey, msg.ID).Err()
+			msgIDs = append(msgIDs, msg.ID)
 		}
+	}
+
+	if len(batchItems) > 0 {
+		rowsAffected, err := c.documentService.UpdateContentBatch(ctx, batchItems)
+		if err != nil {
+			log.Printf("⚠️ [Redis Stream Batch Consumer] Batch UNNEST update failed: %v. Falling back to individual updates.", err)
+			for _, item := range batchItems {
+				_, _ = c.documentService.UpdateContentInternal(ctx, item.ID, item.Content, item.LastEditor)
+			}
+		} else {
+			log.Printf("⚡ [Redis Stream Batch Consumer] Persisted batch of %d items (%d rows updated in PG via UNNEST)", len(batchItems), rowsAffected)
+		}
+	}
+
+	for _, msgID := range msgIDs {
+		if c.groupCreated {
+			_ = c.rdb.XAck(ctx, StreamKey, ConsumerGroup, msgID).Err()
+		}
+		// Delete processed message from Redis stream to prevent unbounded stream growth
+		_ = c.rdb.XDel(ctx, StreamKey, msgID).Err()
 	}
 }

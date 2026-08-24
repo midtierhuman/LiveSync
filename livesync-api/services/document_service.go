@@ -331,6 +331,66 @@ func (s *DocumentService) UpdateContent(ctx context.Context, id, userId string, 
 	return s.toDto(ctx, doc, userId)
 }
 
+type DocumentBatchSaveItem struct {
+	ID         string
+	Content    string
+	LastEditor string
+}
+
+func (s *DocumentService) UpdateContentBatch(ctx context.Context, items []DocumentBatchSaveItem) (int64, error) {
+	if len(items) == 0 {
+		return 0, nil
+	}
+
+	// De-duplicate by document ID within the batch, keeping the latest content
+	latestMap := make(map[string]DocumentBatchSaveItem)
+	for _, item := range items {
+		if strings.TrimSpace(item.ID) != "" {
+			latestMap[item.ID] = item
+		}
+	}
+
+	if len(latestMap) == 0 {
+		return 0, nil
+	}
+
+	ids := make([]string, 0, len(latestMap))
+	contents := make([]string, 0, len(latestMap))
+	editors := make([]string, 0, len(latestMap))
+	now := time.Now()
+
+	for _, item := range latestMap {
+		ids = append(ids, item.ID)
+		contents = append(contents, item.Content)
+		editor := "system"
+		if strings.TrimSpace(item.LastEditor) != "" {
+			editor = strings.TrimSpace(item.LastEditor)
+		}
+		editors = append(editors, editor)
+	}
+
+	query := `
+		UPDATE "Documents" AS d
+		SET "Content" = v.content,
+		    "UpdatedAt" = $1,
+		    "LastEditedAt" = $1,
+		    "LastEditedBy" = v.editor
+		FROM (
+			SELECT UNNEST($2::text[]) AS id,
+			       UNNEST($3::text[]) AS content,
+			       UNNEST($4::text[]) AS editor
+		) AS v
+		WHERE d."Id" = v.id;
+	`
+
+	tag, err := s.db.Pool.Exec(ctx, query, now, ids, contents, editors)
+	if err != nil {
+		return 0, err
+	}
+
+	return tag.RowsAffected(), nil
+}
+
 func (s *DocumentService) UpdateContentInternal(ctx context.Context, id, content, userId string) (bool, error) {
 	now := time.Now()
 	lastEditor := "system"

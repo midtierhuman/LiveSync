@@ -10,8 +10,9 @@ High-performance, lightweight identity, RBAC authorization, and persistence micr
    - Connection pool management with statement preparation caching and automatic transient retry.
    - Recursive CTE manifest engine reconstructing directory hierarchies in a single database roundtrip.
 
-2. **Redis Stream Write-Behind Persistence Consumer**:
-   - Asynchronously consumes save events from `livesync:stream:document-saves` (`XREADGROUP`) and persists batches to PostgreSQL without blocking real-time collaborative sockets.
+2. **Batch Stream Persistence & PostgreSQL UNNEST Upserts (`PERF-14`)**:
+   - Asynchronously consumes save events from `livesync:stream:document-saves` in batches of up to 50 items (`XREADGROUP COUNT 50`).
+   - Deduplicates active document edits in-memory and executes multi-document updates in a single atomic SQL transaction using `UNNEST()` batch arrays instead of sequential individual queries.
 
 3. **Storage Quota Guard & Dependency Shield (`ARCH-13`)**:
    - Enforces strict project storage boundaries: maximum 30 files per project, 256 KB per file, and a 2 MB total workspace limit.
