@@ -63,6 +63,30 @@
     }
   </div>
 
+  <!-- Go-To-Line Modal (Ctrl+G - FEAT-19) -->
+  @if (showGoToLineModal()) {
+    <div class="goto-line-backdrop" (click)="showGoToLineModal.set(false)">
+      <div class="goto-line-modal" (click)="$event.stopPropagation()">
+        <div class="goto-input-row">
+          <mat-icon>navigation</mat-icon>
+          <input
+            id="goto-line-input-field"
+            type="text"
+            placeholder="Type a line number between 1 and {{ totalLineCount() }} to navigate to (e.g. 24 or 24:10)..."
+            [value]="goToLineInput()"
+            (input)="goToLineInput.set($any($event.target).value)"
+            (keydown.enter)="jumpToLine()"
+            (keydown.escape)="showGoToLineModal.set(false)"
+            autofocus
+          />
+          <button class="btn-goto-action" (click)="jumpToLine()" matTooltip="Go to Line">
+            <mat-icon>arrow_forward</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
   <footer class="editor-statusbar" [class.light]="!isDarkMode()">
     <div class="statusbar-left">
       <div class="status-chip connection-chip" [class]="realtimeService.connectionState()" [matTooltip]="'Realtime status: ' + realtimeService.connectionState()">
@@ -81,14 +105,42 @@
         <mat-icon class="save-icon">{{ isSaving() ? 'sync' : 'check_circle' }}</mat-icon>
         <span>{{ saveStatus() }}</span>
       </div>
+
+      <div class="status-chip metrics-chip" matTooltip="Document Length">
+        <span>{{ totalLineCount() }} lines, {{ totalCharCount() }} chars</span>
+      </div>
     </div>
 
     <div class="statusbar-right">
-      <span class="status-item cursor-pos">{{ cursorPosition() }}</span>
+      <button class="status-item btn-status-interactive cursor-pos" (click)="openGoToLineModal()" matTooltip="Go to Line/Column (Ctrl+G)">
+        {{ cursorPosition() }}
+      </button>
+
+      <button class="status-item btn-status-interactive indent-mode" (click)="toggleTabSize()" matTooltip="Indentation">
+        Spaces: {{ tabSize() }}
+      </button>
+
       <span class="status-item encoding">UTF-8</span>
-      <span class="status-item language-label" matTooltip="Language Mode">
+
+      <button
+        class="status-item btn-status-interactive language-label"
+        [matMenuTriggerFor]="langMenu"
+        matTooltip="Change Language Mode"
+      >
         {{ currentLanguageDisplayName() }}
-      </span>
+      </button>
+
+      <mat-menu #langMenu="matMenu" class="lang-selector-menu">
+        @for (lang of availableLanguages; track lang.id) {
+          <button
+            mat-menu-item
+            [class.active-lang]="currentLanguage() === lang.id"
+            (click)="setLanguageMode(lang.id)"
+          >
+            <span>{{ lang.name }}</span>
+          </button>
+        }
+      </mat-menu>
     </div>
   </footer>
 </div>

@@ -265,6 +265,71 @@ export class Editor implements OnInit {
     return html;
   }
 
+  // Go-To-Line & Status Bar Controls (FEAT-19)
+  readonly showGoToLineModal = signal<boolean>(false);
+  readonly goToLineInput = signal<string>('');
+  readonly tabSize = signal<number>(2);
+
+  readonly availableLanguages = [
+    { id: 'typescript', name: 'TypeScript' },
+    { id: 'javascript', name: 'JavaScript' },
+    { id: 'python', name: 'Python' },
+    { id: 'go', name: 'Go' },
+    { id: 'json', name: 'JSON' },
+    { id: 'html', name: 'HTML' },
+    { id: 'css', name: 'CSS / SCSS' },
+    { id: 'markdown', name: 'Markdown' },
+    { id: 'rust', name: 'Rust' },
+    { id: 'cpp', name: 'C++' },
+    { id: 'java', name: 'Java' },
+    { id: 'sql', name: 'SQL' },
+    { id: 'yaml', name: 'YAML' },
+    { id: 'xml', name: 'XML' },
+    { id: 'shell', name: 'Shell Script' },
+    { id: 'plaintext', name: 'Plain Text' },
+  ];
+
+  readonly totalLineCount = computed(() => {
+    const code = this.codeSignal();
+    return code ? code.split('\n').length : 1;
+  });
+
+  readonly totalCharCount = computed(() => {
+    return this.codeSignal()?.length || 0;
+  });
+
+  openGoToLineModal(): void {
+    this.goToLineInput.set('');
+    this.showGoToLineModal.set(true);
+    setTimeout(() => {
+      const input = document.getElementById('goto-line-input-field');
+      if (input) input.focus();
+    }, 50);
+  }
+
+  jumpToLine(): void {
+    const val = this.goToLineInput().trim();
+    this.showGoToLineModal.set(false);
+    if (!val) return;
+    const parts = val.split(/[:,\s]+/);
+    const lineNum = Math.max(1, parseInt(parts[0], 10) || 1);
+    const colNum = Math.max(1, parseInt(parts[1] || '1', 10) || 1);
+    this.scrollToLine(lineNum, colNum - 1);
+  }
+
+  setLanguageMode(langId: string): void {
+    this.currentLanguage.set(langId);
+    if (this.editorView) {
+      this.editorView.dispatch({
+        effects: this.languageCompartment.reconfigure(this.getLanguageExtension(langId)),
+      });
+    }
+  }
+
+  toggleTabSize(): void {
+    this.tabSize.update((s) => (s === 2 ? 4 : 2));
+  }
+
   readonly isSaving = signal(false);
   readonly executionLanguages = signal<ExecutionLanguageOption[]>([]);
   readonly selectedExecutionLanguage = signal('');
@@ -1196,9 +1261,20 @@ export class Editor implements OnInit {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyboardShortcut(event: KeyboardEvent): void {
+    const isCmdOrCtrl = event.ctrlKey || event.metaKey;
+
     if (event.ctrlKey && (event.key === '`' || event.key === '~')) {
       event.preventDefault();
       this.toggleTerminalPanel();
+      return;
+    }
+
+    if (isCmdOrCtrl && (event.key === 'g' || event.key === 'G') && !event.shiftKey) {
+      if (this.isActive()) {
+        event.preventDefault();
+        this.openGoToLineModal();
+        return;
+      }
     }
   }
 

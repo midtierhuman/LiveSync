@@ -39,7 +39,12 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
    - Integrated editor sub-toolbar displaying breadcrumb path navigation (`project > folder > file`) and language mode tags.
    - Dedicated side-by-side split Markdown live preview for `.md` files rendering real-time formatted GFM HTML (code blocks, syntax highlighting, quotes, lists, links) alongside the CodeMirror 6 text editor.
 
-8. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
+8. **Status Bar Quick-Action Controls & Go-To-Line Modal (`FEAT-19`)**:
+   - `Ctrl+G` / `Cmd+G` (or clicking cursor position): Go-To-Line spotlight modal navigating directly to `line:column` across arbitrary document sizes.
+   - Interactive syntax mode picker switching CodeMirror 6 language compartments on the fly across 16 supported languages.
+   - Real-time line, character metrics, and indentation mode toggling (`Spaces: 2` / `Spaces: 4`).
+
+9. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
    - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
    - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
    - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs and debounced keystroke edits prior to terminal and compilation execution.
@@ -52,6 +57,7 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
 | :--- | :--- |
 | `Ctrl+Shift+P` / `Cmd+Shift+P` | Open VS Code Command Palette (Actions / Commands) |
 | `Ctrl+P` / `Cmd+P` | Quick Open fuzzy file switcher |
+| `Ctrl+G` / `Cmd+G` | Go to Line / Column Modal |
 | `Ctrl+Alt+A` | Toggle LiveSync AI Pair Assistant Dock |
 | `Ctrl+Shift+F` | Workspace-Wide Multi-File Search & Replace |
 | `Ctrl+\`` | Toggle Live Terminal Bottom Dock |

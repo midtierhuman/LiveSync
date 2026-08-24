@@ -336,6 +336,23 @@
     opacity: 0.95;
   }
 
+  .btn-status-interactive {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    padding: 1px 6px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+
   .language-label {
     display: inline-flex;
     align-items: center;
@@ -343,12 +360,88 @@
     border-radius: 3px;
     font-size: 11px;
     font-weight: 500;
-    cursor: default;
+    cursor: pointer;
     user-select: none;
     transition: background 0.15s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+}
+
+// ── Go-To-Line Modal (Ctrl+G) ───
+.goto-line-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 40px;
+  backdrop-filter: blur(2px);
+}
+
+.goto-line-modal {
+  width: 90%;
+  max-width: 480px;
+  background: #1e222b;
+  border: 1px solid #3c4453;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+
+  .goto-input-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #15181f;
+    gap: 8px;
+
+    mat-icon {
+      color: #38bdf8;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #f1f5f9;
+      font-size: 13px;
+      outline: none;
+
+      &::placeholder {
+        color: #64748b;
+      }
+    }
+
+    .btn-goto-action {
+      background: #0284c7;
+      border: none;
+      border-radius: 4px;
+      color: #ffffff;
+      padding: 4px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+
+      mat-icon {
+        color: #ffffff;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &:hover {
+        background: #0369a1;
+      }
     }
   }
 }

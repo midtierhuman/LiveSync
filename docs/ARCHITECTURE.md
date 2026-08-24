@@ -224,6 +224,7 @@ graph TD
 - **Quota Guard & Dependency Shield**: Hard validation blocking restricted dependency paths (`node_modules`, `venv`) and enforcing project file/size caps.
 
 ### D. Cloud IDE Frontend (`livesync-ui`)
+- **Status Bar Quick Actions & Go-To-Line Modal (`FEAT-19`)**: Rich bottom status bar featuring Go-To-Line/Column modal navigation (`Ctrl+G` / `Cmd+G`), live language compartment selector (16 syntax modes), document line/char metrics, and indentation mode toggling (`Spaces: 2` / `Spaces: 4`).
 - **Side-by-Side Markdown Live Rendered Preview & Sub-Toolbar (`FEAT-18`)**: Integrated editor sub-toolbar providing active breadcrumbs, formatted code actions, and a real-time side-by-side Markdown preview pane for `.md` documents rendering GitHub Flavored Markdown (GFM) headings, fenced code blocks, blockquotes, and links in synchrony with CodeMirror 6 text changes.
 - **Interactive Tab Reordering & File Explorer Drag-and-Drop (`FEAT-17`)**: Smooth drag-and-drop tab bar reordering with real-time drop markers, alongside explorer tree drag-and-drop file/folder moves updating canonical VFS paths and synchronizing across collaborator sessions.
 - **VS Code Command Palette & Fuzzy Quick Open (`FEAT-16`)**: Interactive modal overlay accessible via `Ctrl+Shift+P` / `Cmd+Shift+P` (or typing `>`) exposing 25+ integrated IDE actions (terminal controls, dock placements, code formatting, package search, and timeline), alongside `Ctrl+P` / `Cmd+P` fuzzy file navigation with keyboard arrow indexing.
