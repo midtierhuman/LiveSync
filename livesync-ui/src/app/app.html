@@ -1,1 +1,29 @@
 <router-outlet></router-outlet>
+
+<!-- Universal Floating Toast Notifications (RES-04) -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  @for (toast of toastService.toasts(); track toast.id) {
+    <div class="toast-item" [class]="'toast-' + toast.type">
+      <mat-icon class="toast-icon">
+        @switch (toast.type) {
+          @case ('error') { error }
+          @case ('warning') { warning }
+          @case ('info') { info }
+          @case ('success') { check_circle }
+        }
+      </mat-icon>
+      <div class="toast-body">
+        <div class="toast-title">{{ toast.title }}</div>
+        <div class="toast-message">{{ toast.message }}</div>
+      </div>
+      @if (toast.actionLabel && toast.actionHandler) {
+        <button class="toast-action-btn" (click)="toast.actionHandler()">
+          {{ toast.actionLabel }}
+        </button>
+      }
+      <button class="toast-close-btn" (click)="toastService.dismiss(toast.id)" aria-label="Close notification">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  }
+</div>
