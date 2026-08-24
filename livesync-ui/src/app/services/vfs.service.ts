@@ -244,7 +244,19 @@ export class VFSService {
   }
 
   /**
-   * Gets the canonical relative path for a document UUID.
+   * Returns snapshot of project files with their canonical paths and contents.
+   */
+  getProjectFilesSnapshot(): { path: string; content: string }[] {
+    const docs = this.documentsSignal();
+    const index = this.vfsIndex();
+    return docs.map((d) => ({
+      path: index.docIdToPath.get(d.id) || d.title,
+      content: d.content || '',
+    }));
+  }
+
+  /**
+   * Resolves canonical relative path for a document ID.
    */
   getPathByDocumentId(documentId: string): string | undefined {
     return this.vfsIndex().docIdToPath.get(documentId);

@@ -48,6 +48,8 @@ class AiAssistantService:
         user_api_key: str | None = None,
         custom_prompt: str | None = None,
         model: str | None = None,
+        project_files: list[Any] | None = None,
+        provider: str | None = None,
     ) -> Generator[AiChunkResult, None, None]:
         lang = (language or "python").lower().strip()
         act = (action or "explain").lower().strip()
@@ -65,12 +67,15 @@ class AiAssistantService:
             or os.environ.get("GOOGLE_API_KEY")
         )
         prefer_gemini = (
-            getattr(settings, "default_ai_provider", "gemini") == "gemini"
+            (provider and provider.lower() in ("gemini", "antigravity"))
+            or getattr(settings, "default_ai_provider", "gemini") == "gemini"
             or (model and "gemini" in model.lower())
         )
 
-        if prefer_gemini and settings.enable_gemini_fallback and api_key:
-            gemini_stream = self._stream_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
+        if prefer_gemini and (settings.enable_gemini_fallback or user_api_key) and api_key:
+            gemini_stream = self._stream_gemini_api(
+                act, lang, code, api_key, custom_prompt, model=model, project_files=project_files, is_antigravity=bool(user_api_key or provider == "antigravity")
+            )
             has_yielded = False
             for chunk in gemini_stream:
                 has_yielded = True
@@ -80,7 +85,7 @@ class AiAssistantService:
 
         # 3. Secondary Provider: Local LLM with SSE token streaming
         if getattr(settings, "enable_local_llm_fallback", True):
-            local_stream = self._stream_local_llm_api(act, lang, code, custom_prompt, model=model)
+            local_stream = self._stream_local_llm_api(act, lang, code, custom_prompt, model=model, project_files=project_files)
             has_yielded = False
             for chunk in local_stream:
                 has_yielded = True
@@ -89,8 +94,10 @@ class AiAssistantService:
                 return
 
         # 4. Fallback Gemini Call (if Local LLM was tried first)
-        if not prefer_gemini and settings.enable_gemini_fallback and api_key:
-            gemini_stream = self._stream_gemini_api(act, lang, code, api_key, custom_prompt, model=model)
+        if not prefer_gemini and (settings.enable_gemini_fallback or user_api_key) and api_key:
+            gemini_stream = self._stream_gemini_api(
+                act, lang, code, api_key, custom_prompt, model=model, project_files=project_files, is_antigravity=bool(user_api_key or provider == "antigravity")
+            )
             has_yielded = False
             for chunk in gemini_stream:
                 has_yielded = True
@@ -105,14 +112,14 @@ class AiAssistantService:
 
         # Final Offline Error Chunk
         yield AiChunkResult(
-            delta="⚠️ **AI Service Unavailable**: Unable to reach Google Gemini API or Local LLM server.",
+            delta="⚠️ **AI Service Unavailable**: Please connect your Antigravity / Gemini account or verify Local LLM server.",
             stage="error",
             action=act,
             language=lang,
-            provider="AI Assistant Engine (Offline)",
+            provider="Google Antigravity Engine (Offline)",
             suggestions=[
-                "Verify your GEMINI_API_KEY in .env configuration.",
-                "Ensure local LLM (llama.cpp/Ollama) or internet connectivity is active.",
+                "Connect your personal Antigravity / Gemini API Key in the AI Dock.",
+                "Verify local LLM (llama.cpp/Ollama) or internet connectivity is active.",
             ],
             generated_code=None,
             is_final=True,
@@ -126,10 +133,12 @@ class AiAssistantService:
         user_api_key: str | None = None,
         custom_prompt: str | None = None,
         model: str | None = None,
+        project_files: list[Any] | None = None,
+        provider: str | None = None,
     ) -> AiAnalysisResult:
         """Unary request wrapper over the streaming engine for backward compatibility."""
         accumulated_text = ""
-        provider = "Local CPU AST Engine"
+        res_provider = "Local CPU AST Engine"
         suggestions: list[str] = []
         generated_code: str | None = None
 
@@ -140,6 +149,8 @@ class AiAssistantService:
             user_api_key=user_api_key,
             custom_prompt=custom_prompt,
             model=model,
+            project_files=project_files,
+            provider=provider,
         ):
             if chunk.delta:
                 accumulated_text += chunk.delta
@@ -192,6 +203,8 @@ class AiAssistantService:
         api_key: str,
         custom_prompt: str | None = None,
         model: str | None = None,
+        project_files: list[Any] | None = None,
+        is_antigravity: bool = False,
     ) -> Generator[AiChunkResult, None, None]:
         models = list(settings.gemini_models)
         if model and model not in models:
@@ -201,19 +214,30 @@ class AiAssistantService:
             models.insert(0, model)
 
         user_instruction = self._build_user_instruction(action, custom_prompt)
-        prompt_text = f"""You are a high-precision, senior AI pair programmer.
+
+        project_context = ""
+        if project_files:
+            project_context = "\n\nWHOLE-PROJECT WORKSPACE CONTEXT:\n"
+            for pf in project_files:
+                p_path = pf.get("path") if isinstance(pf, dict) else getattr(pf, "path", "")
+                p_content = pf.get("content") if isinstance(pf, dict) else getattr(pf, "content", "")
+                if p_path:
+                    project_context += f"--- File: {p_path} ---\n{p_content}\n--- End File ---\n\n"
+
+        prompt_text = f"""You are a high-precision, senior AI pair programmer (Google Antigravity / Gemini Engine).
 {user_instruction}
 Language: {language}
-Current Code Context:
+Active File Code Context:
 ```{language}
 {code}
 ```
-
+{project_context}
 CRITICAL INSTRUCTIONS:
 1. Be direct, focused, and pinpoint. Do NOT include generic pleasantries or conversational filler.
 2. Provide a crisp, structured markdown breakdown with bullet points.
 3. If writing or modifying code, provide complete, production-ready code blocks.
-4. Conclude with 1-3 actionable improvement suggestions."""
+4. When whole-project files are provided, leverage imports, dependencies, and cross-file references to answer accurately.
+5. Conclude with 1-3 actionable improvement suggestions."""
 
         payload = json.dumps({
             "contents": [{"parts": [{"text": prompt_text}]}],
@@ -228,7 +252,8 @@ CRITICAL INSTRUCTIONS:
         for m in models:
             url = f"{base_url}/{m}:streamGenerateContent?key={api_key}&alt=sse"
             req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-            provider_name = f"Google Gemini ({m})"
+            provider_prefix = "Google Antigravity" if is_antigravity else "Google Gemini"
+            provider_name = f"{provider_prefix} ({m})"
 
             try:
                 with urllib.request.urlopen(req, timeout=35) as resp:
@@ -325,6 +350,7 @@ CRITICAL INSTRUCTIONS:
         code: str,
         custom_prompt: str | None = None,
         model: str | None = None,
+        project_files: list[Any] | None = None,
     ) -> Generator[AiChunkResult, None, None]:
         urls_to_try = [
             (settings.local_llm_url or "http://127.0.0.1:8080").rstrip("/"),
@@ -336,19 +362,30 @@ CRITICAL INSTRUCTIONS:
 
         target_model = model or os.environ.get("LOCAL_LLM_MODEL") or settings.local_llm_model or "local-model"
         user_instruction = self._build_user_instruction(action, custom_prompt)
+
+        project_context = ""
+        if project_files:
+            project_context = "\n\nWHOLE-PROJECT WORKSPACE CONTEXT:\n"
+            for pf in project_files:
+                p_path = pf.get("path") if isinstance(pf, dict) else getattr(pf, "path", "")
+                p_content = pf.get("content") if isinstance(pf, dict) else getattr(pf, "content", "")
+                if p_path:
+                    project_context += f"--- File: {p_path} ---\n{p_content}\n--- End File ---\n\n"
+
         prompt_text = f"""You are a high-precision, senior AI pair programmer.
 {user_instruction}
 Language: {language}
-Current Code Context:
+Active File Code Context:
 ```{language}
 {code}
 ```
-
+{project_context}
 CRITICAL INSTRUCTIONS:
 1. Be direct, focused, and pinpoint without generic conversational filler.
 2. Provide a crisp, structured markdown breakdown with bullet points.
 3. If writing code, provide complete, production-ready code blocks.
-4. Conclude with 1-3 actionable suggestions."""
+4. When whole-project files are provided, leverage imports, dependencies, and cross-file references to answer accurately.
+5. Conclude with 1-3 actionable suggestions."""
 
         base_payload = {
             "messages": [

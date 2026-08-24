@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -231,5 +232,37 @@ func TestVerifyWorkspaceAccess_WithMockAPI(t *testing.T) {
 	access, err = VerifyWorkspaceAccess(ctx, cfg, "forbidden-folder", "valid-token-123")
 	if err != nil || access != "" {
 		t.Errorf("Expected empty access level for forbidden folder, got '%s', err: %v", access, err)
+	}
+}
+
+func TestCORS_Preflight_WithAIHeaders(t *testing.T) {
+	cfg := &config.Config{
+		CORSAllowedOrigins: []string{"http://localhost:4000", "http://localhost:4200"},
+	}
+
+	handler := CORS(cfg, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/ai/stream", nil)
+	req.Header.Set("Origin", "http://localhost:4000")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	req.Header.Set("Access-Control-Request-Headers", "x-ai-api-key, authorization, content-type")
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("Expected 204 No Content for OPTIONS preflight, got %d", rr.Code)
+	}
+
+	allowedHeaders := rr.Header().Get("Access-Control-Allow-Headers")
+	if !strings.Contains(allowedHeaders, "X-AI-Api-Key") || !strings.Contains(allowedHeaders, "X-Antigravity-Key") {
+		t.Errorf("Expected Access-Control-Allow-Headers to contain X-AI-Api-Key and X-Antigravity-Key, got: %s", allowedHeaders)
+	}
+
+	allowOrigin := rr.Header().Get("Access-Control-Allow-Origin")
+	if allowOrigin != "http://localhost:4000" {
+		t.Errorf("Expected Access-Control-Allow-Origin to be http://localhost:4000, got: %s", allowOrigin)
 	}
 }

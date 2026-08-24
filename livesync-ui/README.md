@@ -15,8 +15,9 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
    - Zero-teardown terminal instances retaining PTY WebSocket connections, scrollback history, and running processes across panel toggles.
    - Multi-terminal tab manager with automatic `FitAddon` layout recalculation on drawer resizes.
 
-3. **Streaming AI Pair Assistant Dock**:
+3. **Streaming AI Pair Assistant Dock & Agent Provider Selector (`FEAT-14`)**:
    - Connected directly to Go Gateway's `/api/ai/stream` (SSE).
+   - Features an agent-agnostic provider switcher (Google Antigravity [Default], OpenAI Codex, Anthropic Claude, Local LLM) with local credential management and whole-project multi-file context injection toggle (`📁 Whole-Project Context ON`).
    - Renders live token-by-token Cursor-style synthesis typing animations with syntax-highlighted code blocks, Big-O complexity badges, and 1-click "Apply to Editor" actions.
 
 4. **Unified 48px Activity Bar & Sidebar Dock**:

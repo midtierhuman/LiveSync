@@ -66,6 +66,7 @@ import { AuthService } from '../../services/auth.service';
 import { LiveTerminalService } from '../../services/live-terminal.service';
 import { VFSService } from '../../services/vfs.service';
 import { PackageManagerService, PackageItem } from '../../services/package-manager.service';
+import { AiAgentService } from '../../services/ai-agent.service';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 
@@ -104,6 +105,7 @@ export class Editor implements OnInit {
   public readonly liveTerminalService = inject(LiveTerminalService);
   public readonly vfsService = inject(VFSService);
   public readonly packageManagerService = inject(PackageManagerService);
+  public readonly aiAgentService = inject(AiAgentService);
   private readonly documentService = inject(DocumentService);
   private readonly folderService = inject(FolderService);
   private readonly authService = inject(AuthService);
@@ -1574,9 +1576,19 @@ export class Editor implements OnInit {
     try {
       const language = this.selectedExecutionLanguage() || this.currentLanguage() || 'python';
       const code = this.codeSignal();
+      const apiKey = this.aiAgentService.getActiveApiKey();
+      const provider = this.aiAgentService.activeProviderId();
+      const includeContext = this.aiAgentService.includeProjectContext();
+      const projectFiles = includeContext ? this.vfsService.getProjectFilesSnapshot() : undefined;
+      const aiOptions = {
+        apiKey,
+        provider,
+        projectFiles,
+        projectId: this.document()?.folderId || undefined,
+      };
 
       let accumulatedText = '';
-      let currentProvider = 'AI Pair Assistant';
+      let currentProvider = this.aiAgentService.activeProvider().name;
       let currentSuggestions: string[] = [];
       let currentCode: string | undefined = undefined;
 
@@ -1612,7 +1624,9 @@ export class Editor implements OnInit {
                 : m
             )
           );
-        }
+        },
+        undefined,
+        aiOptions,
       );
 
       this.aiResult.set(result);
@@ -1635,7 +1649,25 @@ export class Editor implements OnInit {
       try {
         const language = this.selectedExecutionLanguage() || this.currentLanguage() || 'python';
         const code = this.codeSignal();
-        const result = await this.documentService.aiAssistant(docId, action, language, code, customPrompt);
+        const apiKey = this.aiAgentService.getActiveApiKey();
+        const provider = this.aiAgentService.activeProviderId();
+        const includeContext = this.aiAgentService.includeProjectContext();
+        const projectFiles = includeContext ? this.vfsService.getProjectFilesSnapshot() : undefined;
+        const aiOptions = {
+          apiKey,
+          provider,
+          projectFiles,
+          projectId: this.document()?.folderId || undefined,
+        };
+
+        const result = await this.documentService.aiAssistant(
+          docId,
+          action,
+          language,
+          code,
+          customPrompt,
+          aiOptions,
+        );
         this.aiResult.set(result);
         this.chatMessages.update((msgs) =>
           msgs.map((m) =>
@@ -1646,7 +1678,7 @@ export class Editor implements OnInit {
                   action: result.action,
                   suggestions: result.suggestions,
                   generatedCode: result.generatedCode || undefined,
-                  provider: result.provider || 'AI Assistant',
+                  provider: result.provider || this.aiAgentService.activeProvider().name,
                 }
               : m
           )

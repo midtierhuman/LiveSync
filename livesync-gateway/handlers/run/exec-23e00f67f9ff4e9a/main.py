@@ -1,1 +1,0 @@
-print('canonical main.py')

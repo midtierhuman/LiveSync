@@ -18,12 +18,20 @@ class AIServiceServicer(ai_pb2_grpc.AIServiceServicer):
         return ai_pb2.LanguagesResponse(languages=descriptors)
 
     def AnalyzeCode(self, request, context):
+        project_files = [
+            {"path": pf.path, "content": pf.content}
+            for pf in request.project_files
+        ] if request.project_files else None
+
         res = ai_assistant_service.analyze(
             action=request.action,
             language=request.language,
             code=request.code,
+            user_api_key=request.user_api_key if request.user_api_key else None,
             custom_prompt=request.prompt if request.prompt else None,
             model=request.model if request.model else None,
+            project_files=project_files,
+            provider=request.provider if request.provider else None,
         )
         return ai_pb2.AiAnalysisResponse(
             action=res.action,
@@ -35,12 +43,20 @@ class AIServiceServicer(ai_pb2_grpc.AIServiceServicer):
         )
 
     def StreamAnalyzeCode(self, request, context):
+        project_files = [
+            {"path": pf.path, "content": pf.content}
+            for pf in request.project_files
+        ] if request.project_files else None
+
         for chunk in ai_assistant_service.stream_analyze(
             action=request.action,
             language=request.language,
             code=request.code,
+            user_api_key=request.user_api_key if request.user_api_key else None,
             custom_prompt=request.prompt if request.prompt else None,
             model=request.model if request.model else None,
+            project_files=project_files,
+            provider=request.provider if request.provider else None,
         ):
             yield ai_pb2.AiAnalysisChunk(
                 delta=chunk.delta,

@@ -153,6 +153,58 @@ func (x *LanguagesResponse) GetLanguages() []*LanguageDescriptor {
 	return nil
 }
 
+type ProjectFile struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProjectFile) Reset() {
+	*x = ProjectFile{}
+	mi := &file_ai_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectFile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectFile) ProtoMessage() {}
+
+func (x *ProjectFile) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectFile.ProtoReflect.Descriptor instead.
+func (*ProjectFile) Descriptor() ([]byte, []int) {
+	return file_ai_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ProjectFile) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ProjectFile) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
 type AiAnalysisRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Action        string                 `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
@@ -160,13 +212,17 @@ type AiAnalysisRequest struct {
 	Code          string                 `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`
 	Prompt        string                 `protobuf:"bytes,4,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	Model         string                 `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
+	UserApiKey    string                 `protobuf:"bytes,6,opt,name=user_api_key,json=userApiKey,proto3" json:"user_api_key,omitempty"`
+	ProjectId     string                 `protobuf:"bytes,7,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	ProjectFiles  []*ProjectFile         `protobuf:"bytes,8,rep,name=project_files,json=projectFiles,proto3" json:"project_files,omitempty"`
+	Provider      string                 `protobuf:"bytes,9,opt,name=provider,proto3" json:"provider,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AiAnalysisRequest) Reset() {
 	*x = AiAnalysisRequest{}
-	mi := &file_ai_proto_msgTypes[3]
+	mi := &file_ai_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -178,7 +234,7 @@ func (x *AiAnalysisRequest) String() string {
 func (*AiAnalysisRequest) ProtoMessage() {}
 
 func (x *AiAnalysisRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[3]
+	mi := &file_ai_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -191,7 +247,7 @@ func (x *AiAnalysisRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AiAnalysisRequest.ProtoReflect.Descriptor instead.
 func (*AiAnalysisRequest) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{3}
+	return file_ai_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AiAnalysisRequest) GetAction() string {
@@ -229,6 +285,34 @@ func (x *AiAnalysisRequest) GetModel() string {
 	return ""
 }
 
+func (x *AiAnalysisRequest) GetUserApiKey() string {
+	if x != nil {
+		return x.UserApiKey
+	}
+	return ""
+}
+
+func (x *AiAnalysisRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *AiAnalysisRequest) GetProjectFiles() []*ProjectFile {
+	if x != nil {
+		return x.ProjectFiles
+	}
+	return nil
+}
+
+func (x *AiAnalysisRequest) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
 type AiAnalysisResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Action        string                 `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
@@ -243,7 +327,7 @@ type AiAnalysisResponse struct {
 
 func (x *AiAnalysisResponse) Reset() {
 	*x = AiAnalysisResponse{}
-	mi := &file_ai_proto_msgTypes[4]
+	mi := &file_ai_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -255,7 +339,7 @@ func (x *AiAnalysisResponse) String() string {
 func (*AiAnalysisResponse) ProtoMessage() {}
 
 func (x *AiAnalysisResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[4]
+	mi := &file_ai_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -268,7 +352,7 @@ func (x *AiAnalysisResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AiAnalysisResponse.ProtoReflect.Descriptor instead.
 func (*AiAnalysisResponse) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{4}
+	return file_ai_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AiAnalysisResponse) GetAction() string {
@@ -329,7 +413,7 @@ type AiAnalysisChunk struct {
 
 func (x *AiAnalysisChunk) Reset() {
 	*x = AiAnalysisChunk{}
-	mi := &file_ai_proto_msgTypes[5]
+	mi := &file_ai_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -341,7 +425,7 @@ func (x *AiAnalysisChunk) String() string {
 func (*AiAnalysisChunk) ProtoMessage() {}
 
 func (x *AiAnalysisChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[5]
+	mi := &file_ai_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -354,7 +438,7 @@ func (x *AiAnalysisChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AiAnalysisChunk.ProtoReflect.Descriptor instead.
 func (*AiAnalysisChunk) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{5}
+	return file_ai_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *AiAnalysisChunk) GetDelta() string {
@@ -423,13 +507,22 @@ const file_ai_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\"I\n" +
 	"\x11LanguagesResponse\x124\n" +
-	"\tlanguages\x18\x01 \x03(\v2\x16.ai.LanguageDescriptorR\tlanguages\"\x89\x01\n" +
+	"\tlanguages\x18\x01 \x03(\v2\x16.ai.LanguageDescriptorR\tlanguages\";\n" +
+	"\vProjectFile\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"\x9c\x02\n" +
 	"\x11AiAnalysisRequest\x12\x16\n" +
 	"\x06action\x18\x01 \x01(\tR\x06action\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x12\n" +
 	"\x04code\x18\x03 \x01(\tR\x04code\x12\x16\n" +
 	"\x06prompt\x18\x04 \x01(\tR\x06prompt\x12\x14\n" +
-	"\x05model\x18\x05 \x01(\tR\x05model\"\xcf\x01\n" +
+	"\x05model\x18\x05 \x01(\tR\x05model\x12 \n" +
+	"\fuser_api_key\x18\x06 \x01(\tR\n" +
+	"userApiKey\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\a \x01(\tR\tprojectId\x124\n" +
+	"\rproject_files\x18\b \x03(\v2\x0f.ai.ProjectFileR\fprojectFiles\x12\x1a\n" +
+	"\bprovider\x18\t \x01(\tR\bprovider\"\xcf\x01\n" +
 	"\x12AiAnalysisResponse\x12\x16\n" +
 	"\x06action\x18\x01 \x01(\tR\x06action\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12 \n" +
@@ -463,28 +556,30 @@ func file_ai_proto_rawDescGZIP() []byte {
 	return file_ai_proto_rawDescData
 }
 
-var file_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_ai_proto_goTypes = []any{
 	(*Empty)(nil),              // 0: ai.Empty
 	(*LanguageDescriptor)(nil), // 1: ai.LanguageDescriptor
 	(*LanguagesResponse)(nil),  // 2: ai.LanguagesResponse
-	(*AiAnalysisRequest)(nil),  // 3: ai.AiAnalysisRequest
-	(*AiAnalysisResponse)(nil), // 4: ai.AiAnalysisResponse
-	(*AiAnalysisChunk)(nil),    // 5: ai.AiAnalysisChunk
+	(*ProjectFile)(nil),        // 3: ai.ProjectFile
+	(*AiAnalysisRequest)(nil),  // 4: ai.AiAnalysisRequest
+	(*AiAnalysisResponse)(nil), // 5: ai.AiAnalysisResponse
+	(*AiAnalysisChunk)(nil),    // 6: ai.AiAnalysisChunk
 }
 var file_ai_proto_depIdxs = []int32{
 	1, // 0: ai.LanguagesResponse.languages:type_name -> ai.LanguageDescriptor
-	0, // 1: ai.AIService.GetLanguages:input_type -> ai.Empty
-	3, // 2: ai.AIService.AnalyzeCode:input_type -> ai.AiAnalysisRequest
-	3, // 3: ai.AIService.StreamAnalyzeCode:input_type -> ai.AiAnalysisRequest
-	2, // 4: ai.AIService.GetLanguages:output_type -> ai.LanguagesResponse
-	4, // 5: ai.AIService.AnalyzeCode:output_type -> ai.AiAnalysisResponse
-	5, // 6: ai.AIService.StreamAnalyzeCode:output_type -> ai.AiAnalysisChunk
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 1: ai.AiAnalysisRequest.project_files:type_name -> ai.ProjectFile
+	0, // 2: ai.AIService.GetLanguages:input_type -> ai.Empty
+	4, // 3: ai.AIService.AnalyzeCode:input_type -> ai.AiAnalysisRequest
+	4, // 4: ai.AIService.StreamAnalyzeCode:input_type -> ai.AiAnalysisRequest
+	2, // 5: ai.AIService.GetLanguages:output_type -> ai.LanguagesResponse
+	5, // 6: ai.AIService.AnalyzeCode:output_type -> ai.AiAnalysisResponse
+	6, // 7: ai.AIService.StreamAnalyzeCode:output_type -> ai.AiAnalysisChunk
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_ai_proto_init() }
@@ -498,7 +593,7 @@ func file_ai_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ai_proto_rawDesc), len(file_ai_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

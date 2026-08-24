@@ -212,15 +212,33 @@ export class DocumentService {
     language: string,
     code?: string,
     prompt?: string,
+    options?: {
+      apiKey?: string;
+      projectFiles?: { path: string; content: string }[];
+      provider?: string;
+      projectId?: string;
+    },
   ): Promise<AiAnalysisResponse> {
     try {
+      const headers: Record<string, string> = {};
+      if (options?.apiKey) {
+        headers['X-AI-Api-Key'] = options.apiKey;
+      }
       return await firstValueFrom(
-        this.http.post<AiAnalysisResponse>(`${this.sandboxUrl}/api/ai/analyze`, {
-          action,
-          language,
-          code,
-          prompt,
-        }),
+        this.http.post<AiAnalysisResponse>(
+          `${this.sandboxUrl}/api/ai/analyze`,
+          {
+            action,
+            language,
+            code,
+            prompt,
+            apiKey: options?.apiKey,
+            projectFiles: options?.projectFiles,
+            provider: options?.provider,
+            projectId: options?.projectId,
+          },
+          { headers },
+        ),
       );
     } catch (error) {
       console.error('Error running AI assistant:', error);
@@ -235,6 +253,12 @@ export class DocumentService {
     prompt?: string,
     onChunk?: (chunk: AiStreamChunk) => void,
     signal?: AbortSignal,
+    options?: {
+      apiKey?: string;
+      projectFiles?: { path: string; content: string }[];
+      provider?: string;
+      projectId?: string;
+    },
   ): Promise<AiAnalysisResponse> {
     const token = this.authService.token();
     const headers: Record<string, string> = {
@@ -244,11 +268,25 @@ export class DocumentService {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
+    if (options?.apiKey) {
+      headers['X-AI-Api-Key'] = options.apiKey;
+    }
+
+    const payload = {
+      action,
+      language,
+      code,
+      prompt,
+      apiKey: options?.apiKey,
+      projectFiles: options?.projectFiles,
+      provider: options?.provider,
+      projectId: options?.projectId,
+    };
 
     const response = await fetch(`${this.sandboxUrl}/api/ai/stream`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ action, language, code, prompt }),
+      body: JSON.stringify(payload),
       signal,
     });
 

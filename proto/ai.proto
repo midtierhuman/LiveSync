@@ -21,12 +21,21 @@ message LanguagesResponse {
   repeated LanguageDescriptor languages = 1;
 }
 
+message ProjectFile {
+  string path = 1;
+  string content = 2;
+}
+
 message AiAnalysisRequest {
   string action = 1;
   string language = 2;
   string code = 3;
   string prompt = 4;
   string model = 5;
+  string user_api_key = 6;
+  string project_id = 7;
+  repeated ProjectFile project_files = 8;
+  string provider = 9;
 }
 
 message AiAnalysisResponse {

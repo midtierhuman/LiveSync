@@ -21,6 +21,7 @@ import { RealtimeService } from '../../services/realtime.service';
 import { PackageManagerService } from '../../services/package-manager.service';
 import { WorkspaceSearchService, SearchMatch } from '../../services/workspace-search.service';
 import { RunConfigService } from '../../services/run-config.service';
+import { AiAgentService } from '../../services/ai-agent.service';
 import JSZip from 'jszip';
 import { Editor } from '../editor/editor';
 import {
@@ -75,6 +76,7 @@ export class Workspace implements OnInit {
   public readonly liveTerminalService = inject(LiveTerminalService);
   public readonly searchService = inject(WorkspaceSearchService);
   public readonly runConfigService = inject(RunConfigService);
+  public readonly aiAgentService = inject(AiAgentService);
   private readonly realtimeService = inject(RealtimeService);
   public readonly vfsService = inject(VFSService);
   private readonly router = inject(Router);
@@ -86,6 +88,44 @@ export class Workspace implements OnInit {
   private lastJoinedWorkspaceId: string | null = null;
   private loadWorkspaceSeq = 0;
   private workspaceChangeDebounceTimer: any = null;
+
+  readonly antigravityKeyInput = signal<string>('');
+  readonly aiKeySaveFeedback = signal<string>('');
+
+  onOpenAiConnectModal(providerId?: string): void {
+    const pid = providerId || this.aiAgentService.activeProviderId();
+    if (pid === 'antigravity') {
+      this.antigravityKeyInput.set(this.aiAgentService.antigravityKey());
+    } else if (pid === 'codex') {
+      this.antigravityKeyInput.set(this.aiAgentService.codexKey());
+    } else if (pid === 'claude') {
+      this.antigravityKeyInput.set(this.aiAgentService.claudeKey());
+    }
+    this.aiKeySaveFeedback.set('');
+    this.aiAgentService.openConnectModal();
+  }
+
+  saveActiveAiKey(): void {
+    const key = this.antigravityKeyInput().trim();
+    const pid = this.aiAgentService.activeProviderId();
+    this.aiAgentService.setProviderKey(pid, key);
+    this.aiKeySaveFeedback.set(key ? 'Connected successfully!' : 'Key removed.');
+    setTimeout(() => {
+      this.aiKeySaveFeedback.set('');
+      this.aiAgentService.closeConnectModal();
+    }, 1000);
+  }
+
+  disconnectActiveAiKey(): void {
+    const pid = this.aiAgentService.activeProviderId();
+    this.aiAgentService.disconnectProvider(pid);
+    this.antigravityKeyInput.set('');
+    this.aiKeySaveFeedback.set('Account disconnected.');
+    setTimeout(() => {
+      this.aiKeySaveFeedback.set('');
+      this.aiAgentService.closeConnectModal();
+    }, 800);
+  }
 
   constructor() {
     effect(() => {

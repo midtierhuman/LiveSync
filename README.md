@@ -69,11 +69,20 @@ LiveSync is a high-performance, real-time collaborative code editor built on a d
 
 ### 1. Running the Full Stack with Docker Compose
 
-```powershell
-# Build and launch all microservices in the background
+Rebuild and start all polyglot microservices and databases in detached mode:
+
+```bash
+# Linux / macOS
+./run-dev.sh
+
+# Windows Command Prompt / Batch
+run-dev.bat
+
+# Or direct Docker Compose commands
+docker compose down
 docker compose up --build -d
 
-# View service logs
+# View live streaming logs
 docker compose logs -f
 ```
 
@@ -86,38 +95,38 @@ Access the UI at `http://localhost:4000` (or `http://localhost:5038` via Nginx e
 If you prefer running databases in Docker and services locally on your host:
 
 #### Step 1: Start PostgreSQL & Redis
-```powershell
+```bash
 docker compose up -d postgres redis
 ```
 
 #### Step 2: Launch the Services
 
 * **Go Core API (`livesync-api`)**:
-  ```powershell
+  ```bash
   cd livesync-api
   go run main.go
   ```
 
 * **Python AI Service (`livesync-ai`)**:
-  ```powershell
+  ```bash
   cd livesync-ai
-  .\venv\Scripts\python -m app.main
+  .venv/bin/python -m app.main
   ```
 
 * **Go API Gateway (`livesync-gateway`)**:
-  ```powershell
+  ```bash
   cd livesync-gateway
   go run main.go
   ```
 
 * **Node.js Realtime Server (`livesync-realtime`)**:
-  ```powershell
+  ```bash
   cd livesync-realtime
   npm run dev
   ```
 
 * **Angular Frontend (`livesync-ui`)**:
-  ```powershell
+  ```bash
   cd livesync-ui
   npm start
   ```

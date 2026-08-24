@@ -875,9 +875,46 @@
       <!-- VIEW 3: AI ASSISTANT -->
       @if (activeSidebarView() === 'ai') {
         <section class="vs-sidebar-panel vs-ai-panel">
-          <div class="panel-header">
-            <span class="panel-title"><mat-icon>psychology</mat-icon> AI PAIR ASSISTANT</span>
+          <div class="panel-header ai-header-main">
+            <div class="ai-provider-selector-wrap">
+              <button class="btn-provider-dropdown" [matMenuTriggerFor]="aiProviderMenu" matTooltip="Select AI Agent Provider">
+                <mat-icon class="provider-icon">{{ aiAgentService.activeProvider().icon }}</mat-icon>
+                <span class="provider-name">{{ aiAgentService.activeProvider().name }}</span>
+                <mat-icon class="dropdown-chevron">expand_more</mat-icon>
+              </button>
+
+              <mat-menu #aiProviderMenu="matMenu" class="ai-provider-mat-menu">
+                @for (p of aiAgentService.providers(); track p.id) {
+                  <button
+                    mat-menu-item
+                    (click)="aiAgentService.setActiveProvider(p.id); onOpenAiConnectModal(p.id)"
+                    [class.selected-provider]="p.id === aiAgentService.activeProviderId()"
+                  >
+                    <mat-icon>{{ p.icon }}</mat-icon>
+                    <span class="menu-provider-title">{{ p.name }}</span>
+                    <span class="menu-provider-badge" [class.badge-active]="p.status === 'active'">{{ p.badge }}</span>
+                  </button>
+                }
+              </mat-menu>
+            </div>
+
             <div class="panel-actions">
+              <button
+                class="btn-panel-action"
+                [class.active]="aiAgentService.includeProjectContext()"
+                (click)="aiAgentService.toggleProjectContext()"
+                [matTooltip]="aiAgentService.includeProjectContext() ? 'Whole-Project Context (Enabled)' : 'Single-File Context Only'"
+              >
+                <mat-icon>{{ aiAgentService.includeProjectContext() ? 'folder_special' : 'description' }}</mat-icon>
+              </button>
+              <button
+                class="btn-panel-action"
+                [class.connected]="aiAgentService.isCurrentProviderConnected()"
+                (click)="onOpenAiConnectModal()"
+                [matTooltip]="aiAgentService.isCurrentProviderConnected() ? 'Account Connected (Click to manage)' : 'Connect Account'"
+              >
+                <mat-icon>{{ aiAgentService.isCurrentProviderConnected() ? 'verified_user' : 'key' }}</mat-icon>
+              </button>
               <button
                 class="btn-panel-action"
                 [class.active]="showAiQuickMenu()"
@@ -895,6 +932,18 @@
             </div>
           </div>
 
+          <!-- Sub-header context & status banner -->
+          <div class="ai-status-subbar">
+            <div class="ai-status-pill" (click)="onOpenAiConnectModal()">
+              <span class="status-indicator" [class.online]="aiAgentService.isCurrentProviderConnected()"></span>
+              <span class="status-text">{{ aiAgentService.isCurrentProviderConnected() ? 'Connected' : 'Account Key Required' }}</span>
+            </div>
+            <div class="ai-context-pill" (click)="aiAgentService.toggleProjectContext()" [class.active]="aiAgentService.includeProjectContext()">
+              <mat-icon class="context-icon">{{ aiAgentService.includeProjectContext() ? 'account_tree' : 'insert_drive_file' }}</mat-icon>
+              <span>{{ aiAgentService.includeProjectContext() ? 'Whole-Project (' + vfsService.getProjectFilesSnapshot().length + ' files)' : 'Single-File' }}</span>
+            </div>
+          </div>
+
           <!-- Quick Action Popover Menu -->
           @if (showAiQuickMenu()) {
             <div class="ai-quick-menu-popover">
@@ -906,6 +955,44 @@
           }
 
           <div class="panel-body ai-sidebar-body">
+            <!-- Unconnected Prompt Card for Antigravity/Cloud -->
+            @if (!aiAgentService.isCurrentProviderConnected() && (activeEditorInstance()?.chatMessages()?.length === 0 || !activeEditorInstance())) {
+              <div class="ai-connect-card">
+                <div class="connect-card-hero">
+                  <div class="connect-icon-circle">
+                    <mat-icon>{{ aiAgentService.activeProvider().icon }}</mat-icon>
+                  </div>
+                  <h4>Connect {{ aiAgentService.activeProvider().name }}</h4>
+                  <p>{{ aiAgentService.activeProvider().description }}</p>
+                </div>
+
+                <div class="connect-input-group">
+                  <label>API Key / Access Token</label>
+                  <input
+                    type="password"
+                    class="ai-key-input"
+                    [placeholder]="aiAgentService.activeProvider().placeholder || 'Paste API Key...'"
+                    [value]="antigravityKeyInput()"
+                    (input)="antigravityKeyInput.set($any($event.target).value)"
+                    (keyup.enter)="saveActiveAiKey()"
+                  />
+                  @if (aiAgentService.activeProvider().helpUrl) {
+                    <a [href]="aiAgentService.activeProvider().helpUrl" target="_blank" class="help-link">
+                      Get a free Google Antigravity / Gemini Key ↗
+                    </a>
+                  }
+                </div>
+
+                <button class="btn-connect-agent" (click)="saveActiveAiKey()" [disabled]="!antigravityKeyInput().trim()">
+                  <mat-icon>bolt</mat-icon> Connect & Start Pair Programming
+                </button>
+
+                @if (aiKeySaveFeedback()) {
+                  <div class="save-feedback">{{ aiKeySaveFeedback() }}</div>
+                }
+              </div>
+            }
+
             <div class="ai-chat-stream">
               @for (msg of activeEditorInstance()?.chatMessages(); track msg.id) {
                 <div class="chat-bubble" [class.user-bubble]="msg.sender === 'user'" [class.ai-bubble]="msg.sender === 'ai'">
@@ -935,44 +1022,46 @@
                   }
                 </div>
               } @empty {
-                <div class="ai-empty-container">
-                  <div class="ai-empty-hero">
-                    <mat-icon class="hero-icon">auto_awesome</mat-icon>
-                    <h4>Pair Programming Assistant</h4>
-                    <p>Ask a coding question or select a quick starter:</p>
-                  </div>
+                @if (aiAgentService.isCurrentProviderConnected()) {
+                  <div class="ai-empty-container">
+                    <div class="ai-empty-hero">
+                      <mat-icon class="hero-icon">auto_awesome</mat-icon>
+                      <h4>{{ aiAgentService.activeProvider().name }} Assistant</h4>
+                      <p>Full project context active. Ask a question or start with an action:</p>
+                    </div>
 
-                  <div class="ai-starters-grid">
-                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('explain')">
-                      <span class="starter-symbol">💡</span>
-                      <div class="starter-copy">
-                        <span class="starter-title">Explain Code</span>
-                        <span class="starter-desc">Step-by-step logic breakdown</span>
-                      </div>
-                    </button>
-                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('refactor')">
-                      <span class="starter-symbol">⚡</span>
-                      <div class="starter-copy">
-                        <span class="starter-title">Refactor & Optimize</span>
-                        <span class="starter-desc">Clean, idiomatic patterns</span>
-                      </div>
-                    </button>
-                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('generate-tests')">
-                      <span class="starter-symbol">🛠️</span>
-                      <div class="starter-copy">
-                        <span class="starter-title">Generate Unit Tests</span>
-                        <span class="starter-desc">Edge-case test suites</span>
-                      </div>
-                    </button>
-                    <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('complexity')">
-                      <span class="starter-symbol">⏱️</span>
-                      <div class="starter-copy">
-                        <span class="starter-title">Big-O Bounds</span>
-                        <span class="starter-desc">Time & space complexity</span>
-                      </div>
-                    </button>
+                    <div class="ai-starters-grid">
+                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('explain')">
+                        <span class="starter-symbol">💡</span>
+                        <div class="starter-copy">
+                          <span class="starter-title">Explain Code</span>
+                          <span class="starter-desc">Step-by-step logic breakdown</span>
+                        </div>
+                      </button>
+                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('refactor')">
+                        <span class="starter-symbol">⚡</span>
+                        <div class="starter-copy">
+                          <span class="starter-title">Refactor & Optimize</span>
+                          <span class="starter-desc">Clean, idiomatic patterns</span>
+                        </div>
+                      </button>
+                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('generate-tests')">
+                        <span class="starter-symbol">🛠️</span>
+                        <div class="starter-copy">
+                          <span class="starter-title">Generate Unit Tests</span>
+                          <span class="starter-desc">Edge-case test suites</span>
+                        </div>
+                      </button>
+                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('complexity')">
+                        <span class="starter-symbol">⏱️</span>
+                        <div class="starter-copy">
+                          <span class="starter-title">Big-O Bounds</span>
+                          <span class="starter-desc">Time & space complexity</span>
+                        </div>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                }
               }
 
               <!-- Shimmer Loading Indicator -->
@@ -980,7 +1069,7 @@
                 <div class="ai-loading-card">
                   <div class="loading-label-row">
                     <span class="ai-pulse-dot"></span>
-                    <span class="loading-text">AI is synthesizing code response...</span>
+                    <span class="loading-text">{{ aiAgentService.activeProvider().name }} is synthesizing code response...</span>
                   </div>
                   <div class="loading-progress-track">
                     <div class="loading-progress-bar"></div>
@@ -991,7 +1080,7 @@
 
             <div class="ai-prompt-input-row">
               <textarea
-                placeholder="Ask AI about code or request changes..."
+                [placeholder]="'Ask ' + aiAgentService.activeProvider().name + ' about project or request changes...'"
                 [value]="activeEditorInstance()?.userCustomPrompt() || ''"
                 (input)="activeEditorInstance()?.userCustomPrompt?.set($any($event.target).value)"
                 (keydown)="activeEditorInstance()?.handleChatKeyDown($event)"
@@ -1472,6 +1561,73 @@
           } @empty {
             <div class="quick-open-empty">No matching files found.</div>
           }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- AI Agent Connection Management Modal -->
+  @if (aiAgentService.showConnectModal()) {
+    <div class="quick-open-backdrop" (click)="aiAgentService.closeConnectModal()">
+      <div class="ai-modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="title-wrap">
+            <mat-icon>{{ aiAgentService.activeProvider().icon }}</mat-icon>
+            <h3>{{ aiAgentService.activeProvider().name }} Settings</h3>
+          </div>
+          <button class="btn-close-modal" (click)="aiAgentService.closeConnectModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <p class="modal-desc">{{ aiAgentService.activeProvider().description }}</p>
+
+          <div class="form-group">
+            <label>API Key / Auth Token</label>
+            <input
+              type="password"
+              class="modal-input"
+              [placeholder]="aiAgentService.activeProvider().placeholder || 'Enter API Key...'"
+              [value]="antigravityKeyInput()"
+              (input)="antigravityKeyInput.set($any($event.target).value)"
+              (keyup.enter)="saveActiveAiKey()"
+            />
+            @if (aiAgentService.activeProvider().helpUrl) {
+              <a [href]="aiAgentService.activeProvider().helpUrl" target="_blank" class="help-link">
+                Get an API Key from {{ aiAgentService.activeProvider().name }} ↗
+              </a>
+            }
+          </div>
+
+          <div class="context-toggle-row">
+            <div class="toggle-copy">
+              <strong>Whole-Project Multi-File Context</strong>
+              <span>Automatically inject workspace files into prompts for repository-level awareness.</span>
+            </div>
+            <button
+              class="btn-toggle-switch"
+              [class.active]="aiAgentService.includeProjectContext()"
+              (click)="aiAgentService.toggleProjectContext()"
+            >
+              {{ aiAgentService.includeProjectContext() ? 'ON' : 'OFF' }}
+            </button>
+          </div>
+
+          @if (aiKeySaveFeedback()) {
+            <div class="feedback-badge">{{ aiKeySaveFeedback() }}</div>
+          }
+        </div>
+
+        <div class="modal-footer">
+          @if (aiAgentService.isCurrentProviderConnected()) {
+            <button class="btn-disconnect" (click)="disconnectActiveAiKey()">
+              <mat-icon>link_off</mat-icon> Disconnect
+            </button>
+          }
+          <div class="footer-spacer"></div>
+          <button class="btn-secondary" (click)="aiAgentService.closeConnectModal()">Cancel</button>
+          <button class="btn-primary" (click)="saveActiveAiKey()">Save & Connect</button>
         </div>
       </div>
     </div>

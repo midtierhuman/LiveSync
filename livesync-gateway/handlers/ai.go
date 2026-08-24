@@ -20,12 +20,21 @@ func NewAIHandler(cfg *config.Config, grpcClient pb.AIServiceClient) *AIHandler 
 	return &AIHandler{cfg: cfg, grpcClient: grpcClient}
 }
 
+type ProjectFilePayload struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
 type AiHTTPRequest struct {
-	Action   string `json:"action"`
-	Language string `json:"language"`
-	Code     string `json:"code"`
-	Prompt   string `json:"prompt"`
-	Model    string `json:"model"`
+	Action       string               `json:"action"`
+	Language     string               `json:"language"`
+	Code         string               `json:"code"`
+	Prompt       string               `json:"prompt"`
+	Model        string               `json:"model"`
+	ApiKey       string               `json:"apiKey,omitempty"`
+	ProjectID    string               `json:"projectId,omitempty"`
+	ProjectFiles []ProjectFilePayload `json:"projectFiles,omitempty"`
+	Provider     string               `json:"provider,omitempty"`
 }
 
 type AiHTTPResponse struct {
@@ -55,15 +64,37 @@ func (h *AIHandler) AnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apiKey := reqPayload.ApiKey
+	if apiKey == "" {
+		apiKey = r.Header.Get("X-AI-Api-Key")
+	}
+	if apiKey == "" {
+		apiKey = r.Header.Get("X-Antigravity-Key")
+	}
+
+	var pbFiles []*pb.ProjectFile
+	for _, pf := range reqPayload.ProjectFiles {
+		if pf.Path != "" {
+			pbFiles = append(pbFiles, &pb.ProjectFile{
+				Path:    pf.Path,
+				Content: pf.Content,
+			})
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
 	grpcResp, err := h.grpcClient.AnalyzeCode(ctx, &pb.AiAnalysisRequest{
-		Action:   reqPayload.Action,
-		Language: reqPayload.Language,
-		Code:     reqPayload.Code,
-		Prompt:   reqPayload.Prompt,
-		Model:    reqPayload.Model,
+		Action:       reqPayload.Action,
+		Language:     reqPayload.Language,
+		Code:         reqPayload.Code,
+		Prompt:       reqPayload.Prompt,
+		Model:        reqPayload.Model,
+		UserApiKey:   apiKey,
+		ProjectId:    reqPayload.ProjectID,
+		ProjectFiles: pbFiles,
+		Provider:     reqPayload.Provider,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"gRPC AI worker error: `+err.Error()+`"}`, http.StatusBadGateway)
@@ -106,6 +137,17 @@ func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 		reqPayload.Code = r.URL.Query().Get("code")
 		reqPayload.Prompt = r.URL.Query().Get("prompt")
 		reqPayload.Model = r.URL.Query().Get("model")
+		reqPayload.ApiKey = r.URL.Query().Get("apiKey")
+		reqPayload.Provider = r.URL.Query().Get("provider")
+		reqPayload.ProjectID = r.URL.Query().Get("projectId")
+	}
+
+	apiKey := reqPayload.ApiKey
+	if apiKey == "" {
+		apiKey = r.Header.Get("X-AI-Api-Key")
+	}
+	if apiKey == "" {
+		apiKey = r.Header.Get("X-Antigravity-Key")
 	}
 
 	if reqPayload.Action == "" {
@@ -113,6 +155,16 @@ func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 	}
 	if reqPayload.Language == "" {
 		reqPayload.Language = "python"
+	}
+
+	var pbFiles []*pb.ProjectFile
+	for _, pf := range reqPayload.ProjectFiles {
+		if pf.Path != "" {
+			pbFiles = append(pbFiles, &pb.ProjectFile{
+				Path:    pf.Path,
+				Content: pf.Content,
+			})
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -126,11 +178,15 @@ func (h *AIHandler) StreamAnalyzeCode(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	grpcStream, err := h.grpcClient.StreamAnalyzeCode(ctx, &pb.AiAnalysisRequest{
-		Action:   reqPayload.Action,
-		Language: reqPayload.Language,
-		Code:     reqPayload.Code,
-		Prompt:   reqPayload.Prompt,
-		Model:    reqPayload.Model,
+		Action:       reqPayload.Action,
+		Language:     reqPayload.Language,
+		Code:         reqPayload.Code,
+		Prompt:       reqPayload.Prompt,
+		Model:        reqPayload.Model,
+		UserApiKey:   apiKey,
+		ProjectId:    reqPayload.ProjectID,
+		ProjectFiles: pbFiles,
+		Provider:     reqPayload.Provider,
 	})
 	if err != nil {
 		errChunk := map[string]interface{}{
@@ -203,9 +259,38 @@ func (h *AIHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 		"deepseek-r1-distill-qwen-14b",
 	}
 
+	providers := []map[string]interface{}{
+		{
+			"id":          "antigravity",
+			"name":        "Google Antigravity",
+			"description": "Native Google AI coding assistant with 1M+ whole-project context window",
+			"status":      "active",
+		},
+		{
+			"id":          "codex",
+			"name":        "OpenAI Codex",
+			"description": "OpenAI code generation model",
+			"status":      "available",
+		},
+		{
+			"id":          "claude",
+			"name":        "Anthropic Claude",
+			"description": "Claude 3.7 Sonnet code reasoning engine",
+			"status":      "available",
+		},
+		{
+			"id":          "local",
+			"name":        "Local LLM",
+			"description": "Offline Qwen 2.5 Coder / Ollama server",
+			"status":      "active",
+		},
+	}
+
 	res := map[string]interface{}{
-		"activeModel":     "gemini-3.5-flash",
-		"availableModels": models,
+		"activeProvider":     "antigravity",
+		"availableProviders": providers,
+		"activeModel":        "gemini-3.5-flash",
+		"availableModels":    models,
 	}
 
 	json.NewEncoder(w).Encode(res)

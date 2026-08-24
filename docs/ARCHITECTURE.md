@@ -202,9 +202,10 @@ graph TD
 ### B. Python AI Intelligence & Streaming Worker (`livesync-ai`)
 - **Universal HTTP/2 gRPC Interface (`port 50051`)**: Serves an internal polyglot gRPC mesh (`proto/ai.proto`) accessible to `livesync-gateway` and `livesync-api` with zero public web exposure.
 - **Continuous gRPC Token Streaming (`StreamAnalyzeCode`)**: Server-streaming RPC yielding `stream AiAnalysisChunk` deltas in real time from Google Gemini API (`streamGenerateContent`) and local OpenAI-compatible endpoints (`stream: true`).
-- **Gateway SSE Bridge (`/api/ai/stream`)**: Go Gateway ingests the internal gRPC binary stream, applies JWT access verification, and streams Server-Sent Events (SSE) directly to the Angular UI for instant Cursor-style typing animations.
+- **Multi-Tenant BYO-Key & Whole-Project Context Injection (`FEAT-14`)**: Accepts user-provided Google Antigravity / Gemini credentials (`user_api_key`) and whole-repository virtual snapshots (`project_files`). Automatically injects cross-file symbols, imports, and relative directory paths into prompt contexts while executing against individual user quotas.
+- **Gateway SSE Bridge (`/api/ai/stream`)**: Go Gateway ingests the internal gRPC binary stream, applies JWT access verification, extracts `X-AI-Api-Key`, and streams Server-Sent Events (SSE) directly to the Angular UI for instant Cursor-style typing animations.
 - **AST Big-O Complexity Analyzer**: Sub-millisecond static abstract syntax tree analysis computing Time ($\mathcal{O}(N)$, $\mathcal{O}(N^2)$, $\mathcal{O}(\log N)$) and Space complexity.
-- **Hybrid AI Inference Chain**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) with Google Gemini cloud fallback and zero-cost offline AST structural analysis.
+- **Hybrid AI Inference Chain**: Local OpenAI-compatible LLM (`llama-server` / `Qwen2.5-Coder`) with Google Antigravity / Gemini cloud fallback and zero-cost offline AST structural analysis.
 - **Unconstrained AI Microservice Architecture (`ARCH-14`)**: Cleared legacy sandbox memory limits (512M) and sandbox runtime metadata, optimizing memory throughput for multi-thousand token LLM streaming buffers and complex AST graphs.
 
 ### C. Core REST API & Security (`livesync-api`)
@@ -213,9 +214,15 @@ graph TD
 - **Quota Guard & Dependency Shield**: Hard validation blocking restricted dependency paths (`node_modules`, `venv`) and enforcing project file/size caps.
 
 ### D. Cloud IDE Frontend (`livesync-ui`)
+- **Agent-Agnostic AI Dock & Antigravity Account Integration (`FEAT-14`)**: Features an agent switcher supporting Google Antigravity (Default), OpenAI Codex, Anthropic Claude, and Local LLM, with local credential encryption/persistence, whole-project context toggle (`📁 Whole-Project Context ON`), and seamless pair-programming chats.
 - **Reactive Virtual Filesystem (VFS) & Recursive Subfolder Flattening (`BUG-13`)**: Recursively flattens nested folder hierarchies across arbitrary depths into `folderById` maps, calculating canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) and supporting nested module import resolution (e.g. `require('./test/test')`).
 - **Multi-Tab Live Buffer & Keystroke Disk Synchronization**: Captures in-memory `codeSignal` buffers across all open tabs in `editorInstances` and debounced keystroke edits, atomically syncing canonical relative paths to workspace disk (`/api/workspaces/:id/sync`) prior to terminal execution.
 - **Zoneless Signals & CodeMirror 6 StateFields**: Zoneless change detection driving sub-millisecond editor updates, remote presence carets, and dynamic syntax highlighting.
+
+### E. Container Orchestration & Lifecycle Automation (`ARCH-15` / `DEV-01`)
+- **Automated Docker Compose Teardown & Rebuild (`run-dev.bat` & `run-dev.sh`)**: Provides single-command deterministic cluster initialization (`docker compose down` followed by `docker compose up --build -d`), ensuring zero stale container state, fresh polyglot binary compilation, and formatted service mesh port discovery.
+- **Konsole & Desktop Terminal Auto-Spawn (`DEV-01`)**: Automatically detects desktop graphical terminal emulators (`konsole`, `gnome-terminal`, `x-terminal-emulator`, `xterm`, `kitty`, `alacritty`), spawning a dedicated window anchored in the workspace with active streaming container logs (`docker compose logs -f`).
+- **Cross-Platform Script Parity**: Replaces obsolete Windows-only PowerShell scripts with native POSIX Bash (`run-dev.sh`) and Windows Command Batch (`run-dev.bat`) with proper executable permissions (`chmod +x`).
 
 ---
 
@@ -249,3 +256,5 @@ graph TD
    - Files marked locked or view-only in collaborative permissions receive OS read-only filesystem flags on disk to prevent unauthorized modifications via terminal scripts.
 5. **Air-Gapped AI Mesh Isolation**:
    - `livesync-ai` communicates exclusively with internal backend services over HTTP/2 gRPC (`port 50051`), exposing zero public HTTP routes to the internet.
+6. **Multi-Tenant AI & Preflight CORS Authorization (`SEC-07`)**:
+   - Both `livesync-gateway` and `livesync-api` CORS preflight middleware explicitly negotiate `X-AI-Api-Key` and `X-Antigravity-Key` headers alongside standard JWT bearer headers, preventing browser cross-origin preflight rejections while preserving zero-trust authorization.
