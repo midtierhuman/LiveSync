@@ -543,14 +543,19 @@ export class Workspace implements OnInit {
             : m
         )
       );
-    } catch {
+    } catch (err: any) {
+      const errorDetail = err?.error?.message || err?.message || 'AI assistant request failed. Gateway (:8081) or Python AI (:50051) service unreachable.';
       this.workspaceChatMessages.update((msgs) =>
         msgs.map((m) =>
           m.id === aiMsgId
             ? {
                 ...m,
-                text: '⚠️ AI assistant request failed. Please check network connectivity or API key configuration.',
+                isError: true,
+                text: '⚠️ AI assistant request failed.',
+                errorMessage: errorDetail,
                 provider: 'System Error',
+                retryAction: action,
+                retryPrompt: customPrompt,
               }
             : m
         )
@@ -558,6 +563,13 @@ export class Workspace implements OnInit {
     } finally {
       this.isWorkspaceAiLoading.set(false);
     }
+  }
+
+  retryAiMessage(msg: ChatMessage): void {
+    if (this.isWorkspaceAiLoading()) return;
+    const action = msg.retryAction || msg.action || 'explain';
+    const prompt = msg.retryPrompt || '';
+    void this.runWorkspaceAiAnalysis(action, prompt);
   }
 
   // Package Hub State & Methods

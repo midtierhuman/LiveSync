@@ -85,6 +85,10 @@ export interface ChatMessage {
   generatedCode?: string;
   provider?: string;
   timestamp: string;
+  isError?: boolean;
+  errorMessage?: string;
+  retryAction?: string;
+  retryPrompt?: string;
 }
 
 @Component({
@@ -1899,9 +1903,24 @@ export class Editor implements OnInit {
               : m
           )
         );
-      } catch {
-        this.aiError.set('AI assistant request failed. Please verify endpoint connectivity.');
-        this.chatMessages.update((msgs) => msgs.filter((m) => m.id !== aiMsgId));
+      } catch (unaryErr: any) {
+        const errorDetail = unaryErr?.error?.message || unaryErr?.message || 'AI assistant request failed. Gateway (:8081) or Python AI (:50051) service unreachable.';
+        this.aiError.set(errorDetail);
+        this.chatMessages.update((msgs) =>
+          msgs.map((m) =>
+            m.id === aiMsgId
+              ? {
+                  ...m,
+                  isError: true,
+                  text: '⚠️ AI assistant could not complete the request.',
+                  errorMessage: errorDetail,
+                  provider: 'AI Service Error',
+                  retryAction: action,
+                  retryPrompt: customPrompt,
+                }
+              : m
+          )
+        );
       }
     } finally {
       this.isAiLoading.set(false);

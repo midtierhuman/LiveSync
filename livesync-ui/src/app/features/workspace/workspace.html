@@ -1374,18 +1374,32 @@
 
         <div class="ai-chat-stream">
           @for (msg of effectiveChatMessages(); track msg.id) {
-            <div class="chat-bubble" [class.user-bubble]="msg.sender === 'user'" [class.ai-bubble]="msg.sender === 'ai'">
+            <div class="chat-bubble" [class.user-bubble]="msg.sender === 'user'" [class.ai-bubble]="msg.sender === 'ai'" [class.error-bubble]="msg.isError">
               <div class="bubble-header">
                 <div class="sender-info">
-                  <mat-icon class="sender-icon">{{ msg.sender === 'user' ? 'person' : 'smart_toy' }}</mat-icon>
-                  <strong>{{ msg.sender === 'user' ? 'You' : 'LiveSync AI' }}</strong>
+                  <mat-icon class="sender-icon" [class.error-icon]="msg.isError">{{ msg.isError ? 'error_outline' : (msg.sender === 'user' ? 'person' : 'smart_toy') }}</mat-icon>
+                  <strong>{{ msg.isError ? 'AI Assistant Error' : (msg.sender === 'user' ? 'You' : 'LiveSync AI') }}</strong>
                   @if (msg.provider) {
-                    <span class="provider-pill">{{ msg.provider }}</span>
+                    <span class="provider-pill" [class.error-pill]="msg.isError">{{ msg.provider }}</span>
                   }
                 </div>
                 <span class="bubble-time">{{ msg.timestamp }}</span>
               </div>
               <div class="bubble-text">{{ msg.text }}</div>
+              @if (msg.isError && msg.errorMessage) {
+                <div class="ai-error-detail-box">
+                  <div class="err-reason-label">Diagnostic Details:</div>
+                  <div class="err-reason-text">{{ msg.errorMessage }}</div>
+                  <div class="err-action-buttons">
+                    <button class="btn-retry-ai" (click)="retryAiMessage(msg)">
+                      <mat-icon>refresh</mat-icon> Retry Action
+                    </button>
+                    <button class="btn-switch-provider" (click)="onOpenAiConnectModal()">
+                      <mat-icon>tune</mat-icon> Change Provider / Key
+                    </button>
+                  </div>
+                </div>
+              }
               @if (msg.generatedCode) {
                 <div class="generated-code-box">
                   <pre><code>{{ msg.generatedCode }}</code></pre>
