@@ -224,6 +224,7 @@ export class LiveTerminalService {
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
       theme: this.getTheme(this.isDarkMode),
       allowProposedApi: true,
+      scrollback: 5000, // Memory-bounded scrollback buffer (PERF-16)
     });
 
     const fitAddon = new FitAddon();

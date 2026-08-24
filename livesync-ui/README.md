@@ -6,14 +6,15 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
 
 ## 🚀 Key Architecture & Components
 
-1. **CodeMirror 6 Collaborative Editor & Presence Delta Compression (`PERF-15`)**:
+1. **CodeMirror 6 Collaborative Editor & Remote Caret RAF Batching (`PERF-15` / `PERF-16`)**:
    - Modern CodeMirror 6 editor with custom reactive extensions.
    - Dual-edge 50ms cursor move throttling and delta compression suppressing redundant socket packets when navigating without selection changes.
+   - `requestAnimationFrame` (RAF) batching for concurrent remote collaborator carets, eliminating redundant synchronous decoration pipeline dispatches.
    - Dynamic Compartments dynamically toggling read-only states for locked/view-only files.
    - Remote presence `StateField` rendering real-time collaborator carets and translucent multi-line selection ranges.
 
-2. **Persistent In-Memory Terminal Dock (`xterm.js`)**:
-   - Zero-teardown terminal instances retaining PTY WebSocket connections, scrollback history, and running processes across panel toggles.
+2. **Persistent In-Memory Terminal Dock (`xterm.js`) & Memory-Bounded Buffer (`PERF-16`)**:
+   - Zero-teardown terminal instances retaining PTY WebSocket connections, running processes, and a memory-bounded scrollback buffer (5,000 lines) preventing browser DOM memory leaks during long-running builds.
    - Multi-terminal tab manager with automatic `FitAddon` layout recalculation on drawer resizes.
 
 3. **Streaming AI Pair Assistant Dock & Agent Provider Selector (`FEAT-14` / `BUG-14`)**:

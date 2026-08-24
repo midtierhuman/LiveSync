@@ -56,7 +56,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { css } from '@codemirror/lang-css';
 import { FormsModule } from '@angular/forms';
 import { remotePresenceField, setRemoteCursorsEffect } from './remote-presence.extension';
-import { RealtimeService } from '../../services/realtime.service';
+import { RealtimeService, CollaboratorCursor } from '../../services/realtime.service';
 import {
   DocumentDto,
   DocumentService,
@@ -262,6 +262,10 @@ export class Editor implements OnInit {
         clearTimeout(this.cursorThrottleTimer);
         this.cursorThrottleTimer = null;
       }
+      if (this.pendingRemoteCursorsRAF !== null) {
+        cancelAnimationFrame(this.pendingRemoteCursorsRAF);
+        this.pendingRemoteCursorsRAF = null;
+      }
       if (this.activeCleanupResizer) {
         this.activeCleanupResizer();
       }
@@ -354,9 +358,7 @@ export class Editor implements OnInit {
       const currentUserId = this.authService.user()?.id;
       if (this.editorView && currentDocId) {
         const otherCollaborators = collaborators.filter((c) => c.userId !== currentUserId);
-        this.editorView.dispatch({
-          effects: setRemoteCursorsEffect.of(otherCollaborators),
-        });
+        this.scheduleRemoteCursorsDispatch(otherCollaborators);
       }
     });
 
@@ -651,6 +653,21 @@ export class Editor implements OnInit {
     lineNumber: number;
     userName: string;
   } | null = null;
+  private pendingRemoteCursorsRAF: number | null = null;
+
+  private scheduleRemoteCursorsDispatch(collaborators: CollaboratorCursor[]): void {
+    if (this.pendingRemoteCursorsRAF !== null) {
+      cancelAnimationFrame(this.pendingRemoteCursorsRAF);
+    }
+    this.pendingRemoteCursorsRAF = requestAnimationFrame(() => {
+      this.pendingRemoteCursorsRAF = null;
+      if (this.editorView && this.docId()) {
+        this.editorView.dispatch({
+          effects: setRemoteCursorsEffect.of(collaborators),
+        });
+      }
+    });
+  }
 
   private updateCursorLabel(state: EditorState) {
     const mainSel = state.selection.main;
