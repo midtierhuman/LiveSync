@@ -533,29 +533,40 @@ export class Workspace implements OnInit {
     }
   }
 
+  getAllWorkspaceDocuments(): DocumentDto[] {
+    const docMap = new Map<string, DocumentDto>();
+    for (const doc of this.myDocuments()) {
+      docMap.set(doc.id, doc);
+    }
+    for (const childList of Object.values(this.folderChildDocs())) {
+      for (const doc of childList) {
+        if (!docMap.has(doc.id) || !docMap.get(doc.id)?.content) {
+          docMap.set(doc.id, doc);
+        }
+      }
+    }
+    for (const s of this.sharedDocuments()) {
+      if (!docMap.has(s.documentId)) {
+        docMap.set(s.documentId, {
+          id: s.documentId,
+          title: s.documentTitle,
+          content: '',
+          folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
+          ownerId: s.userId,
+          isShared: true,
+          defaultAccessLevel: s.accessLevel,
+          createdAt: s.sharedAt,
+          updatedAt: s.sharedAt,
+        } as DocumentDto);
+      }
+    }
+    return Array.from(docMap.values());
+  }
+
   private refreshVFSIndex(): void {
     const folders = this.myFolders();
-    const sharedFolds = this.sharedFolders();
     const tree = this.sharedFolderTree();
-    const docs = this.myDocuments();
-    const sharedDocs = this.sharedDocuments();
-
-    const allDocs: DocumentDto[] = [
-      ...docs,
-      ...sharedDocs.map(
-        (s) =>
-          ({
-            id: s.documentId,
-            title: s.documentTitle,
-            folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
-            ownerId: s.userId,
-            isShared: true,
-            defaultAccessLevel: s.accessLevel,
-            createdAt: s.sharedAt,
-            updatedAt: s.sharedAt,
-          }) as DocumentDto,
-      ),
-    ];
+    const allDocs = this.getAllWorkspaceDocuments();
 
     this.vfsService.updateVFSState(
       [...folders, ...tree],
@@ -747,22 +758,7 @@ export class Workspace implements OnInit {
         return;
       }
 
-      const allDocs: DocumentDto[] = [
-        ...docs,
-        ...sharedDocs.map(
-          (s) =>
-            ({
-              id: s.documentId,
-              title: s.documentTitle,
-              folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
-              ownerId: s.userId,
-              isShared: true,
-              defaultAccessLevel: s.accessLevel,
-              createdAt: s.sharedAt,
-              updatedAt: s.sharedAt,
-            }) as DocumentDto,
-        ),
-      ];
+      const allDocs = this.getAllWorkspaceDocuments();
 
       // Update Virtual Filesystem (VFS) Path Index
       this.vfsService.updateVFSState(
@@ -2253,27 +2249,24 @@ export class Workspace implements OnInit {
     const proj = this.scopedProject();
     const projId = proj?.id;
     const vfs = this.vfsService.vfsIndex();
-    const docs = [
-      ...this.myDocuments(),
-      ...this.sharedDocuments().map((s) => ({
-        id: s.documentId,
-        title: s.documentTitle,
-        content: '',
-        folderId: s.folderPath && s.folderPath.length > 0 ? s.folderPath[s.folderPath.length - 1].id : undefined,
-      })),
-    ];
+    const docs = this.getAllWorkspaceDocuments();
+
+    // Query active live buffer across all open tab editor instances
+    const liveBufferMap = new Map<string, string>();
+    for (const inst of this.editorInstances()) {
+      const docId = inst.documentId();
+      if (docId) {
+        liveBufferMap.set(docId, inst.codeSignal());
+      }
+    }
 
     const filesMap: Record<string, string> = {};
     for (const doc of docs) {
       if (!projId || this.isDocumentInProject(doc.id, projId)) {
         const relPath = vfs.docIdToPath.get(doc.id) || doc.title;
         if (relPath) {
-          const activeInst = this.activeEditorInstance();
-          if (activeInst && activeInst.docId() === doc.id) {
-            filesMap[relPath] = activeInst.codeSignal() || doc.content || '';
-          } else {
-            filesMap[relPath] = doc.content || '';
-          }
+          const liveCode = liveBufferMap.get(doc.id);
+          filesMap[relPath] = liveCode !== undefined ? liveCode : (doc.content || '');
         }
       }
     }
@@ -2282,15 +2275,17 @@ export class Workspace implements OnInit {
 
   collectDirtyOverlays(): Record<string, string> {
     const overlays: Record<string, string> = {};
-    const activeInst = this.activeEditorInstance();
-    if (activeInst && activeInst.docId()) {
-      const docId = activeInst.docId();
-      const vfs = this.vfsService.vfsIndex();
-      const activeDoc = this.myDocuments().find((d) => d.id === docId);
-      const relPath = vfs.docIdToPath.get(docId) || activeDoc?.title || 'main';
-      const code = activeInst.codeSignal();
-      if (code !== undefined && code !== null) {
-        overlays[relPath] = code;
+    const vfs = this.vfsService.vfsIndex();
+    const allDocs = this.getAllWorkspaceDocuments();
+    for (const inst of this.editorInstances()) {
+      const docId = inst.documentId();
+      if (docId) {
+        const doc = allDocs.find((d) => d.id === docId);
+        const relPath = vfs.docIdToPath.get(docId) || doc?.title || 'main';
+        const code = inst.codeSignal();
+        if (code !== undefined && code !== null) {
+          overlays[relPath] = code;
+        }
       }
     }
     return overlays;
@@ -2298,14 +2293,16 @@ export class Workspace implements OnInit {
 
   async executeRunProfile(): Promise<void> {
     const activeId = this.activeTabId();
-    const doc = this.myDocuments().find((d) => d.id === activeId);
+    const allDocs = this.getAllWorkspaceDocuments();
+    const doc = allDocs.find((d) => d.id === activeId);
     const activeFilePath = doc ? (this.getFileRelativePath(doc) || doc.title) : 'main';
     const projId = this.scopedProject()?.id;
 
     if (!this.isTerminalOpen()) {
       this.isTerminalOpen.set(true);
-      setTimeout(() => {
+      setTimeout(async () => {
         this.attachWorkspaceTerminal();
+        await this.syncAllWorkspaceFilesToDisk();
         void this.runConfigService.runProfile(
           this.runConfigService.selectedProfile(),
           activeFilePath,
@@ -2315,6 +2312,7 @@ export class Workspace implements OnInit {
       }, 50);
     } else {
       this.attachWorkspaceTerminal();
+      await this.syncAllWorkspaceFilesToDisk();
       void this.runConfigService.runProfile(
         this.runConfigService.selectedProfile(),
         activeFilePath,
@@ -2411,10 +2409,10 @@ export class Workspace implements OnInit {
     this.syncAllWorkspaceFilesToDisk();
   }
 
-  syncAllWorkspaceFilesToDisk(): void {
+  async syncAllWorkspaceFilesToDisk(): Promise<void> {
     const filesMap = this.collectWorkspaceFilesSnapshot();
     if (Object.keys(filesMap).length > 0) {
-      this.liveTerminalService.syncFiles(filesMap);
+      await this.liveTerminalService.syncFiles(filesMap);
     }
   }
 

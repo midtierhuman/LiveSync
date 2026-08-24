@@ -22,8 +22,9 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
 4. **Unified 48px Activity Bar & Sidebar Dock**:
    - Consolidates Explorer, Search & Replace (`Ctrl+Shift+F`), Package Hub (live NPM/PyPI search), Run & Debug, AI Assistant, and Collaborators into a single sidebar without floating modal clutter.
 
-5. **Backend-Authoritative Virtual Filesystem (VFS) & Delta Execution**:
-   - Lightweight execution requests transmitting only dirty active file overlays rather than dumping entire multi-megabyte source trees.
+5. **Backend-Authoritative Virtual Filesystem (VFS) & Multi-Tab Synchronization (`BUG-12`)**:
+   - Comprehensive VFS path resolution aggregating root documents, subfolder trees (`folderChildDocs`), and shared documents.
+   - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs prior to terminal and compilation execution.
 
 ---
 

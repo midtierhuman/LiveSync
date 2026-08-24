@@ -485,29 +485,31 @@ export class LiveTerminalService {
     }
   }
 
-  syncFiles(files: Record<string, string>, lockedFiles?: string[]) {
-    // 1. Atomic REST disk sync with transient fsnotify self-change suppression
-    this.workspaceSyncService.syncWorkspace(this.currentProjectId, files, lockedFiles).catch((err) => {
-      console.warn('[LiveTerminalService] Atomic workspace sync warning:', err);
-    });
-
-    // 2. Pass to active websocket stream if connected or queue for connect
+  syncFiles(files: Record<string, string>, lockedFiles?: string[]): Promise<void> {
+    // 1. Pass to active websocket stream immediately if connected or queue for connect
     const active = this.getActiveSession();
-    if (!active || !active.socket || active.socket.readyState !== WebSocket.OPEN) {
+    if (active && active.socket && active.socket.readyState === WebSocket.OPEN) {
+      active.socket.send(
+        JSON.stringify({
+          action: 'sync_files',
+          files,
+          lockedFiles: lockedFiles || [],
+        }),
+      );
+    } else {
       this.pendingSyncFiles = {
         files: { ...this.pendingSyncFiles?.files, ...files },
         lockedFiles: lockedFiles || this.pendingSyncFiles?.lockedFiles || [],
       };
-      return;
     }
 
-    active.socket.send(
-      JSON.stringify({
-        action: 'sync_files',
-        files,
-        lockedFiles: lockedFiles || [],
-      }),
-    );
+    // 2. Atomic REST disk sync with transient fsnotify self-change suppression
+    return this.workspaceSyncService
+      .syncWorkspace(this.currentProjectId, files, lockedFiles)
+      .then(() => {})
+      .catch((err) => {
+        console.warn('[LiveTerminalService] Atomic workspace sync warning:', err);
+      });
   }
 
   runCommand(command: string, files?: Record<string, string>) {

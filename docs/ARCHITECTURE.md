@@ -211,6 +211,11 @@ graph TD
 - **Hierarchical Access Control (ACL Overrides)**: Folder-level inheritance with granular document-level permission overrides (`Owner`, `Edit`, `View`).
 - **Quota Guard & Dependency Shield**: Hard validation blocking restricted dependency paths (`node_modules`, `venv`) and enforcing project file/size caps.
 
+### D. Cloud IDE Frontend (`livesync-ui`)
+- **Reactive Virtual Filesystem (VFS) & Subfolder Aggregation (`BUG-12`)**: Aggregates top-level documents, subfolder trees (`folderChildDocs`), and shared documents into a canonical path index (`docIdToPath`, `pathToDocId`).
+- **Multi-Tab Live Buffer Disk Synchronization**: Captures in-memory `codeSignal` buffers across all open tabs in `editorInstances` and atomically synchronizes them to workspace disk (`/api/workspaces/:id/sync`) prior to terminal command execution.
+- **Zoneless Signals & CodeMirror 6 StateFields**: Zoneless change detection driving sub-millisecond editor updates, remote presence carets, and dynamic syntax highlighting.
+
 ---
 
 ## 🥊 5. Competitive Benchmark: LiveSync vs. Competitors
