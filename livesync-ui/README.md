@@ -35,7 +35,11 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
    - HTML5 drag-and-drop tab bar reordering with real-time insertion indicator and active tab selection stability.
    - Explorer tree drag-and-drop file/folder moves updating VFS state, parent folder relationships, and broadcasting `WorkspaceChange` to active collaborator rooms.
 
-7. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
+7. **Side-by-Side Markdown Live Rendered Preview & Sub-Toolbar (`FEAT-18`)**:
+   - Integrated editor sub-toolbar displaying breadcrumb path navigation (`project > folder > file`) and language mode tags.
+   - Dedicated side-by-side split Markdown live preview for `.md` files rendering real-time formatted GFM HTML (code blocks, syntax highlighting, quotes, lists, links) alongside the CodeMirror 6 text editor.
+
+8. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
    - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
    - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
    - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs and debounced keystroke edits prior to terminal and compilation execution.

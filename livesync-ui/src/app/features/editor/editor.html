@@ -19,8 +19,48 @@
     </div>
   }
 
-  <div class="editor-container">
-    <div #editorHost class="monaco-host"></div>
+  <!-- Top Editor Breadcrumb & Quick Actions Bar (FEAT-18) -->
+  <div class="editor-sub-toolbar">
+    <div class="breadcrumb-trail">
+      <mat-icon class="bc-icon">code</mat-icon>
+      <span class="bc-doc-title">{{ docTitle() || 'Untitled' }}</span>
+      <span class="bc-lang-pill">{{ currentLanguageDisplayName() }}</span>
+    </div>
+
+    <div class="editor-sub-actions">
+      @if (isMarkdownFile()) {
+        <button
+          class="btn-editor-sub-action"
+          [class.active]="showMarkdownPreview()"
+          (click)="toggleMarkdownPreview()"
+          [matTooltip]="showMarkdownPreview() ? 'Hide Markdown Preview' : 'Split Markdown Live Preview'"
+        >
+          <mat-icon>{{ showMarkdownPreview() ? 'vertical_split' : 'preview' }}</mat-icon>
+          <span class="btn-lbl">Preview</span>
+        </button>
+      }
+
+      <button
+        class="btn-editor-sub-action"
+        (click)="formatCode()"
+        matTooltip="Format Document"
+      >
+        <mat-icon>format_align_left</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <div class="editor-container" [class.split-preview]="showMarkdownPreview() && isMarkdownFile()">
+    <div #editorHost class="monaco-host" [class.split-half]="showMarkdownPreview() && isMarkdownFile()"></div>
+    @if (showMarkdownPreview() && isMarkdownFile()) {
+      <div class="markdown-preview-pane split-half">
+        <div class="preview-header">
+          <mat-icon>visibility</mat-icon>
+          <span>Markdown Live Preview</span>
+        </div>
+        <div class="preview-body" [innerHTML]="renderedMarkdown()"></div>
+      </div>
+    }
   </div>
 
   <footer class="editor-statusbar" [class.light]="!isDarkMode()">

@@ -209,6 +209,62 @@ export class Editor implements OnInit {
   readonly isWordWrapEnabled = signal(false);
   readonly lastSaved = signal<Date | null>(null);
 
+  // Markdown Live Preview (FEAT-18)
+  readonly showMarkdownPreview = signal<boolean>(false);
+  readonly isMarkdownFile = computed(() => {
+    const title = (this.docTitle() || '').toLowerCase();
+    const lang = (this.currentLanguage() || '').toLowerCase();
+    return title.endsWith('.md') || lang === 'markdown';
+  });
+
+  readonly renderedMarkdown = computed(() => {
+    return this.renderMarkdownHtml(this.codeSignal());
+  });
+
+  toggleMarkdownPreview(): void {
+    this.showMarkdownPreview.update((v) => !v);
+  }
+
+  private renderMarkdownHtml(raw: string): string {
+    if (!raw || !raw.trim()) return '<div class="md-empty"><em>No markdown content. Start typing to see live preview.</em></div>';
+    let html = raw
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Fenced Code Blocks
+    html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_m, lang, code) => {
+      return `<pre class="md-code-block"><div class="code-lang-tag">${lang || 'code'}</div><code>${code.trim()}</code></pre>`;
+    });
+
+    // Inline Code
+    html = html.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
+
+    // Headings
+    html = html.replace(/^### (.*$)/gim, '<h3 class="md-h3">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 class="md-h2">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 class="md-h1">$1</h1>');
+
+    // Blockquotes
+    html = html.replace(/^\> (.*$)/gim, '<blockquote class="md-quote">$1</blockquote>');
+
+    // Bold & Italic
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // Lists
+    html = html.replace(/^\- (.*$)/gim, '<li class="md-li">$1</li>');
+
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1 ↗</a>');
+
+    // Paragraph linebreaks
+    html = html.replace(/\n\n/g, '<p class="md-p"></p>');
+    html = html.replace(/\n/g, '<br/>');
+
+    return html;
+  }
+
   readonly isSaving = signal(false);
   readonly executionLanguages = signal<ExecutionLanguageOption[]>([]);
   readonly selectedExecutionLanguage = signal('');

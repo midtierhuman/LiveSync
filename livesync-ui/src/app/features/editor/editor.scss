@@ -423,3 +423,212 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
 }
+
+// ── Top Editor Breadcrumb & Sub-Toolbar (FEAT-18) ───
+.editor-sub-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  background: #181818;
+  border-bottom: 1px solid #282828;
+  padding: 0 10px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  user-select: none;
+
+  .breadcrumb-trail {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+
+    .bc-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      color: #38bdf8;
+    }
+
+    .bc-doc-title {
+      font-weight: 500;
+      color: #e2e8f0;
+    }
+
+    .bc-lang-pill {
+      font-size: 10px;
+      padding: 1px 5px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
+      color: #64748b;
+    }
+  }
+
+  .editor-sub-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    .btn-editor-sub-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      color: #94a3b8;
+      padding: 2px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &.active {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.12);
+        border-color: rgba(56, 189, 248, 0.3);
+      }
+
+      &:hover:not(.active) {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.08);
+      }
+    }
+  }
+}
+
+// ── Side-by-Side Split Editor & Markdown Preview ───
+.editor-container.split-preview {
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+
+  .split-half {
+    flex: 1;
+    width: 50%;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .markdown-preview-pane {
+    display: flex;
+    flex-direction: column;
+    background: #14161d;
+    border-left: 1px solid #2b3240;
+    overflow: hidden;
+
+    .preview-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #0f1117;
+      border-bottom: 1px solid #232834;
+      font-size: 11px;
+      font-weight: 600;
+      color: #38bdf8;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+    }
+
+    .preview-body {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+      color: #cbd5e1;
+      font-size: 13.5px;
+      line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+      .md-h1 {
+        font-size: 20px;
+        font-weight: 700;
+        color: #f1f5f9;
+        border-bottom: 1px solid #2d3748;
+        padding-bottom: 6px;
+        margin: 12px 0 8px;
+      }
+
+      .md-h2 {
+        font-size: 17px;
+        font-weight: 600;
+        color: #e2e8f0;
+        border-bottom: 1px solid #232b38;
+        padding-bottom: 4px;
+        margin: 10px 0 6px;
+      }
+
+      .md-h3 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #93c5fd;
+        margin: 8px 0 4px;
+      }
+
+      .md-quote {
+        border-left: 3px solid #38bdf8;
+        margin: 8px 0;
+        padding: 4px 12px;
+        background: rgba(56, 189, 248, 0.06);
+        color: #94a3b8;
+        font-style: italic;
+      }
+
+      .md-inline-code {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-family: 'Fira Code', monospace;
+        font-size: 12px;
+        color: #fca5a5;
+      }
+
+      .md-code-block {
+        background: #0d1117;
+        border: 1px solid #21262d;
+        border-radius: 6px;
+        padding: 10px 14px;
+        margin: 10px 0;
+        overflow-x: auto;
+        position: relative;
+
+        .code-lang-tag {
+          font-size: 10px;
+          color: #64748b;
+          text-transform: uppercase;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+
+        code {
+          font-family: 'Fira Code', monospace;
+          font-size: 12px;
+          color: #e2e8f0;
+        }
+      }
+
+      .md-li {
+        margin: 4px 0 4px 18px;
+      }
+
+      .md-link {
+        color: #38bdf8;
+        text-decoration: underline;
+
+        &:hover {
+          color: #7dd3fc;
+        }
+      }
+    }
+  }
+}
