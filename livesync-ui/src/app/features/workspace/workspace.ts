@@ -41,6 +41,13 @@ const EXPLORER_MIN_WIDTH = 180;
 const EXPLORER_MAX_WIDTH = 600;
 const EXPLORER_DEFAULT_WIDTH = 260;
 
+const AI_DOCK_POSITION_KEY = 'livesync.aiDockPosition';
+const AI_DOCK_OPEN_KEY = 'livesync.aiDockOpen';
+const AI_DOCK_WIDTH_KEY = 'livesync.aiDockWidth';
+const AI_DOCK_MIN_WIDTH = 280;
+const AI_DOCK_MAX_WIDTH = 750;
+const AI_DOCK_DEFAULT_WIDTH = 380;
+
 @Component({
   selector: 'app-workspace',
   standalone: true,
@@ -274,6 +281,15 @@ export class Workspace implements OnInit {
   private isResizing = false;
   private resizeStartX = 0;
   private resizeStartWidth = 0;
+
+  // Flexible AI Dock State (FEAT-15)
+  aiDockPosition = signal<'right' | 'left' | 'bottom'>(this.getSavedAiDockPosition());
+  isAiDockOpen = signal<boolean>(this.getSavedAiDockOpen());
+  aiDockWidth = signal<number>(this.getSavedAiDockWidth());
+  bottomPanelActiveTab = signal<'terminal' | 'ai'>('terminal');
+  private isResizingAiDock = false;
+  private resizeAiDockStartX = 0;
+  private resizeAiDockStartWidth = 0;
 
   // Tabs state
   openTabs = signal<Array<{ id: string; title: string }>>([]);
@@ -2474,7 +2490,104 @@ export class Workspace implements OnInit {
     }
   }
 
+  getSavedAiDockPosition(): 'right' | 'left' | 'bottom' {
+    if (typeof localStorage === 'undefined') return 'right';
+    const val = localStorage.getItem(AI_DOCK_POSITION_KEY);
+    if (val === 'left' || val === 'bottom' || val === 'right') return val;
+    return 'right';
+  }
+
+  getSavedAiDockOpen(): boolean {
+    if (typeof localStorage === 'undefined') return false;
+    const val = localStorage.getItem(AI_DOCK_OPEN_KEY);
+    return val !== null ? val === 'true' : false;
+  }
+
+  getSavedAiDockWidth(): number {
+    if (typeof localStorage === 'undefined') return AI_DOCK_DEFAULT_WIDTH;
+    const val = localStorage.getItem(AI_DOCK_WIDTH_KEY);
+    const parsed = val ? parseInt(val, 10) : AI_DOCK_DEFAULT_WIDTH;
+    return isNaN(parsed) ? AI_DOCK_DEFAULT_WIDTH : Math.max(AI_DOCK_MIN_WIDTH, Math.min(AI_DOCK_MAX_WIDTH, parsed));
+  }
+
+  setAiDockPosition(pos: 'right' | 'left' | 'bottom'): void {
+    this.aiDockPosition.set(pos);
+    localStorage.setItem(AI_DOCK_POSITION_KEY, pos);
+    if (pos === 'left') {
+      this.isSidebarOpen.set(true);
+      this.activeSidebarView.set('ai');
+    } else if (pos === 'bottom') {
+      this.isTerminalOpen.set(true);
+      this.bottomPanelActiveTab.set('ai');
+    } else {
+      this.isAiDockOpen.set(true);
+      localStorage.setItem(AI_DOCK_OPEN_KEY, 'true');
+    }
+  }
+
+  toggleAiDock(): void {
+    if (this.aiDockPosition() === 'left') {
+      this.toggleSidebarView('ai');
+    } else if (this.aiDockPosition() === 'bottom') {
+      if (this.isTerminalOpen() && this.bottomPanelActiveTab() === 'ai') {
+        this.isTerminalOpen.set(false);
+      } else {
+        this.isTerminalOpen.set(true);
+        this.bottomPanelActiveTab.set('ai');
+      }
+    } else {
+      const nextState = !this.isAiDockOpen();
+      this.isAiDockOpen.set(nextState);
+      localStorage.setItem(AI_DOCK_OPEN_KEY, String(nextState));
+    }
+  }
+
+  startAiDockResize(event: MouseEvent | TouchEvent) {
+    event.preventDefault();
+    this.isResizingAiDock = true;
+    this.resizeAiDockStartX = 'touches' in event ? event.touches[0].clientX : event.clientX;
+    this.resizeAiDockStartWidth = this.aiDockWidth();
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      if (!this.isResizingAiDock) return;
+      const currentX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+      // Dragging left from right dock increases width
+      const delta = this.resizeAiDockStartX - currentX;
+      const nextWidth = Math.max(AI_DOCK_MIN_WIDTH, Math.min(AI_DOCK_MAX_WIDTH, this.resizeAiDockStartWidth + delta));
+      this.aiDockWidth.set(nextWidth);
+    };
+
+    const onEnd = () => {
+      if (this.isResizingAiDock) {
+        this.isResizingAiDock = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        localStorage.setItem(AI_DOCK_WIDTH_KEY, String(this.aiDockWidth()));
+      }
+      document.removeEventListener('mousemove', onMove as any);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove as any);
+      document.removeEventListener('touchend', onEnd);
+    };
+
+    document.addEventListener('mousemove', onMove as any);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove as any, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  }
+
   toggleSidebarView(view: 'explorer' | 'search' | 'run' | 'packages' | 'ai' | 'comments' | 'timeline'): void {
+    if (view === 'ai' && this.aiDockPosition() === 'right') {
+      this.toggleAiDock();
+      return;
+    }
+    if (view === 'ai' && this.aiDockPosition() === 'bottom') {
+      this.toggleAiDock();
+      return;
+    }
     if (this.activeSidebarView() === view && this.isSidebarOpen()) {
       this.isSidebarOpen.set(false);
     } else {
