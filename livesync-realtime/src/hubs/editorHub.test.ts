@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EditorHub } from './editorHub';
+import { RedisDocumentStateService } from '../services/documentStateService';
 
 test('EditorHub prefers last editor token and falls back safely', () => {
   const hub = new EditorHub({} as never, {} as never, {} as never, {} as never);
@@ -140,6 +141,40 @@ test('EditorHub writes through collaborator permission updates to Redis ACL and 
 
   const docBroadcasts = channelEmissions.filter(e => e.room === 'document:doc-shared-123');
   assert.equal(docBroadcasts.length, 2);
+});
+
+test('EditorHub PERF-11: schedules debounced dirty flusher and publishes save event', async () => {
+  let publishedDocId = '';
+  let publishedContent = '';
+  let publishedUser = '';
+
+  const mockRedisState: any = {
+    getContent: async (docId: string) => 'console.log("hello world");',
+    publishSaveEvent: async (docId: string, content: string, user?: string) => {
+      publishedDocId = docId;
+      publishedContent = content;
+      publishedUser = user || '';
+      return '12345-0';
+    },
+  };
+
+  Object.setPrototypeOf(mockRedisState, RedisDocumentStateService.prototype);
+
+  const hub = new EditorHub({} as never, mockRedisState, {} as never, {} as never);
+  const hubInternal = hub as any;
+
+  // 1. Flush dirty snapshot
+  await hubInternal.flushSingleDocumentDirtySnapshot('doc-dirty-1');
+  assert.equal(publishedDocId, 'doc-dirty-1');
+  assert.equal(publishedContent, 'console.log("hello world");');
+  assert.equal(publishedUser, 'debounced-write-behind');
+  assert.equal(hubInternal.lastSavedContent.get('doc-dirty-1'), 'console.log("hello world");');
+
+  // 2. Schedule debounce and cancel debounce
+  hubInternal.scheduleDebouncedDirtyFlush('doc-dirty-2');
+  assert.ok(hubInternal.dirtyDebounceTimers.has('doc-dirty-2'));
+  hubInternal.cancelDebouncedDirtyFlush('doc-dirty-2');
+  assert.equal(hubInternal.dirtyDebounceTimers.has('doc-dirty-2'), false);
 });
 
 

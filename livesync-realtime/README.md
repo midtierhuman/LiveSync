@@ -19,8 +19,9 @@ High-throughput, real-time collaborative editing, presence, and CRDT/OT synchron
    - `workspace:{folderId}`: Project-wide file tree updates (`WorkspaceChange`) for instant rename/delete/create sync across tabs.
    - `user:{userId}`: Authenticated private room for immediate cross-tab collaborator permission revocation and role updates (`ReceivePermissionUpdated`).
 
-4. **Redis Streams Write-Behind Publisher**:
-   - Publishes dirty document save snapshots to `livesync:stream:document-saves` (`XADD`) for non-blocking persistence by `livesync-api`.
+4. **Debounced Hot-State Write-Behind Persistence Engine (`PERF-11`)**:
+   - Implements a dynamic 2.5s trailing-edge debounced dirty flusher per active document.
+   - Continuously flushes dirty snapshots to Redis Streams (`livesync:stream:document-saves`) during active typing sessions without requiring manual saves or room closures, mitigating database contention while preventing data loss.
 
 5. **Fast-Path Cache-Aside ACL Evaluation (`PERF-05`)**:
    - Sub-millisecond $\mathcal{O}(1)$ Redis permission cache check rejecting unauthorized mutations for Viewers with `PermissionDenied` socket events.

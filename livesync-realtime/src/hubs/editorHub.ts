@@ -100,8 +100,58 @@ export class EditorHub {
   private readonly documentTokens = new Map<string, Map<string, string>>();
   private readonly lastEditorByDocument = new Map<string, string>();
   private readonly lastSavedContent = new Map<string, string>();
+  private readonly dirtyDebounceTimers = new Map<string, NodeJS.Timeout>();
+  public static readonly DIRTY_FLUSH_DEBOUNCE_MS = 2500; // 2.5s trailing-edge debounce (PERF-11)
   private sweeperTimer: NodeJS.Timeout | null = null;
   private flusherTimer: NodeJS.Timeout | null = null;
+
+  /**
+   * Schedules a trailing-edge debounced dirty flush (2.5s) to Redis Streams.
+   * Ensures active collaborative typing continuously flushes dirty snapshots to Redis Streams
+   * (livesync:stream:document-saves) for PostgreSQL persistence without requiring room closure or manual saves.
+   */
+  public scheduleDebouncedDirtyFlush(documentId: string): void {
+    const existingTimer = this.dirtyDebounceTimers.get(documentId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(() => {
+      this.dirtyDebounceTimers.delete(documentId);
+      this.flushSingleDocumentDirtySnapshot(documentId).catch((err) => {
+        console.error(`[Debounced Dirty Flusher] Error flushing document ${documentId}:`, err);
+      });
+    }, EditorHub.DIRTY_FLUSH_DEBOUNCE_MS);
+
+    this.dirtyDebounceTimers.set(documentId, timer);
+  }
+
+  public async flushSingleDocumentDirtySnapshot(documentId: string): Promise<void> {
+    if (!(this.state instanceof RedisDocumentStateService)) return;
+
+    const concreteState = this.state as RedisDocumentStateService;
+    const activeContent = await concreteState.getContent(documentId);
+    if (activeContent === null) return;
+
+    const lastSaved = this.lastSavedContent.get(documentId);
+    if (activeContent !== lastSaved) {
+      const accessToken = this.getTokenForDocumentSave(documentId);
+      await concreteState.publishSaveEvent(documentId, activeContent, 'debounced-write-behind');
+      if (accessToken) {
+        await this.documentAccessClient.saveDocumentContent(documentId, activeContent, accessToken);
+      }
+      this.lastSavedContent.set(documentId, activeContent);
+      console.log(`[Debounced Dirty Flusher] Flushed dirty snapshot for document ${documentId} (2.5s trailing debounce)`);
+    }
+  }
+
+  public cancelDebouncedDirtyFlush(documentId: string): void {
+    const timer = this.dirtyDebounceTimers.get(documentId);
+    if (timer) {
+      clearTimeout(timer);
+      this.dirtyDebounceTimers.delete(documentId);
+    }
+  }
 
   /**
    * Starts a periodic sweep that removes stale connection IDs from Redis.
@@ -197,6 +247,7 @@ export class EditorHub {
           const count = await this.state.getUserCount(documentId);
 
           if (count === 0) {
+            this.cancelDebouncedDirtyFlush(documentId);
             const finalContent = await this.state.getContent(documentId);
             const accessToken = this.getTokenForDocumentSave(documentId);
             if (finalContent !== null && finalContent !== this.lastSavedContent.get(documentId)) {
@@ -341,6 +392,7 @@ export class EditorHub {
       console.log(`User ${socket.id} left document ${documentId}. Active users: ${activeCount}`);
 
       if (activeCount === 0) {
+        this.cancelDebouncedDirtyFlush(documentId);
         const concreteState = this.state as RedisDocumentStateService;
         const finalContent = await this.state.getContent(documentId);
         const accessToken = this.getTokenForDocumentSave(documentId);
@@ -394,6 +446,7 @@ export class EditorHub {
 
       await this.state.setContent(documentId, content);
       this.lastEditorByDocument.set(documentId, socket.id);
+      this.scheduleDebouncedDirtyFlush(documentId);
       socket.to(documentId).emit('ReceiveContentUpdate', { documentId, content });
     } catch (error: any) {
       console.error(`Error sending content update for document ${documentId}:`, error);
@@ -453,6 +506,7 @@ export class EditorHub {
       const updatedContent = this.conflictResolver.applyOperation(currentContent, committedOp);
       await this.state.setContent(documentId, updatedContent);
       this.lastEditorByDocument.set(documentId, socket.id);
+      this.scheduleDebouncedDirtyFlush(documentId);
 
       console.log(
         `Operation applied for document ${documentId} by ${socket.id}. ServerRevision: ${committedOp.serverRevision}`
