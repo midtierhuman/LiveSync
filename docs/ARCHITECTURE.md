@@ -174,15 +174,25 @@ graph TD
 
 1. **Zero SQL in the Keystroke Hot-Path**:
    - Keystrokes never execute synchronous SQL queries. State transitions occur in memory (Node.js + Redis sorted sets) in $< 2\text{ ms}$.
-2. **Asynchronous Redis Stream Write-Behind Persistence**:
-   - Document snapshots are published to `livesync:stream:document-saves`. The Go core API (`livesync-api`) consumes records via `XREADGROUP` in the background and writes them to PostgreSQL in batch transactions.
-3. **Monotonic Read Consistency**:
+2. **Debounced Hot-State Write-Behind Persistence Engine (`PERF-11` & `PERF-14`)**:
+   - Realtime service maintains a 2.5s trailing-edge debounced dirty flusher per active document, publishing dirty snapshots to `livesync:stream:document-saves` without requiring room closures.
+   - The Go Core API (`livesync-api`) consumes save events in batches of up to 50 items (`XREADGROUP COUNT 50`), deduplicates edits in-memory, and commits updates in a single atomic PostgreSQL transaction using `UNNEST()` batch arrays.
+3. **High-Throughput PTY I/O `sync.Pool` Buffer Recycling (`PERF-12`)**:
+   - Go Gateway recycles 4KB byte slice buffers across PTY stdout/stdin reader pumps using a thread-safe `sync.Pool`, eliminating repetitive heap allocations and garbage collection pauses during heavy output commands (`npm install`, `cargo build`, `cat large.log`).
+4. **Sub-Millisecond AST Big-O Complexity SHA-256 Memoization LRU Cache (`PERF-13`)**:
+   - Python AI service features a thread-safe 2,048-entry LRU memoization cache keyed on the SHA-256 digest of normalized code syntax trees, delivering static algorithmic Time and Space complexity evaluations in $< 0.05\text{ ms}$.
+5. **Client Cursor Position Debouncing & Delta Compression (`PERF-15`)**:
+   - Angular IDE and Node.js Realtime service implement dual-edge 50ms cursor move throttling and delta compression, discarding redundant socket emissions when navigating without text selection changes.
+6. **CodeMirror 6 Remote Caret RAF Batching & Memory-Bounded Terminal Buffer (`PERF-16`)**:
+   - Multiple concurrent collaborator cursor changes are batched via `requestAnimationFrame` (RAF) before dispatching `StateEffect` decorations to the CodeMirror 6 view.
+   - Live xterm.js terminal sessions enforce a 5,000-line scrollback memory ceiling, preventing browser DOM memory leaks during long-running builds.
+7. **Monotonic Read Consistency**:
    - When a user fetches a document (`GET /api/documents/:id`), `livesync-api` reads directly from the Redis hot snapshot key (`livesync:doc:{id}:content`) before falling back to PostgreSQL, guaranteeing zero stale reads.
-4. **Cache-Aside Redis ACL Engine (`PERF-05`)**:
+8. **Cache-Aside Redis ACL Engine (`PERF-05`)**:
    - Document and workspace permissions are cached in Redis (`livesync:acl:doc:*`, `livesync:acl:ws:*`) with 15-minute TTLs. Realtime socket handlers fast-path reject unauthorized `Viewer` write attempts in sub-milliseconds without touching PostgreSQL.
-5. **Zero-N+1 Bulk Workspace Materialization (`PERF-10`)**:
+9. **Zero-N+1 Bulk Workspace Materialization (`PERF-10`)**:
    - Go Gateway hydrates entire multi-folder project trees using a single recursive SQL Common Table Expression (CTE) query (`GET /api/folders/:id/manifest`), avoiding iterative directory roundtrips.
-6. **Backend-Authoritative Ephemeral Compilation & Dependency Shield (`ARCH-13`)**:
+10. **Backend-Authoritative Ephemeral Compilation & Dependency Shield (`ARCH-13`)**:
    - The frontend sends zero project code payloads during compile triggers. The backend hydrates from authoritative PostgreSQL/Redis stores directly into isolated ephemeral sandboxes (`/run/exec-{id}`).
    - Dependencies (`node_modules`, `vendor`, `venv`, `.git`, `dist`, `build`) and binary formats (`.exe`, `.so`, `.wasm`, `.zip`) are strictly dropped by `fsnotify` disk watchers, sync ingress, and API validators.
    - Resource quotas: **Max 30 files**, **Max 256 KB/file**, **Max 2 MB workspace cap**, preventing storage and memory exhaustion.
