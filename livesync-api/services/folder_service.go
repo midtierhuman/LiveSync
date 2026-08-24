@@ -518,7 +518,29 @@ func (s *FolderService) accessLevel(ctx context.Context, f *models.Folder, userI
 	if f.ParentFolderID != nil && *f.ParentFolderID != "" {
 		parent, err := s.getRawFolder(ctx, *f.ParentFolderID)
 		if err == nil {
-			return s.accessLevel(ctx, parent, userId)
+			if pAccess := s.accessLevel(ctx, parent, userId); pAccess != "" {
+				return pAccess
+			}
+		}
+	}
+
+	// Check if any document inside this folder (or its descendant subfolders) is shared with userId
+	if s.db != nil && s.db.Pool != nil {
+		var hasDocAccess bool
+		err = s.db.Pool.QueryRow(ctx, `
+			WITH RECURSIVE subfolders AS (
+				SELECT "Id" FROM "Folders" WHERE "Id" = $1
+				UNION ALL
+				SELECT f."Id" FROM "Folders" f INNER JOIN subfolders sf ON f."ParentFolderId" = sf."Id"
+			)
+			SELECT EXISTS(
+				SELECT 1 FROM "Documents" d
+				INNER JOIN "SharedDocuments" sd ON sd."DocumentId" = d."Id"
+				WHERE d."FolderId" IN (SELECT "Id" FROM subfolders) AND sd."UserId" = $2
+			);
+		`, f.ID, userId).Scan(&hasDocAccess)
+		if err == nil && hasDocAccess {
+			return "View"
 		}
 	}
 

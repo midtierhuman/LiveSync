@@ -196,7 +196,7 @@ func (h *WorkspaceSyncHandler) HandleWorkspaceSync(w http.ResponseWriter, r *htt
 
 		tokenStr := middleware.GetUserToken(r.Context())
 		accessLevel, accessErr := middleware.VerifyWorkspaceAccess(r.Context(), h.cfg, projectID, tokenStr)
-		if accessErr != nil || (accessLevel != "Edit" && accessLevel != "Owner" && accessLevel != "Admin") {
+		if accessErr != nil || accessLevel == "" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
 			_ = json.NewEncoder(w).Encode(map[string]string{

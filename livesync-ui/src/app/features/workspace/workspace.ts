@@ -3155,10 +3155,33 @@ export class Workspace implements OnInit {
     this.syncAllWorkspaceFilesToDisk();
   }
 
+  collectWorkspaceLockedFiles(): string[] {
+    const proj = this.scopedProject();
+    const projId = proj?.id;
+    const projPerm = proj?.permission;
+    const vfs = this.vfsService.vfsIndex();
+    const docs = this.getAllWorkspaceDocuments();
+
+    const lockedFiles: string[] = [];
+    for (const doc of docs) {
+      if (!projId || this.isDocumentInProject(doc.id, projId)) {
+        const relPath = vfs.docIdToPath.get(doc.id) || doc.title;
+        if (relPath) {
+          const docPerm = doc.permission || (projPerm === 'View' ? 'View' : 'Edit');
+          if (docPerm === 'View' || doc.defaultAccessLevel === 'View') {
+            lockedFiles.push(relPath);
+          }
+        }
+      }
+    }
+    return lockedFiles;
+  }
+
   async syncAllWorkspaceFilesToDisk(): Promise<void> {
     const filesMap = this.collectWorkspaceFilesSnapshot();
+    const lockedFiles = this.collectWorkspaceLockedFiles();
     if (Object.keys(filesMap).length > 0) {
-      await this.liveTerminalService.syncFiles(filesMap);
+      await this.liveTerminalService.syncFiles(filesMap, lockedFiles);
     }
   }
 

@@ -23,8 +23,9 @@ High-performance, lightweight identity, RBAC authorization, and persistence micr
    - Dedicated authentication rate limiter on `/api/auth/*` (5 req/sec, burst: 10) to eliminate brute-force and credential stuffing attacks.
    - Global database route protection (100 req/sec, burst: 200).
 
-5. **Hierarchical Access Control (ACL Overrides)**:
+5. **Hierarchical Access Control & Workspace Run Access (ACL Overrides)**:
    - Folder-level permission inheritance with granular document-level overrides (`Owner`, `Edit`, `View`).
+   - Project workspace resolution fallback granting view/execution access when any document within the folder tree is shared with the user.
 
 ---
 

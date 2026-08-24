@@ -205,6 +205,9 @@ graph TD
 - **OS-Level Pseudo-Terminal Multiplexing**: Cross-platform native PTY shells:
   - **Windows**: Native Windows ConPTY (`CreatePseudoConsole`) running `powershell.exe -NoLogo`.
   - **Linux/macOS/Docker**: Unix PTY (`github.com/creack/pty`) running `/bin/bash`.
+- **Decoupled Collaborator Project Execution Model (`BUG-16`)**:
+  - Decouples project execution and terminal PTY connectivity from file edit restrictions. All authenticated workspace members (`Owner`, `Edit`, `View`) are authorized to connect to the PTY terminal and trigger project runs (`node index.js`, `python main.py`).
+  - Read-only and revoked-access files are strictly protected via OS-level write restrictions (`chmod 0444`) and CodeMirror editor guards, ensuring collaborators can execute workspace projects while preventing unauthorized modification of restricted files.
 - **Bi-Directional `fsnotify` Disk Watcher**: Monitors project workspaces on disk (`./workspaces/{projectId}`) and pushes real-time `fs_change` JSON frames over WebSocket when files/folders are created, modified, or deleted by terminal commands (`mkdir`, `touch`, `npm create vite`), keeping the UI Explorer synchronized without manual refreshes.
 - **Thread-Safe WebSocket Multiplexing (`SafeWSConn`)**: Mutex-locked writes prevent concurrent frame corruption during high-throughput stdout bursts.
 - **Platform-Aware Line Normalization (`BUG-11`)**: Automatically normalizes programmatic command dispatches (`run_command`) with platform-safe line feeds (`\n` on Linux/POSIX, `\r\n` on Windows ConPTY), eliminating duplicate prompt echo anomalies caused by PTY `ICRNL` translation.

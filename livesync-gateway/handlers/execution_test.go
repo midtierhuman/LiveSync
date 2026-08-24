@@ -169,15 +169,26 @@ func TestTerminalAuthorization_IsolationFromViewExecution(t *testing.T) {
 	handler := middleware.JWTAuth(cfg, termHandler.ServeWS)
 	validToken := createTestJWT(jwtSecret, "user-viewer-2", "viewer2", "viewer2@example.com")
 
-	// View-only user attempting to access interactive terminal PTY
-	req := httptest.NewRequest(http.MethodGet, "/api/terminal/ws?projectId=proj-view-only", nil)
-	req.Header.Set("Authorization", "Bearer "+validToken)
-	rec := httptest.NewRecorder()
+	// 1. User without project access attempting to access terminal -> 403 Forbidden
+	reqNoAccess := httptest.NewRequest(http.MethodGet, "/api/terminal/ws?projectId=proj-no-access", nil)
+	reqNoAccess.Header.Set("Authorization", "Bearer "+validToken)
+	recNoAccess := httptest.NewRecorder()
 
-	handler.ServeHTTP(rec, req)
+	handler.ServeHTTP(recNoAccess, reqNoAccess)
 
-	// Must be rejected with 403 Forbidden because View-only cannot access terminal
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 Forbidden for View-only user on terminal, got %d. Body: %s", rec.Code, rec.Body.String())
+	if recNoAccess.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden for unauthorized user on terminal, got %d. Body: %s", recNoAccess.Code, recNoAccess.Body.String())
+	}
+
+	// 2. View-only user attempting to access terminal -> passes workspace authorization check (advances to WS upgrade)
+	reqView := httptest.NewRequest(http.MethodGet, "/api/terminal/ws?projectId=proj-view-only", nil)
+	reqView.Header.Set("Authorization", "Bearer "+validToken)
+	recView := httptest.NewRecorder()
+
+	handler.ServeHTTP(recView, reqView)
+
+	// Since it's a plain HTTP request without WebSocket Upgrade headers, gorilla/coder websocket returns 426 (or Bad Request / Upgrade Required), NOT 403
+	if recView.Code == http.StatusForbidden {
+		t.Fatalf("expected View-only user to pass auth, but got 403 Forbidden: %s", recView.Body.String())
 	}
 }

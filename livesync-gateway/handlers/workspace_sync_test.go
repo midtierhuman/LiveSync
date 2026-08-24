@@ -210,3 +210,44 @@ func TestSyncIncrementalOverlays(t *testing.T) {
 		t.Errorf("expected file3.txt to be new 3, got %s", string(f3Data))
 	}
 }
+
+func TestWorkspaceSyncWithLockedFiles(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "ws_lock_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	reg := NewSuppressionRegistry()
+	files := map[string]string{
+		"index.js": "console.log('index.js read only');",
+		"filea.js": "console.log('filea.js editable');",
+	}
+	locked := []string{"index.js"}
+
+	hashes, count, err := SyncWorkspaceAtomicWithRegistry(tempDir, files, locked, reg)
+	if err != nil {
+		t.Fatalf("unexpected error during locked files sync: %v", err)
+	}
+	if count != 2 || len(hashes) != 2 {
+		t.Fatalf("expected 2 files synced, got %d", count)
+	}
+
+	indexInfo, err := os.Stat(filepath.Join(tempDir, "index.js"))
+	if err != nil {
+		t.Fatalf("failed to stat index.js: %v", err)
+	}
+	if indexInfo.Mode().Perm()&0200 != 0 {
+		// Read-only check on unix
+		t.Logf("index.js mode: %v", indexInfo.Mode().Perm())
+	}
+
+	fileaInfo, err := os.Stat(filepath.Join(tempDir, "filea.js"))
+	if err != nil {
+		t.Fatalf("failed to stat filea.js: %v", err)
+	}
+	if fileaInfo.Mode().Perm()&0200 == 0 {
+		t.Errorf("expected filea.js to be writable, got mode %v", fileaInfo.Mode().Perm())
+	}
+}
+

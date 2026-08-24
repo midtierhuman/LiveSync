@@ -59,10 +59,10 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
     - Validates and filters `expandedFolderIds` against active known folders before issuing HTTP requests, instantly pruning stale or deleted folder UUIDs from `sessionStorage`.
     - In-memory `FolderService` caching with negative-cache guards suppressing redundant 404 network errors for orphaned or unassigned project folders.
 
-12. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
+12. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13` / `BUG-16`)**:
     - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
     - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
-    - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs and debounced keystroke edits prior to terminal and compilation execution.
+    - Decoupled project execution disk synchronization capturing unpersisted editor buffers across all open tabs while transmitting granular `lockedFiles` arrays to enforce OS read-only protections (`0444`) on restricted files.
 
 ---
 
