@@ -23,7 +23,7 @@ import { WorkspaceSearchService, SearchMatch } from '../../services/workspace-se
 import { RunConfigService } from '../../services/run-config.service';
 import { AiAgentService } from '../../services/ai-agent.service';
 import JSZip from 'jszip';
-import { Editor } from '../editor/editor';
+import { Editor, ChatMessage } from '../editor/editor';
 import {
   ShareModalComponent,
   SharedCollaborator,
@@ -333,8 +333,62 @@ export class Workspace implements OnInit {
   showRenameModal = signal(false);
   renameTarget = signal<{ id: string; name: string; type: RenameItemType } | null>(null);
 
-  // AI Quick Actions Menu
+  // AI Chat & Quick Actions State
   showAiQuickMenu = signal(false);
+  readonly workspaceChatMessages = signal<ChatMessage[]>([]);
+  readonly workspaceCustomPrompt = signal<string>('');
+  readonly isWorkspaceAiLoading = signal<boolean>(false);
+  readonly workspaceAiError = signal<string>('');
+
+  readonly effectiveChatMessages = computed(() => {
+    const editor = this.activeEditorInstance();
+    if (editor && editor.chatMessages().length > 0) {
+      return editor.chatMessages();
+    }
+    return this.workspaceChatMessages();
+  });
+
+  readonly isAiLoading = computed(() => {
+    const editor = this.activeEditorInstance();
+    if (editor) return editor.isAiLoading();
+    return this.isWorkspaceAiLoading();
+  });
+
+  readonly userPromptValue = computed(() => {
+    const editor = this.activeEditorInstance();
+    if (editor) return editor.userCustomPrompt();
+    return this.workspaceCustomPrompt();
+  });
+
+  setUserPrompt(val: string): void {
+    const editor = this.activeEditorInstance();
+    if (editor) {
+      editor.userCustomPrompt.set(val);
+    } else {
+      this.workspaceCustomPrompt.set(val);
+    }
+  }
+
+  handleChatKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void this.sendCustomAiPrompt();
+    }
+  }
+
+  async sendCustomAiPrompt(): Promise<void> {
+    const editor = this.activeEditorInstance();
+    if (editor) {
+      await editor.sendCustomAiPrompt();
+      return;
+    }
+
+    const customPrompt = this.workspaceCustomPrompt().trim();
+    if (!customPrompt || this.isWorkspaceAiLoading()) return;
+
+    this.workspaceCustomPrompt.set('');
+    await this.runWorkspaceAiAnalysis('chat', customPrompt);
+  }
 
   toggleAiQuickMenu() {
     this.showAiQuickMenu.update((v) => !v);
@@ -342,7 +396,150 @@ export class Workspace implements OnInit {
 
   runAiQuickAction(action: string) {
     this.showAiQuickMenu.set(false);
-    this.activeEditorInstance()?.runAiAnalysis(action);
+    const editor = this.activeEditorInstance();
+    if (editor) {
+      void editor.runAiAnalysis(action);
+    } else {
+      void this.runWorkspaceAiAnalysis(action);
+    }
+  }
+
+  clearChatHistory(): void {
+    const editor = this.activeEditorInstance();
+    if (editor) {
+      editor.clearChatHistory();
+    }
+    this.workspaceChatMessages.set([]);
+  }
+
+  copyMessageText(msgId: string, text?: string): void {
+    if (text) {
+      navigator.clipboard.writeText(text);
+    }
+  }
+
+  applyMessageCode(code?: string, action?: string): void {
+    const editor = this.activeEditorInstance();
+    if (editor) {
+      editor.applyMessageCode(code, action);
+    }
+  }
+
+  async runWorkspaceAiAnalysis(action: string, customPrompt?: string): Promise<void> {
+    this.isWorkspaceAiLoading.set(true);
+    this.workspaceAiError.set('');
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let userMessageText = customPrompt;
+    if (!userMessageText) {
+      if (action === 'explain') userMessageText = 'Explain workspace code';
+      else if (action === 'refactor') userMessageText = 'Refactor & optimize code';
+      else if (action === 'generate-tests') userMessageText = 'Generate unit test suite';
+      else if (action === 'complexity') userMessageText = 'Analyze Big-O complexity';
+      else userMessageText = `Run action: ${action}`;
+    }
+
+    this.workspaceChatMessages.update((msgs) => [
+      ...msgs,
+      {
+        id: `user-${Date.now()}`,
+        sender: 'user',
+        text: userMessageText,
+        timestamp: timeStr,
+      },
+    ]);
+
+    const aiMsgId = `ai-${Date.now()}`;
+    this.workspaceChatMessages.update((msgs) => [
+      ...msgs,
+      {
+        id: aiMsgId,
+        sender: 'ai',
+        text: '',
+        action,
+        suggestions: [],
+        generatedCode: undefined,
+        provider: 'AI Assistant (Synthesizing...)',
+        timestamp: timeStr,
+      },
+    ]);
+
+    try {
+      const language = this.getCurrentWorkspaceLanguage();
+      const apiKey = this.aiAgentService.getActiveApiKey();
+      const provider = this.aiAgentService.activeProviderId();
+      const includeContext = this.aiAgentService.includeProjectContext();
+      const projectFiles = includeContext ? this.vfsService.getProjectFilesSnapshot() : undefined;
+      const aiOptions = {
+        apiKey,
+        provider,
+        projectFiles,
+        projectId: this.scopedProject()?.id || undefined,
+      };
+
+      let accumulatedText = '';
+      let currentProvider = this.aiAgentService.activeProvider().name;
+      let currentSuggestions: string[] = [];
+      let currentCode: string | undefined = undefined;
+
+      const result = await this.documentService.streamAiAssistant(
+        action,
+        language,
+        '',
+        customPrompt,
+        (chunk) => {
+          if (chunk.delta) accumulatedText += chunk.delta;
+          if (chunk.provider) currentProvider = chunk.provider;
+          if (chunk.suggestions && chunk.suggestions.length > 0) currentSuggestions = chunk.suggestions;
+          if (chunk.generatedCode) currentCode = chunk.generatedCode;
+
+          this.workspaceChatMessages.update((msgs) =>
+            msgs.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    text: accumulatedText,
+                    provider: currentProvider,
+                    suggestions: currentSuggestions,
+                    generatedCode: currentCode,
+                  }
+                : m
+            )
+          );
+        },
+        undefined,
+        aiOptions,
+      );
+
+      this.workspaceChatMessages.update((msgs) =>
+        msgs.map((m) =>
+          m.id === aiMsgId
+            ? {
+                ...m,
+                text: result.explanation || accumulatedText,
+                action: result.action,
+                suggestions: result.suggestions?.length ? result.suggestions : currentSuggestions,
+                generatedCode: result.generatedCode || currentCode || undefined,
+                provider: result.provider || currentProvider,
+              }
+            : m
+        )
+      );
+    } catch {
+      this.workspaceChatMessages.update((msgs) =>
+        msgs.map((m) =>
+          m.id === aiMsgId
+            ? {
+                ...m,
+                text: '⚠️ AI assistant request failed. Please check network connectivity or API key configuration.',
+                provider: 'System Error',
+              }
+            : m
+        )
+      );
+    } finally {
+      this.isWorkspaceAiLoading.set(false);
+    }
   }
 
   // Package Hub State & Methods

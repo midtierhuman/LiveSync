@@ -75,8 +75,8 @@ func main() {
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      handler,
-		ReadTimeout:  35 * time.Second,
-		WriteTimeout: 35 * time.Second,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 0, // Disabled to support SSE streams and PTY WebSockets without abrupt TCP teardown
 		IdleTimeout:  120 * time.Second,
 	}
 

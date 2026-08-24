@@ -35,7 +35,7 @@ class AiChunkResult(NamedTuple):
 
 WORKSPACE_TOOLS_GEMINI = [
     {
-        "function_declarations": [
+        "functionDeclarations": [
             {
                 "name": "list_workspace_files",
                 "description": "List all file paths and document IDs in the user workspace/project to explore the file tree.",
@@ -203,7 +203,7 @@ class AiAssistantService:
 
         # 5. Offline AST Structural Engine Fallback
         if settings.enable_ast_fallback:
-            yield from self._stream_ast_fallback(act, lang, code)
+            yield from self._stream_ast_fallback(act, lang, code, custom_prompt=custom_prompt)
             return
 
         # Final Offline Error Chunk
@@ -446,24 +446,9 @@ CRITICAL INSTRUCTIONS:
                                 )
 
                             accumulated_text = ""
-                            raw_lines = []
-                            try:
-                                for line in resp:
-                                    raw_lines.append(line)
-                            except Exception:
-                                pass
-
-                            if not raw_lines and hasattr(resp, "read"):
-                                try:
-                                    content_bytes = resp.read()
-                                    if content_bytes:
-                                        raw_lines = content_bytes.splitlines()
-                                except Exception:
-                                    pass
-
                             function_call_detected: dict[str, Any] | None = None
 
-                            for raw_line in raw_lines:
+                            for raw_line in resp:
                                 if isinstance(raw_line, (bytes, bytearray)):
                                     line = raw_line.decode("utf-8", errors="replace").strip()
                                 else:
@@ -533,7 +518,7 @@ CRITICAL INSTRUCTIONS:
                                     "parts": [{
                                         "functionResponse": {
                                             "name": fn_name,
-                                            "response": {"result": tool_res}
+                                            "response": {"name": fn_name, "content": tool_res}
                                         }
                                     }]
                                 })
@@ -765,8 +750,10 @@ CRITICAL INSTRUCTIONS:
             is_final=True,
         )
 
-    def _stream_ast_fallback(self, action: str, language: str, code: str) -> Generator[AiChunkResult, None, None]:
-        provider_name = "Local CPU AST Engine"
+    def _stream_ast_fallback(
+        self, action: str, language: str, code: str, custom_prompt: str | None = None
+    ) -> Generator[AiChunkResult, None, None]:
+        provider_name = "Local CPU AST Engine (Offline)"
         explanation = ""
         suggestions = ["Ensure clean variable scoping and error handling."]
         generated_code = None
@@ -784,6 +771,25 @@ CRITICAL INSTRUCTIONS:
         elif action in ("suggest", "autocomplete"):
             explanation = "### ✨ Code Completion Suggestion\n\nGenerated next logical code snippet."
             generated_code = self._generate_ast_suggestion(language, code)
+        elif action == "chat":
+            if custom_prompt:
+                explanation = (
+                    f"### 💬 Offline AI Assistant\n\n"
+                    f"**Prompt**: *\"{custom_prompt}\"*\n\n"
+                    f"> ℹ️ **Offline Mode**: Connect your Google Antigravity / Gemini API Key in the AI Dock for full real-time cloud LLM reasoning and code generation.\n\n"
+                    f"**Active Workspace Context Analysis**:\n"
+                    f"{self._generate_ast_explanation(language, code)}"
+                )
+            else:
+                explanation = (
+                    f"### 💬 Offline AI Assistant\n\n"
+                    f"> ℹ️ Connect your Google Antigravity / Gemini API Key in the AI Dock for full conversational code assistant capabilities.\n\n"
+                    f"{self._generate_ast_explanation(language, code)}"
+                )
+            suggestions = [
+                "Connect your Antigravity / Gemini API Key in the AI Dock for full LLM reasoning.",
+                "Use quick actions (Explain, Refactor, Tests, Big-O) for instant offline AST analysis.",
+            ]
         else:
             explanation = self._generate_ast_explanation(language, code)
 

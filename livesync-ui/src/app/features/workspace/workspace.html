@@ -956,7 +956,7 @@
 
           <div class="panel-body ai-sidebar-body">
             <!-- Unconnected Prompt Card for Antigravity/Cloud -->
-            @if (!aiAgentService.isCurrentProviderConnected() && (activeEditorInstance()?.chatMessages()?.length === 0 || !activeEditorInstance())) {
+            @if (!aiAgentService.isCurrentProviderConnected() && effectiveChatMessages().length === 0) {
               <div class="ai-connect-card">
                 <div class="connect-card-hero">
                   <div class="connect-icon-circle">
@@ -994,7 +994,7 @@
             }
 
             <div class="ai-chat-stream">
-              @for (msg of activeEditorInstance()?.chatMessages(); track msg.id) {
+              @for (msg of effectiveChatMessages(); track msg.id) {
                 <div class="chat-bubble" [class.user-bubble]="msg.sender === 'user'" [class.ai-bubble]="msg.sender === 'ai'">
                   <div class="bubble-header">
                     <div class="sender-info">
@@ -1011,10 +1011,10 @@
                     <div class="generated-code-box">
                       <pre><code>{{ msg.generatedCode }}</code></pre>
                       <div class="code-actions">
-                        <button class="btn-apply-code" (click)="activeEditorInstance()?.applyMessageCode(msg.generatedCode, msg.action)">
+                        <button class="btn-apply-code" (click)="applyMessageCode(msg.generatedCode, msg.action)">
                           <mat-icon>check</mat-icon> Apply to Editor
                         </button>
-                        <button class="btn-copy-code" (click)="activeEditorInstance()?.copyMessageText(msg.id, msg.generatedCode)">
+                        <button class="btn-copy-code" (click)="copyMessageText(msg.id, msg.generatedCode)">
                           <mat-icon>content_copy</mat-icon> Copy
                         </button>
                       </div>
@@ -1031,28 +1031,28 @@
                     </div>
 
                     <div class="ai-starters-grid">
-                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('explain')">
+                      <button class="ai-starter-btn" (click)="runAiQuickAction('explain')">
                         <span class="starter-symbol">💡</span>
                         <div class="starter-copy">
                           <span class="starter-title">Explain Code</span>
                           <span class="starter-desc">Step-by-step logic breakdown</span>
                         </div>
                       </button>
-                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('refactor')">
+                      <button class="ai-starter-btn" (click)="runAiQuickAction('refactor')">
                         <span class="starter-symbol">⚡</span>
                         <div class="starter-copy">
                           <span class="starter-title">Refactor & Optimize</span>
                           <span class="starter-desc">Clean, idiomatic patterns</span>
                         </div>
                       </button>
-                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('generate-tests')">
+                      <button class="ai-starter-btn" (click)="runAiQuickAction('generate-tests')">
                         <span class="starter-symbol">🛠️</span>
                         <div class="starter-copy">
                           <span class="starter-title">Generate Unit Tests</span>
                           <span class="starter-desc">Edge-case test suites</span>
                         </div>
                       </button>
-                      <button class="ai-starter-btn" (click)="activeEditorInstance()?.runAiAnalysis('complexity')">
+                      <button class="ai-starter-btn" (click)="runAiQuickAction('complexity')">
                         <span class="starter-symbol">⏱️</span>
                         <div class="starter-copy">
                           <span class="starter-title">Big-O Bounds</span>
@@ -1065,7 +1065,7 @@
               }
 
               <!-- Shimmer Loading Indicator -->
-              @if (activeEditorInstance()?.isAiLoading()) {
+              @if (isAiLoading()) {
                 <div class="ai-loading-card">
                   <div class="loading-label-row">
                     <span class="ai-pulse-dot"></span>
@@ -1081,12 +1081,12 @@
             <div class="ai-prompt-input-row">
               <textarea
                 [placeholder]="'Ask ' + aiAgentService.activeProvider().name + ' about project or request changes...'"
-                [value]="activeEditorInstance()?.userCustomPrompt() || ''"
-                (input)="activeEditorInstance()?.userCustomPrompt?.set($any($event.target).value)"
-                (keydown)="activeEditorInstance()?.handleChatKeyDown($event)"
+                [value]="userPromptValue()"
+                (input)="setUserPrompt($any($event.target).value)"
+                (keydown)="handleChatKeyDown($event)"
                 rows="2"
               ></textarea>
-              <button class="btn-send-prompt" (click)="activeEditorInstance()?.sendCustomAiPrompt()" [disabled]="activeEditorInstance()?.isAiLoading()">
+              <button class="btn-send-prompt" (click)="sendCustomAiPrompt()" [disabled]="isAiLoading()">
                 <mat-icon>send</mat-icon>
               </button>
             </div>
