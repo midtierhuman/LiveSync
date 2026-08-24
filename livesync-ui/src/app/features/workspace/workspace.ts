@@ -1324,8 +1324,25 @@ export class Workspace implements OnInit {
   }
 
   private async refreshExpandedFolderContents() {
-    const expanded = Array.from(this.expandedFolderIds());
-    for (const id of expanded) {
+    const allKnownFolderIds = new Set<string>();
+    const collectFolderIds = (folders: FolderDto[]) => {
+      for (const f of folders) {
+        allKnownFolderIds.add(f.id);
+        if (f.subfolders && f.subfolders.length > 0) {
+          collectFolderIds(f.subfolders);
+        }
+      }
+    };
+    collectFolderIds(this.myFolders());
+    collectFolderIds(this.sharedFolderTree());
+
+    // Prune any stale or deleted folder IDs from memory and sessionStorage
+    const validExpanded = Array.from(this.expandedFolderIds()).filter((id) => allKnownFolderIds.has(id));
+    if (validExpanded.length !== this.expandedFolderIds().size) {
+      this.updateExpandedFolders(new Set(validExpanded));
+    }
+
+    for (const id of validExpanded) {
       try {
         const details = await this.folderService.getFolder(id);
         this.folderChildDocs.update((prev) => ({ ...prev, [id]: details.documents || [] }));

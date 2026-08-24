@@ -102,19 +102,52 @@ export class FolderService {
     );
   }
 
+  private folderCache = new Map<string, { data: FolderDto; timestamp: number }>();
+  private invalidFolderIds = new Set<string>();
+
+  clearFolderCache(id?: string): void {
+    if (id) {
+      this.folderCache.delete(id);
+      this.invalidFolderIds.delete(id);
+    } else {
+      this.folderCache.clear();
+      this.invalidFolderIds.clear();
+    }
+  }
+
   async getFolder(id: string): Promise<FolderDto> {
-    return firstValueFrom(
-      this.http.get<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/${id}`)
-    );
+    if (!id || id.trim() === '' || this.invalidFolderIds.has(id)) {
+      throw new Error(`Folder ${id} is unavailable`);
+    }
+
+    const cached = this.folderCache.get(id);
+    if (cached && Date.now() - cached.timestamp < 10000) {
+      return cached.data;
+    }
+
+    try {
+      const data = await firstValueFrom(
+        this.http.get<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/${id}`)
+      );
+      this.folderCache.set(id, { data, timestamp: Date.now() });
+      return data;
+    } catch (err: any) {
+      if (err?.status === 404) {
+        this.invalidFolderIds.add(id);
+      }
+      throw err;
+    }
   }
 
   async updateFolder(id: string, name: string): Promise<FolderDto> {
+    this.clearFolderCache(id);
     return firstValueFrom(
       this.http.put<FolderDto>(`${appEndpoints.apiBaseUrl}/api/folders/${id}`, { name })
     );
   }
 
   async deleteFolder(id: string): Promise<void> {
+    this.clearFolderCache(id);
     await firstValueFrom(
       this.http.delete(`${appEndpoints.apiBaseUrl}/api/folders/${id}`)
     );
