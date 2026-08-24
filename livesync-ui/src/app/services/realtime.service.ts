@@ -83,6 +83,9 @@ export class RealtimeService {
   private isStarting = false;
 
   readonly connectionState = signal<string>('disconnected');
+  readonly isReconnecting = signal<boolean>(false);
+  readonly reconnectAttemptCount = signal<number>(0);
+  readonly reconnectErrorMessage = signal<string>('');
   readonly currentDocumentId = signal<string | null>(null);
   readonly followedUserId = signal<string | null>(null);
   readonly onWorkspaceChange = signal<WorkspaceChangeEvent | null>(null);
@@ -145,6 +148,10 @@ export class RealtimeService {
     this.socket = io(serverUrl, {
       autoConnect: false,
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 20,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       auth: {
         token: this.authService.token() || '',
       },
@@ -152,6 +159,9 @@ export class RealtimeService {
 
     this.socket.on('connect', () => {
       this.connectionState.set('connected');
+      this.isReconnecting.set(false);
+      this.reconnectAttemptCount.set(0);
+      this.reconnectErrorMessage.set('');
       console.log('Realtime Multiplexed Socket Connected successfully:', this.socket.id);
       const user = this.authService.user();
       if (user?.id) {
@@ -172,14 +182,42 @@ export class RealtimeService {
       }
     });
 
-    this.socket.on('disconnect', () => {
+    this.socket.on('disconnect', (reason) => {
       this.connectionState.set('disconnected');
-      console.log('Realtime Socket Disconnected');
+      if (reason === 'io server disconnect') {
+        // Server disconnected the socket explicitly (e.g. auth expired)
+        this.reconnectNow();
+      }
+      console.log('Realtime Socket Disconnected:', reason);
     });
 
     this.socket.on('connect_error', (err) => {
       this.connectionState.set('error');
+      this.reconnectErrorMessage.set(err?.message || 'Realtime collaboration service unreachable (port 5000).');
       console.error('Realtime Socket Connection error:', err);
+    });
+
+    this.socket.io.on('reconnect_attempt', (attempt) => {
+      this.isReconnecting.set(true);
+      this.reconnectAttemptCount.set(attempt);
+      this.connectionState.set('reconnecting');
+    });
+
+    this.socket.io.on('reconnect', () => {
+      this.isReconnecting.set(false);
+      this.reconnectAttemptCount.set(0);
+      this.reconnectErrorMessage.set('');
+      this.connectionState.set('connected');
+    });
+
+    this.socket.io.on('reconnect_error', (err) => {
+      this.reconnectErrorMessage.set(err?.message || 'Reconnection attempt failed');
+    });
+
+    this.socket.io.on('reconnect_failed', () => {
+      this.isReconnecting.set(false);
+      this.connectionState.set('failed');
+      this.reconnectErrorMessage.set('Realtime server connection could not be re-established.');
     });
 
     // Wire multiplexed incoming event listeners
@@ -572,6 +610,19 @@ export class RealtimeService {
         workspaceId,
         documentId,
       });
+    }
+  }
+
+  reconnectNow(): void {
+    const token = this.authService.token() || '';
+    if (this.socket) {
+      this.socket.auth = { token };
+      this.isReconnecting.set(true);
+      this.reconnectErrorMessage.set('');
+      if (this.socket.connected) {
+        this.socket.disconnect();
+      }
+      this.socket.connect();
     }
   }
 }

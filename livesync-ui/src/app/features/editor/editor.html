@@ -19,6 +19,22 @@
     </div>
   }
 
+  @if (realtimeService.connectionState() !== 'connected') {
+    <div class="realtime-reconnect-banner" [class.is-reconnecting]="realtimeService.isReconnecting()">
+      <mat-icon class="pulse-icon">{{ realtimeService.isReconnecting() ? 'sync' : 'wifi_off' }}</mat-icon>
+      <span class="reconnect-text">
+        @if (realtimeService.isReconnecting()) {
+          Realtime collaboration disconnected. Auto-reconnecting (attempt {{ realtimeService.reconnectAttemptCount() }})...
+        } @else {
+          Realtime collaboration offline ({{ realtimeService.reconnectErrorMessage() || 'Port 5000 unreachable' }}).
+        }
+      </span>
+      <button class="btn-reconnect-now" (click)="realtimeService.reconnectNow()">
+        <mat-icon>refresh</mat-icon> Reconnect
+      </button>
+    </div>
+  }
+
   <!-- Top Editor Breadcrumb & Quick Actions Bar (FEAT-18 / FEAT-20) -->
   <div class="editor-sub-toolbar">
     <div class="breadcrumb-trail" (click)="copyRelativePath()" matTooltip="Click to copy relative path">
