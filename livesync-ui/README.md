@@ -6,8 +6,9 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
 
 ## 🚀 Key Architecture & Components
 
-1. **CodeMirror 6 Collaborative Editor**:
+1. **CodeMirror 6 Collaborative Editor & Presence Delta Compression (`PERF-15`)**:
    - Modern CodeMirror 6 editor with custom reactive extensions.
+   - Dual-edge 50ms cursor move throttling and delta compression suppressing redundant socket packets when navigating without selection changes.
    - Dynamic Compartments dynamically toggling read-only states for locked/view-only files.
    - Remote presence `StateField` rendering real-time collaborator carets and translucent multi-line selection ranges.
 

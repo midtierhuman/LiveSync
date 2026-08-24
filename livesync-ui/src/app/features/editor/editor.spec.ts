@@ -40,6 +40,7 @@ describe('Editor', () => {
       joinDocument: jasmine.createSpy().and.resolveTo(),
       leaveDocument: jasmine.createSpy().and.resolveTo(),
       sendUpdate: jasmine.createSpy().and.resolveTo(),
+      sendCursorPosition: jasmine.createSpy().and.resolveTo(),
       setCurrentDocumentId: jasmine.createSpy(),
       getOrCreateDocumentState: jasmine.createSpy().and.returnValue(docState),
       addContentUpdateListener: jasmine.createSpy(),

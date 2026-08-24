@@ -101,6 +101,7 @@ export class EditorHub {
   private readonly lastEditorByDocument = new Map<string, string>();
   private readonly lastSavedContent = new Map<string, string>();
   private readonly dirtyDebounceTimers = new Map<string, NodeJS.Timeout>();
+  private readonly lastBroadcastCursor = new Map<string, { position: number; selectionStart: number; selectionEnd: number; lineNumber: number }>();
   public static readonly DIRTY_FLUSH_DEBOUNCE_MS = 2500; // 2.5s trailing-edge debounce (PERF-11)
   private sweeperTimer: NodeJS.Timeout | null = null;
   private flusherTimer: NodeJS.Timeout | null = null;
@@ -414,6 +415,7 @@ export class EditorHub {
 
       this.io.to(documentId).emit('UserLeft', socket.id, activeCount, documentId);
       this.removeDocumentToken(documentId, socket.id);
+      this.lastBroadcastCursor.delete(`${socket.id}:${documentId}`);
     } catch (error: any) {
       console.error(`Error leaving document ${documentId}:`, error);
     }
@@ -599,14 +601,33 @@ export class EditorHub {
         return;
       }
 
+      const position = payload.position ?? 0;
+      const selectionStart = payload.selectionStart ?? position;
+      const selectionEnd = payload.selectionEnd ?? position;
+      const lineNumber = payload.lineNumber ?? 1;
+
+      // Delta compression: suppress redundant cursor broadcast if position & selection are identical (PERF-15)
+      const cursorKey = `${socket.id}:${documentId}`;
+      const lastCursor = this.lastBroadcastCursor.get(cursorKey);
+      if (
+        lastCursor &&
+        lastCursor.position === position &&
+        lastCursor.selectionStart === selectionStart &&
+        lastCursor.selectionEnd === selectionEnd &&
+        lastCursor.lineNumber === lineNumber
+      ) {
+        return;
+      }
+      this.lastBroadcastCursor.set(cursorKey, { position, selectionStart, selectionEnd, lineNumber });
+
       const color = (await this.state.getColor(socket.id)) || '#2196F3';
       socket.to(documentId).emit('ReceiveCursorUpdate', {
         documentId,
         userId: socket.id,
-        position: payload.position ?? 0,
-        selectionStart: payload.selectionStart ?? payload.position ?? 0,
-        selectionEnd: payload.selectionEnd ?? payload.position ?? 0,
-        lineNumber: payload.lineNumber ?? 1,
+        position,
+        selectionStart,
+        selectionEnd,
+        lineNumber,
         scrollLine: payload.scrollLine ?? 1,
         userName: payload.userName || 'Anonymous',
         color,
@@ -664,6 +685,7 @@ export class EditorHub {
 
         this.io.to(documentId).emit('UserLeft', socket.id, count, documentId);
         this.removeDocumentToken(documentId, socket.id);
+        this.lastBroadcastCursor.delete(`${socket.id}:${documentId}`);
       }
 
       await this.state.removeConnection(socket.id);

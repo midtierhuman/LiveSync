@@ -635,7 +635,15 @@ export class Editor implements OnInit {
   readonly newCommentText = signal<string>('');
   readonly replyDrafts = signal<{ [commentId: string]: string }>({});
 
+  private static readonly CURSOR_THROTTLE_MS = 50; // 50ms leading/trailing edge throttle (PERF-15)
   private cursorThrottleTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastCursorDispatchTime = 0;
+  private lastDispatchedCursor: {
+    pos: number;
+    selStart: number;
+    selEnd: number;
+    lineNumber: number;
+  } | null = null;
   private pendingCursorArgs: {
     pos: number;
     selStart: number;
@@ -655,31 +663,67 @@ export class Editor implements OnInit {
     this.selectedLineForComment.set(line.number);
 
     const currentDocId = this.docId();
-    if (currentDocId) {
-      this.pendingCursorArgs = {
-        pos,
-        selStart,
-        selEnd,
-        lineNumber: line.number,
-        userName: this.authService.user()?.userName || 'Collaborator',
-      };
+    if (!currentDocId) return;
 
-      if (!this.cursorThrottleTimer) {
-        this.cursorThrottleTimer = setTimeout(() => {
-          if (this.pendingCursorArgs && this.docId()) {
-            void this.realtimeService.sendCursorPosition(
-              this.docId(),
-              this.pendingCursorArgs.pos,
-              this.pendingCursorArgs.selStart,
-              this.pendingCursorArgs.selEnd,
-              this.pendingCursorArgs.lineNumber,
-              this.pendingCursorArgs.lineNumber,
-              this.pendingCursorArgs.userName,
-            );
-          }
-          this.cursorThrottleTimer = null;
-        }, 100);
+    // Delta compression check: discard redundant dispatches if caret and range are identical
+    if (
+      this.lastDispatchedCursor &&
+      this.lastDispatchedCursor.pos === pos &&
+      this.lastDispatchedCursor.selStart === selStart &&
+      this.lastDispatchedCursor.selEnd === selEnd &&
+      this.lastDispatchedCursor.lineNumber === line.number
+    ) {
+      return;
+    }
+
+    this.pendingCursorArgs = {
+      pos,
+      selStart,
+      selEnd,
+      lineNumber: line.number,
+      userName: this.authService.user()?.userName || 'Collaborator',
+    };
+
+    const now = Date.now();
+    const elapsed = now - this.lastCursorDispatchTime;
+
+    const dispatchCursor = () => {
+      if (!this.pendingCursorArgs || !this.docId()) return;
+      const args = this.pendingCursorArgs;
+      this.lastDispatchedCursor = {
+        pos: args.pos,
+        selStart: args.selStart,
+        selEnd: args.selEnd,
+        lineNumber: args.lineNumber,
+      };
+      this.lastCursorDispatchTime = Date.now();
+      if (this.realtimeService?.sendCursorPosition) {
+        void this.realtimeService.sendCursorPosition(
+          this.docId(),
+          args.pos,
+          args.selStart,
+          args.selEnd,
+          args.lineNumber,
+          args.lineNumber,
+          args.userName,
+        );
       }
+    };
+
+    if (elapsed >= Editor.CURSOR_THROTTLE_MS) {
+      // Leading edge dispatch
+      if (this.cursorThrottleTimer) {
+        clearTimeout(this.cursorThrottleTimer);
+        this.cursorThrottleTimer = null;
+      }
+      dispatchCursor();
+    } else if (!this.cursorThrottleTimer) {
+      // Trailing edge debounce
+      const remaining = Editor.CURSOR_THROTTLE_MS - elapsed;
+      this.cursorThrottleTimer = setTimeout(() => {
+        this.cursorThrottleTimer = null;
+        dispatchCursor();
+      }, remaining);
     }
   }
 

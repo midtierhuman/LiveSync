@@ -177,4 +177,54 @@ test('EditorHub PERF-11: schedules debounced dirty flusher and publishes save ev
   assert.equal(hubInternal.dirtyDebounceTimers.has('doc-dirty-2'), false);
 });
 
+test('EditorHub PERF-15: suppresses redundant cursor broadcasts with delta compression', async () => {
+  const broadcastEvents: Array<{ room: string; event: string; data: any }> = [];
+  const mockIo: any = {
+    to: (room: string) => ({
+      emit: (event: string, data: any) => broadcastEvents.push({ room, event, data }),
+    }),
+  };
+
+  const mockState: any = {
+    getAccess: async () => 'Edit',
+    getColor: async () => '#FF5722',
+  };
+
+  const hub = new EditorHub(mockIo, mockState, {} as never, {} as never);
+  const hubInternal = hub as any;
+
+  const mockSocket: any = {
+    id: 'socket-cursor-1',
+    to: (room: string) => ({
+      emit: (event: string, data: any) => broadcastEvents.push({ room, event, data }),
+    }),
+  };
+
+  const payload1 = {
+    documentId: 'doc-cursor-1',
+    position: 42,
+    selectionStart: 40,
+    selectionEnd: 45,
+    lineNumber: 5,
+    userName: 'Alice',
+  };
+
+  // First dispatch: should broadcast
+  await hubInternal.handleSendCursorPosition(mockSocket, payload1);
+  assert.equal(broadcastEvents.length, 1);
+  assert.equal(broadcastEvents[0].event, 'ReceiveCursorUpdate');
+  assert.equal(broadcastEvents[0].data.position, 42);
+
+  // Redundant second dispatch: delta compression should suppress packet
+  await hubInternal.handleSendCursorPosition(mockSocket, payload1);
+  assert.equal(broadcastEvents.length, 1); // No new emission
+
+  // Modified third dispatch: should broadcast
+  const payload2 = { ...payload1, position: 43 };
+  await hubInternal.handleSendCursorPosition(mockSocket, payload2);
+  assert.equal(broadcastEvents.length, 2);
+  assert.equal(broadcastEvents[1].data.position, 43);
+});
+
+
 
