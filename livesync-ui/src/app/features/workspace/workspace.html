@@ -1786,5 +1786,56 @@
       </div>
     </div>
   }
-</div>
 
+  <!-- Polyglot Microservices Health Telemetry Modal (RES-05) -->
+  @if (healthCheckService.showHealthModal()) {
+    <div class="modal-overlay" (click)="healthCheckService.closeModal()">
+      <div class="modal health-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="header-icon-title">
+            <mat-icon class="header-icon health-icon">health_and_safety</mat-icon>
+            <div>
+              <h3>System Health & Diagnostics</h3>
+              <p class="modal-subtitle">Polyglot microservice status, latency & connectivity</p>
+            </div>
+          </div>
+          <button mat-icon-button (click)="healthCheckService.closeModal()" class="btn-close-modal">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="modal-body health-modal-body">
+          <div class="health-matrix-grid">
+            @for (svc of healthCheckService.services(); track svc.id) {
+              <div class="health-service-card" [class]="'status-' + svc.status">
+                <div class="svc-header">
+                  <div class="svc-name-badge">
+                    <span class="status-indicator-dot"></span>
+                    <strong>{{ svc.name }}</strong>
+                  </div>
+                  <span class="svc-port-badge">:{{ svc.port }}</span>
+                </div>
+                <div class="svc-role">{{ svc.role }}</div>
+                <div class="svc-footer">
+                  <span class="svc-details">{{ svc.details || 'Checking connection...' }}</span>
+                  @if (svc.latencyMs !== undefined) {
+                    <span class="svc-latency-pill">{{ svc.latencyMs }}ms</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" (click)="healthCheckService.runDiagnostics()" [disabled]="healthCheckService.isChecking()">
+            <mat-icon [class.spin-icon]="healthCheckService.isChecking()">refresh</mat-icon>
+            {{ healthCheckService.isChecking() ? 'Probing Services...' : 'Refresh Matrix' }}
+          </button>
+          <div class="footer-spacer"></div>
+          <button class="btn-primary" (click)="healthCheckService.closeModal()">Done</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

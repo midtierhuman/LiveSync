@@ -22,6 +22,7 @@ import { PackageManagerService } from '../../services/package-manager.service';
 import { WorkspaceSearchService, SearchMatch } from '../../services/workspace-search.service';
 import { RunConfigService } from '../../services/run-config.service';
 import { AiAgentService } from '../../services/ai-agent.service';
+import { HealthCheckService } from '../../services/health-check.service';
 import JSZip from 'jszip';
 import { Editor, ChatMessage } from '../editor/editor';
 import {
@@ -84,6 +85,7 @@ export class Workspace implements OnInit {
   public readonly searchService = inject(WorkspaceSearchService);
   public readonly runConfigService = inject(RunConfigService);
   public readonly aiAgentService = inject(AiAgentService);
+  public readonly healthCheckService = inject(HealthCheckService);
   private readonly realtimeService = inject(RealtimeService);
   public readonly vfsService = inject(VFSService);
   private readonly router = inject(Router);
@@ -614,6 +616,27 @@ export class Workspace implements OnInit {
   readonly isCommandMode = computed(() => this.quickOpenQuery().startsWith('>'));
 
   readonly commandList = computed<Array<{ id: string; title: string; category: string; icon: string; shortcut?: string; action: () => void }>>(() => [
+    {
+      id: 'system.health',
+      title: 'System: Check Polyglot Microservice Health & Diagnostics',
+      category: 'System',
+      icon: 'health_and_safety',
+      action: () => this.healthCheckService.openModal(),
+    },
+    {
+      id: 'realtime.reconnect',
+      title: 'Realtime: Force Reconnect Socket.IO Collaboration',
+      category: 'Realtime',
+      icon: 'wifi_protected_setup',
+      action: () => this.realtimeService.reconnectNow(),
+    },
+    {
+      id: 'terminal.reconnect',
+      title: 'Terminal: Reconnect Live PTY Terminal WebSocket',
+      category: 'Terminal',
+      icon: 'replay',
+      action: () => this.liveTerminalService.reconnectActiveSession(true),
+    },
     {
       id: 'ai.toggle',
       title: 'LiveSync AI: Toggle AI Assistant Dock',

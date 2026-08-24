@@ -48,11 +48,18 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
    - CodeMirror 6 `foldGutter()` with hover chevrons and block collapse/expansion across all language scopes.
    - Interactive breadcrumb navigation trail displaying canonical relative file paths with 1-click clipboard copying and active language badge.
 
-10. **Stale Folder ID Session Pruning & Safe VFS In-Memory Resolution (`BUG-15`)**:
+10. **Polyglot System Resilience & Comprehensive Error Boundary (`RES-01` - `RES-05`)**:
+    - **Live Terminal Disconnect Overlay (`RES-01`)**: Visual failure card with auto-reconnection exponential backoff timer and 1-click manual reconnect action.
+    - **AI Assistant Stream Error Boundary (`RES-02`)**: Inline error diagnostic cards inside chat streams with explicit failure details, retry triggers, and provider configuration shortcuts.
+    - **Realtime Socket Recovery Banner (`RES-03`)**: Non-blocking top reconnection banner and status bar indicators with automated state recovery upon Socket.IO reconnection.
+    - **Universal Toast Notifications (`RES-04`)**: Centralized HTTP interceptor catching 401, 403, 429, 500/503, and network dropouts with auto-dismissing deduplicated floating toasts.
+    - **Microservice Health Telemetry Matrix (`RES-05`)**: Live system status modal accessible from Command Palette and status bar actively probing Core API (:5038), Gateway (:8081), Realtime (:5000), and AI (:50051) with round-trip latency metrics.
+
+11. **Stale Folder ID Session Pruning & Safe VFS In-Memory Resolution (`BUG-15`)**:
     - Validates and filters `expandedFolderIds` against active known folders before issuing HTTP requests, instantly pruning stale or deleted folder UUIDs from `sessionStorage`.
     - In-memory `FolderService` caching with negative-cache guards suppressing redundant 404 network errors for orphaned or unassigned project folders.
 
-11. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
+12. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
     - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
     - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
     - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs and debounced keystroke edits prior to terminal and compilation execution.
