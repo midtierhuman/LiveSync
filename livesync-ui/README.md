@@ -44,7 +44,11 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
    - Interactive syntax mode picker switching CodeMirror 6 language compartments on the fly across 16 supported languages.
    - Real-time line, character metrics, and indentation mode toggling (`Spaces: 2` / `Spaces: 4`).
 
-9. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
+9. **Code Folding Gutter & Interactive Breadcrumb Navigation (`FEAT-20`)**:
+   - CodeMirror 6 `foldGutter()` with hover chevrons and block collapse/expansion across all language scopes.
+   - Interactive breadcrumb navigation trail displaying canonical relative file paths with 1-click clipboard copying and active language badge.
+
+10. **Recursive Virtual Filesystem (VFS) & Canonical Relative Path Disk Sync (`BUG-13`)**:
    - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
    - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
    - Real-time disk synchronization capturing unpersisted editor buffers across all open tabs and debounced keystroke edits prior to terminal and compilation execution.

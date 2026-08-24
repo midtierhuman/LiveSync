@@ -19,11 +19,14 @@
     </div>
   }
 
-  <!-- Top Editor Breadcrumb & Quick Actions Bar (FEAT-18) -->
+  <!-- Top Editor Breadcrumb & Quick Actions Bar (FEAT-18 / FEAT-20) -->
   <div class="editor-sub-toolbar">
-    <div class="breadcrumb-trail">
-      <mat-icon class="bc-icon">code</mat-icon>
-      <span class="bc-doc-title">{{ docTitle() || 'Untitled' }}</span>
+    <div class="breadcrumb-trail" (click)="copyRelativePath()" matTooltip="Click to copy relative path">
+      <mat-icon class="bc-icon">folder_open</mat-icon>
+      <span class="bc-path-crumb">{{ relativeFilePath() }}</span>
+      @if (isCopiedPath()) {
+        <span class="bc-copied-badge">Copied!</span>
+      }
       <span class="bc-lang-pill">{{ currentLanguageDisplayName() }}</span>
     </div>
 

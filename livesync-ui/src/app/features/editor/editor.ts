@@ -33,6 +33,8 @@ import {
   syntaxHighlighting,
   indentOnInput,
   bracketMatching,
+  foldGutter,
+  foldKeymap,
 } from '@codemirror/language';
 import { history, defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { searchKeymap } from '@codemirror/search';
@@ -45,7 +47,6 @@ import {
   CompletionContext,
   CompletionSource,
 } from '@codemirror/autocomplete';
-import { foldKeymap } from '@codemirror/language';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
@@ -297,6 +298,27 @@ export class Editor implements OnInit {
   readonly totalCharCount = computed(() => {
     return this.codeSignal()?.length || 0;
   });
+
+  // Breadcrumb Navigation (FEAT-20)
+  readonly relativeFilePath = computed(() => {
+    const id = this.docId();
+    if (id) {
+      const p = this.vfsService.getPathByDocumentId(id);
+      if (p) return p;
+    }
+    return this.docTitle() || 'untitled';
+  });
+
+  readonly isCopiedPath = signal<boolean>(false);
+
+  copyRelativePath(): void {
+    const p = this.relativeFilePath();
+    if (p) {
+      void navigator.clipboard.writeText(p);
+      this.isCopiedPath.set(true);
+      setTimeout(() => this.isCopiedPath.set(false), 1500);
+    }
+  }
 
   openGoToLineModal(): void {
     this.goToLineInput.set('');
@@ -668,6 +690,7 @@ export class Editor implements OnInit {
       extensions: [
         lineNumbers(),
         highlightActiveLineGutter(),
+        foldGutter(),
         history(),
         drawSelection(),
         dropCursor(),
