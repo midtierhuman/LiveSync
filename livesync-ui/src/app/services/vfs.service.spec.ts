@@ -142,4 +142,56 @@ describe('VFSService', () => {
     expect(service.getPathByDocumentId('doc-file')).toBeUndefined();
     expect(service.getDocumentIdByPath('dest/util.ts')).toBeUndefined();
   });
+
+  it('should recursively flatten nested subfolders from hierarchical FolderDto trees (BUG-13)', () => {
+    // Hierarchical structure where only root folder is at top level, and subfolders are nested inside .subfolders
+    const rootFolder: FolderDto = {
+      id: 'f-node-service',
+      name: 'node-service',
+      parentFolderId: undefined,
+      subfolders: [
+        {
+          id: 'f-test',
+          name: 'test',
+          parentFolderId: 'f-node-service',
+          subfolders: [
+            {
+              id: 'f-unit',
+              name: 'unit',
+              parentFolderId: 'f-test',
+              subfolders: [],
+              documents: [],
+            } as unknown as FolderDto,
+          ],
+          documents: [],
+        } as unknown as FolderDto,
+      ],
+      documents: [],
+    } as unknown as FolderDto;
+
+    const documents: DocumentDto[] = [
+      { id: 'doc-index', title: 'index.js', folderId: 'f-node-service' } as unknown as DocumentDto,
+      { id: 'doc-test', title: 'test.js', folderId: 'f-test' } as unknown as DocumentDto,
+      { id: 'doc-unit', title: 'suite.test.js', folderId: 'f-unit' } as unknown as DocumentDto,
+    ];
+
+    // Pass only the root folder (hierarchical array)
+    service.updateVFSState([rootFolder], documents, 'f-node-service');
+
+    expect(service.getPathByDocumentId('doc-index')).toBe('index.js');
+    expect(service.getPathByDocumentId('doc-test')).toBe('test/test.js');
+    expect(service.getPathByDocumentId('doc-unit')).toBe('test/unit/suite.test.js');
+
+    expect(service.getDocumentIdByPath('index.js')).toBe('doc-index');
+    expect(service.getDocumentIdByPath('test/test.js')).toBe('doc-test');
+    expect(service.getDocumentIdByPath('test/unit/suite.test.js')).toBe('doc-unit');
+
+    // Verify relative import resolution from index.js to ./test/test
+    const resolved = service.resolveImportPath('index.js', './test/test');
+    expect(resolved).toBe('test/test.js');
+
+    // Verify relative import from test/test.js to ./unit/suite.test
+    const nestedResolved = service.resolveImportPath('test/test.js', './unit/suite.test');
+    expect(nestedResolved).toBe('test/unit/suite.test.js');
+  });
 });

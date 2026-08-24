@@ -545,6 +545,23 @@ export class Workspace implements OnInit {
         }
       }
     }
+    const collectDocsFromFolders = (fList: FolderDto[]) => {
+      for (const f of fList) {
+        if (f.documents && f.documents.length > 0) {
+          for (const d of f.documents) {
+            if (!docMap.has(d.id) || !docMap.get(d.id)?.content) {
+              docMap.set(d.id, d);
+            }
+          }
+        }
+        if (f.subfolders && f.subfolders.length > 0) {
+          collectDocsFromFolders(f.subfolders);
+        }
+      }
+    };
+    collectDocsFromFolders(this.myFolders());
+    collectDocsFromFolders(this.sharedFolderTree());
+
     for (const s of this.sharedDocuments()) {
       if (!docMap.has(s.documentId)) {
         docMap.set(s.documentId, {
@@ -1040,6 +1057,8 @@ export class Workspace implements OnInit {
       }
       return null;
     };
+    const ownNested = findInTree(this.myFolders());
+    if (ownNested && ownNested.length > 0) return ownNested;
     const sharedNested = findInTree(this.sharedFolderTree());
     if (sharedNested && sharedNested.length > 0) return sharedNested;
     return this.myFolders().filter((f) => f.parentFolderId === folderId);
@@ -1058,6 +1077,8 @@ export class Workspace implements OnInit {
       }
       return null;
     };
+    const ownDocs = findDocs(this.myFolders());
+    if (ownDocs && ownDocs.length > 0) return ownDocs;
     const sharedNested = findDocs(this.sharedFolderTree());
     if (sharedNested && sharedNested.length > 0) return sharedNested;
     return this.myDocuments().filter((d) => d.folderId === folderId);
@@ -1401,9 +1422,19 @@ export class Workspace implements OnInit {
     const vfsPath = this.vfsService.getPathByDocumentId(doc.id);
     if (vfsPath) return vfsPath;
     if (doc.folderId) {
+      const findFolderById = (id: string, list: FolderDto[]): FolderDto | undefined => {
+        for (const f of list) {
+          if (f.id === id) return f;
+          if (f.subfolders && f.subfolders.length > 0) {
+            const res = findFolderById(id, f.subfolders);
+            if (res) return res;
+          }
+        }
+        return undefined;
+      };
       const folder =
-        this.myFolders().find((f) => f.id === doc.folderId) ||
-        this.sharedFolderTree().find((f) => f.id === doc.folderId);
+        findFolderById(doc.folderId, this.myFolders()) ||
+        findFolderById(doc.folderId, this.sharedFolderTree());
       if (folder) {
         const folderRel = this.getFolderRelativePath(folder);
         return folderRel ? `${folderRel}/${doc.title}` : doc.title;

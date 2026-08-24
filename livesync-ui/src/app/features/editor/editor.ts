@@ -806,7 +806,8 @@ export class Editor implements OnInit {
     // Proactively sync live buffer to workspace terminal disk
     const docTitle = this.document()?.title || this.docTitle();
     if (docTitle) {
-      this.liveTerminalService.syncFiles({ [docTitle]: value });
+      const relPath = (currentDocId ? this.vfsService.getPathByDocumentId(currentDocId) : null) || docTitle;
+      this.liveTerminalService.syncFiles({ [relPath]: value });
     }
 
     if (this.debounceTimer) {

@@ -38,18 +38,26 @@ export class VFSService {
     const docIdToPath = new Map<string, string>();
     const folderPathMap = new Map<string, string>();
 
-    // Step 1: Build folder lookup maps
+    // Step 1: Build folder lookup maps with recursive hierarchy flattening
     const folderById = new Map<string, FolderDto>();
     const childrenByParentFolder = new Map<string, FolderDto[]>();
 
-    for (const folder of folders) {
-      folderById.set(folder.id, folder);
-      const pid = folder.parentFolderId || '__root__';
-      if (!childrenByParentFolder.has(pid)) {
-        childrenByParentFolder.set(pid, []);
+    const flattenAndIndex = (fList: FolderDto[]) => {
+      for (const folder of fList) {
+        if (!folderById.has(folder.id)) {
+          folderById.set(folder.id, folder);
+          const pid = folder.parentFolderId || '__root__';
+          if (!childrenByParentFolder.has(pid)) {
+            childrenByParentFolder.set(pid, []);
+          }
+          childrenByParentFolder.get(pid)!.push(folder);
+        }
+        if (folder.subfolders && folder.subfolders.length > 0) {
+          flattenAndIndex(folder.subfolders);
+        }
       }
-      childrenByParentFolder.get(pid)!.push(folder);
-    }
+    };
+    flattenAndIndex(folders);
 
     // Step 2: Compute canonical relative path for each folder
     const computeFolderPath = (folder: FolderDto): string => {
@@ -125,7 +133,7 @@ export class VFSService {
     };
 
     const targetRootFolders = rootFolderId
-      ? folders.filter((f) => f.id === rootFolderId)
+      ? (folderById.has(rootFolderId) ? [folderById.get(rootFolderId)!] : folders.filter((f) => f.id === rootFolderId))
       : folders.filter((f) => !f.parentFolderId);
 
     for (const rf of targetRootFolders) {

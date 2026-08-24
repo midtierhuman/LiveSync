@@ -212,8 +212,8 @@ graph TD
 - **Quota Guard & Dependency Shield**: Hard validation blocking restricted dependency paths (`node_modules`, `venv`) and enforcing project file/size caps.
 
 ### D. Cloud IDE Frontend (`livesync-ui`)
-- **Reactive Virtual Filesystem (VFS) & Subfolder Aggregation (`BUG-12`)**: Aggregates top-level documents, subfolder trees (`folderChildDocs`), and shared documents into a canonical path index (`docIdToPath`, `pathToDocId`).
-- **Multi-Tab Live Buffer Disk Synchronization**: Captures in-memory `codeSignal` buffers across all open tabs in `editorInstances` and atomically synchronizes them to workspace disk (`/api/workspaces/:id/sync`) prior to terminal command execution.
+- **Reactive Virtual Filesystem (VFS) & Recursive Subfolder Flattening (`BUG-13`)**: Recursively flattens nested folder hierarchies across arbitrary depths into `folderById` maps, calculating canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) and supporting nested module import resolution (e.g. `require('./test/test')`).
+- **Multi-Tab Live Buffer & Keystroke Disk Synchronization**: Captures in-memory `codeSignal` buffers across all open tabs in `editorInstances` and debounced keystroke edits, atomically syncing canonical relative paths to workspace disk (`/api/workspaces/:id/sync`) prior to terminal execution.
 - **Zoneless Signals & CodeMirror 6 StateFields**: Zoneless change detection driving sub-millisecond editor updates, remote presence carets, and dynamic syntax highlighting.
 
 ---
