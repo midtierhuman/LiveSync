@@ -61,14 +61,14 @@ func main() {
 		w.Write([]byte(`{"status":"UP","service":"livesync-gateway","version":"1.0.0"}`))
 	})
 
-	mux.HandleFunc("/api/execution/languages", middleware.JWTAuth(cfg, execHandler.GetLanguages))
-	mux.HandleFunc("/api/execution/run", middleware.JWTAuth(cfg, execHandler.RunCode))
-	mux.HandleFunc("/api/ai/analyze", middleware.JWTAuth(cfg, aiHandler.AnalyzeCode))
-	mux.HandleFunc("/api/ai/stream", middleware.JWTAuth(cfg, aiHandler.StreamAnalyzeCode))
-	mux.HandleFunc("/api/ai/models", middleware.JWTAuth(cfg, aiHandler.ListModels))
-	mux.HandleFunc("/api/packages/", middleware.JWTAuth(cfg, pkgHandler.SearchPackages))
-	mux.HandleFunc("/api/workspaces/", middleware.JWTAuth(cfg, workspaceDispatcher))
-	mux.HandleFunc("/api/terminal/ws", middleware.JWTAuth(cfg, termHandler.ServeWS))
+	mux.HandleFunc("/api/execution/languages", middleware.GeneralLimiter.Limit(middleware.JWTAuth(cfg, execHandler.GetLanguages)))
+	mux.HandleFunc("/api/execution/run", middleware.ExecutionLimiter.Limit(middleware.JWTAuth(cfg, execHandler.RunCode)))
+	mux.HandleFunc("/api/ai/analyze", middleware.AILimiter.Limit(middleware.JWTAuth(cfg, aiHandler.AnalyzeCode)))
+	mux.HandleFunc("/api/ai/stream", middleware.AILimiter.Limit(middleware.JWTAuth(cfg, aiHandler.StreamAnalyzeCode)))
+	mux.HandleFunc("/api/ai/models", middleware.GeneralLimiter.Limit(middleware.JWTAuth(cfg, aiHandler.ListModels)))
+	mux.HandleFunc("/api/packages/", middleware.PackageLimiter.Limit(middleware.JWTAuth(cfg, pkgHandler.SearchPackages)))
+	mux.HandleFunc("/api/workspaces/", middleware.GeneralLimiter.Limit(middleware.JWTAuth(cfg, workspaceDispatcher)))
+	mux.HandleFunc("/api/terminal/ws", middleware.ExecutionLimiter.Limit(middleware.JWTAuth(cfg, termHandler.ServeWS)))
 
 	handler := middleware.CORS(cfg, mux)
 

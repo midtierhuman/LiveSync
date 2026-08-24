@@ -77,6 +77,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(security.GlobalAPILimiter.Handler)
 
 	// CORS Configuration
 	r.Use(cors.Handler(cors.Options{

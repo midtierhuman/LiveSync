@@ -231,9 +231,15 @@ graph TD
 
 1. **Zero-Trust JWT Cryptographic Authentication**:
    - Every WebSocket handshake, REST call, and terminal upgrade validates HMAC-SHA256 tokens with issuer and audience verification.
-2. **Ephemeral Execution Sandboxes (`/run/exec-{id}`)**:
+2. **Multi-Tier Token Bucket Rate Limiting & DDoS Throttling (`SEC-05`)**:
+   - Thread-safe in-memory Token Bucket rate limiters deployed across Gateway and Core API with automatic TTL eviction.
+   - **Authentication Routes (`/api/auth/*`)**: Strict 5 req/sec (burst: 10) brute-force protection.
+   - **Execution & Live Terminal PTY (`/api/execution/run`, `/api/terminal/ws`)**: 0.5 req/sec (burst: 15) to prevent container/process fork exhaustion.
+   - **AI Assistant & Package Registry (`/api/ai/*`, `/api/packages/*`)**: 0.5 – 1.0 req/sec (burst: 10 – 20) protecting LLM token quotas.
+   - Returns RFC-compliant HTTP `429 Too Many Requests` with standard `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` telemetry headers.
+3. **Ephemeral Execution Sandboxes (`/run/exec-{id}`)**:
    - Code execution takes place in disposable scratch directories. Build artifacts and temporary files are deleted upon run completion, guaranteeing zero mutation of the persistent collaborative workspace.
-3. **OS-Level Read-Only Enforcement (`chmod 0444`)**:
-   - Files marked with `View` permissions or locked by project administrators receive OS read-only flags on disk, preventing terminal scripts from mutating protected source files.
-4. **Air-Gapped AI Isolation**:
-   - `livesync-ai` communicates exclusively with `livesync-gateway` over internal HTTP/2 gRPC (`port 50051`), exposing zero public HTTP routes to the internet.
+4. **OS Read-Only File Protection (`chmod 0444`)**:
+   - Files marked locked or view-only in collaborative permissions receive OS read-only filesystem flags on disk to prevent unauthorized modifications via terminal scripts.
+5. **Air-Gapped AI Mesh Isolation**:
+   - `livesync-ai` communicates exclusively with internal backend services over HTTP/2 gRPC (`port 50051`), exposing zero public HTTP routes to the internet.

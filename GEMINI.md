@@ -43,9 +43,11 @@ Every code modification must be reflected across corresponding documentation:
   1. All target service test suites pass cleanly.
   2. Production bundle builds succeed (`npm run build`, `go build`, etc.).
   3. All documentation in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md), and [`README.md`](./README.md) is synchronized.
+  4. GitHub Issues and Milestones are synchronized by running `python3 scripts/sync_roadmap_to_github.py`.
 - When an active milestone reaches **6/6 tasks completed (`✅ Done`)**:
   - Run the full verification matrix across all 5 polyglot microservices.
   - Mark the milestone as `COMPLETED ✅` and transition the next milestone to `ACTIVE 🔄`.
+  - Re-run `python3 scripts/sync_roadmap_to_github.py` to close milestone issues in GitHub.
 
 ---
 

@@ -26,6 +26,7 @@ func NewAuthHandler(authService *services.AuthService, jwtService *security.JWTS
 
 func (h *AuthHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/api/auth", func(r chi.Router) {
+		r.Use(security.AuthLimiter.Handler)
 		r.Post("/register", h.Register)
 		r.Post("/login", h.Login)
 		r.Post("/refresh", h.Refresh)
