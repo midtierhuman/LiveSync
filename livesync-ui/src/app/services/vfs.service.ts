@@ -163,6 +163,71 @@ export class VFSService {
   }
 
   /**
+   * Optimistically updates the name/title of a file or folder in memory, immediately invalidating the VFS cache.
+   */
+  renameItem(type: 'file' | 'folder', id: string, newName: string): void {
+    const cleanName = newName.trim();
+    if (!cleanName || !id) return;
+
+    if (type === 'file') {
+      this.documentsSignal.update((docs) =>
+        docs.map((d) => (d.id === id ? { ...d, title: cleanName } : d))
+      );
+    } else {
+      this.foldersSignal.update((folders) =>
+        folders.map((f) => (f.id === id ? { ...f, name: cleanName } : f))
+      );
+    }
+  }
+
+  /**
+   * Optimistically updates the parent folder of a file or folder in memory.
+   */
+  moveItem(type: 'file' | 'folder', id: string, targetFolderId: string | null | undefined): void {
+    if (!id) return;
+    const parentId = targetFolderId || undefined;
+
+    if (type === 'file') {
+      this.documentsSignal.update((docs) =>
+        docs.map((d) => (d.id === id ? { ...d, folderId: parentId } : d))
+      );
+    } else {
+      this.foldersSignal.update((folders) =>
+        folders.map((f) => (f.id === id ? { ...f, parentFolderId: parentId } : f))
+      );
+    }
+  }
+
+  /**
+   * Optimistically removes a file or folder (and its children) from VFS memory.
+   */
+  deleteItem(type: 'file' | 'folder', id: string): void {
+    if (!id) return;
+
+    if (type === 'file') {
+      this.documentsSignal.update((docs) => docs.filter((d) => d.id !== id));
+    } else {
+      // Find all descendant folders recursively
+      const toDeleteFolderIds = new Set<string>([id]);
+      let addedMore = true;
+      while (addedMore) {
+        addedMore = false;
+        for (const f of this.foldersSignal()) {
+          if (f.parentFolderId && toDeleteFolderIds.has(f.parentFolderId) && !toDeleteFolderIds.has(f.id)) {
+            toDeleteFolderIds.add(f.id);
+            addedMore = true;
+          }
+        }
+      }
+
+      this.foldersSignal.update((folders) => folders.filter((f) => !toDeleteFolderIds.has(f.id)));
+      this.documentsSignal.update((docs) =>
+        docs.filter((d) => !d.folderId || !toDeleteFolderIds.has(d.folderId))
+      );
+    }
+  }
+
+  /**
    * Resolves a document UUID from a relative path (e.g. "src/utils/math.ts").
    */
   getDocumentIdByPath(path: string): string | undefined {

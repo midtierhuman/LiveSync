@@ -77,4 +77,69 @@ describe('VFSService', () => {
     expect(snapshot['src/main.py']).toBe('print("hello")');
     expect(snapshot['requirements.txt']).toBe('requests==2.31.0');
   });
+
+  it('should immediately update VFS index on optimistic file rename (BUG-10)', () => {
+    const folders: FolderDto[] = [
+      { id: 'f-root', name: 'my-project', parentFolderId: undefined } as unknown as FolderDto,
+      { id: 'f-src', name: 'src', parentFolderId: 'f-root' } as unknown as FolderDto,
+    ];
+    const documents: DocumentDto[] = [
+      { id: 'doc-1', title: 'oldName.ts', folderId: 'f-src' } as unknown as DocumentDto,
+    ];
+
+    service.updateVFSState(folders, documents, 'f-root');
+    expect(service.getPathByDocumentId('doc-1')).toBe('src/oldName.ts');
+
+    // Rapid consecutive renames
+    service.renameItem('file', 'doc-1', 'tempName.ts');
+    expect(service.getPathByDocumentId('doc-1')).toBe('src/tempName.ts');
+    expect(service.getDocumentIdByPath('src/tempName.ts')).toBe('doc-1');
+    expect(service.getDocumentIdByPath('src/oldName.ts')).toBeUndefined();
+
+    service.renameItem('file', 'doc-1', 'finalName.ts');
+    expect(service.getPathByDocumentId('doc-1')).toBe('src/finalName.ts');
+    expect(service.getDocumentIdByPath('src/finalName.ts')).toBe('doc-1');
+  });
+
+  it('should immediately update child paths on optimistic folder rename (BUG-10)', () => {
+    const folders: FolderDto[] = [
+      { id: 'f-root', name: 'my-project', parentFolderId: undefined } as unknown as FolderDto,
+      { id: 'f-components', name: 'components', parentFolderId: 'f-root' } as unknown as FolderDto,
+    ];
+    const documents: DocumentDto[] = [
+      { id: 'doc-btn', title: 'Button.tsx', folderId: 'f-components' } as unknown as DocumentDto,
+    ];
+
+    service.updateVFSState(folders, documents, 'f-root');
+    expect(service.getPathByDocumentId('doc-btn')).toBe('components/Button.tsx');
+
+    // Rename parent folder
+    service.renameItem('folder', 'f-components', 'widgets');
+    expect(service.getPathByDocumentId('doc-btn')).toBe('widgets/Button.tsx');
+    expect(service.getDocumentIdByPath('widgets/Button.tsx')).toBe('doc-btn');
+    expect(service.getDocumentIdByPath('components/Button.tsx')).toBeUndefined();
+  });
+
+  it('should immediately update VFS index on file move and cascading deletion (BUG-10)', () => {
+    const folders: FolderDto[] = [
+      { id: 'f-root', name: 'my-project', parentFolderId: undefined } as unknown as FolderDto,
+      { id: 'f-src', name: 'src', parentFolderId: 'f-root' } as unknown as FolderDto,
+      { id: 'f-dest', name: 'dest', parentFolderId: 'f-root' } as unknown as FolderDto,
+    ];
+    const documents: DocumentDto[] = [
+      { id: 'doc-file', title: 'util.ts', folderId: 'f-src' } as unknown as DocumentDto,
+    ];
+
+    service.updateVFSState(folders, documents, 'f-root');
+    expect(service.getPathByDocumentId('doc-file')).toBe('src/util.ts');
+
+    // Move file to dest folder
+    service.moveItem('file', 'doc-file', 'f-dest');
+    expect(service.getPathByDocumentId('doc-file')).toBe('dest/util.ts');
+
+    // Delete dest folder -> should cascade delete doc-file
+    service.deleteItem('folder', 'f-dest');
+    expect(service.getPathByDocumentId('doc-file')).toBeUndefined();
+    expect(service.getDocumentIdByPath('dest/util.ts')).toBeUndefined();
+  });
 });

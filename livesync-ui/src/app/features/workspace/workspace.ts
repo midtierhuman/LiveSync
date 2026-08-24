@@ -84,6 +84,8 @@ export class Workspace implements OnInit {
   private activeCleanupTerminalResizer?: (() => void) | null;
   private lastHandledPermTimestamp = 0;
   private lastJoinedWorkspaceId: string | null = null;
+  private loadWorkspaceSeq = 0;
+  private workspaceChangeDebounceTimer: any = null;
 
   constructor() {
     effect(() => {
@@ -99,12 +101,30 @@ export class Workspace implements OnInit {
       const wsChange = this.realtimeService.onWorkspaceChange();
       if (wsChange) {
         untracked(() => {
-          void this.loadWorkspace(true);
+          // 1. Optimistic VFS and open tabs update to eliminate race conditions
           if (wsChange.action === 'rename' && wsChange.itemId && wsChange.name) {
-            this.openTabs.update((tabs) =>
-              tabs.map((t) => (t.id === wsChange.itemId ? { ...t, title: wsChange.name! } : t))
-            );
+            const itemType = wsChange.itemType === 'folder' ? 'folder' : 'file';
+            this.vfsService.renameItem(itemType, wsChange.itemId, wsChange.name);
+            if (itemType === 'file') {
+              this.openTabs.update((tabs) =>
+                tabs.map((t) => (t.id === wsChange.itemId ? { ...t, title: wsChange.name! } : t))
+              );
+            }
+          } else if (wsChange.action === 'move' && wsChange.itemId) {
+            const itemType = wsChange.itemType === 'folder' ? 'folder' : 'file';
+            this.vfsService.moveItem(itemType, wsChange.itemId, wsChange.newParentFolderId || wsChange.parentFolderId);
+          } else if (wsChange.action === 'delete' && wsChange.itemId) {
+            const itemType = wsChange.itemType === 'folder' ? 'folder' : 'file';
+            this.vfsService.deleteItem(itemType, wsChange.itemId);
           }
+
+          // 2. Debounced authoritative background synchronization
+          if (this.workspaceChangeDebounceTimer) {
+            clearTimeout(this.workspaceChangeDebounceTimer);
+          }
+          this.workspaceChangeDebounceTimer = setTimeout(() => {
+            void this.loadWorkspace(true);
+          }, 150);
         });
       }
     });
@@ -696,7 +716,8 @@ export class Workspace implements OnInit {
     this.router.navigate(['/dashboard']);
   }
 
-  async loadWorkspace(silent: boolean = false) {
+  async loadWorkspace(silent: boolean = false): Promise<void> {
+    const seq = ++this.loadWorkspaceSeq;
     if (!silent) {
       this.isLoading.set(true);
     }
@@ -708,6 +729,11 @@ export class Workspace implements OnInit {
         this.folderService.getSharedFolderDetails(),
       ]);
 
+      // Guard against out-of-order responses from rapid consecutive calls
+      if (seq !== this.loadWorkspaceSeq) {
+        return;
+      }
+
       this.myFolders.set(folders);
       this.myDocuments.set(docs);
       this.sharedDocuments.set(sharedDocs);
@@ -716,6 +742,10 @@ export class Workspace implements OnInit {
       const tree = this.buildSharedAccessTree(sharedFolds, sharedDocs);
       this.sharedFolderTree.set(tree);
       await this.refreshExpandedFolderContents();
+
+      if (seq !== this.loadWorkspaceSeq) {
+        return;
+      }
 
       const allDocs: DocumentDto[] = [
         ...docs,
@@ -740,13 +770,35 @@ export class Workspace implements OnInit {
         allDocs,
         this.scopedProject()?.id || null,
       );
+
+      // Reconcile open tabs with latest titles
+      this.syncOpenTabsWithVFS();
     } catch (error) {
       console.error('Error loading workspace:', error);
     } finally {
-      if (!silent) {
+      if (!silent && seq === this.loadWorkspaceSeq) {
         this.isLoading.set(false);
       }
     }
+  }
+
+  private syncOpenTabsWithVFS(): void {
+    this.openTabs.update((tabs) =>
+      tabs.map((t) => {
+        const doc =
+          this.myDocuments().find((d) => d.id === t.id) ||
+          this.sharedDocuments().find((d) => d.documentId === t.id);
+        const title = doc
+          ? 'title' in doc
+            ? doc.title
+            : (doc as SharedDocumentDto).documentTitle
+          : t.title;
+        return {
+          ...t,
+          title: title || t.title,
+        };
+      })
+    );
   }
 
   private async refreshExpandedFolderContents() {
