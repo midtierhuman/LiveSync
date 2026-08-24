@@ -1177,6 +1177,30 @@
         <!-- Live Interactive xterm.js Terminal Canvas -->
         <div class="tab-content-container terminal-xterm-wrapper" [hidden]="bottomPanelActiveTab() !== 'terminal'" (click)="focusTerminal()">
           <div #workspaceTerminalContainer class="xterm-mount-point"></div>
+          @if (liveTerminalService.hasConnectionError()) {
+            <div class="terminal-error-overlay">
+              <div class="terminal-error-card">
+                <mat-icon class="err-icon">cloud_off</mat-icon>
+                <div class="err-content">
+                  <div class="err-title">Terminal Disconnected</div>
+                  <div class="err-desc">
+                    {{ liveTerminalService.connectionErrorMessage() || 'WebSocket connection to gateway terminal was interrupted.' }}
+                  </div>
+                  @if (liveTerminalService.reconnectCountdown() > 0) {
+                    <div class="err-retry-countdown">
+                      <mat-icon class="spin-icon">autorenew</mat-icon>
+                      <span>Auto-reconnecting in {{ liveTerminalService.reconnectCountdown() }}s (attempt {{ liveTerminalService.reconnectAttempts() }})...</span>
+                    </div>
+                  }
+                </div>
+                <div class="err-actions">
+                  <button class="btn-reconnect-action" (click)="liveTerminalService.reconnectActiveSession(true)">
+                    <mat-icon>refresh</mat-icon> Reconnect Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
         </div>
 
         @if (bottomPanelActiveTab() === 'ai' && aiDockPosition() === 'bottom') {

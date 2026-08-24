@@ -2197,6 +2197,102 @@
       width: 100%;
       height: 100%;
     }
+
+    .terminal-error-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 17, 23, 0.88);
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+
+      .terminal-error-card {
+        background: #1c2128;
+        border: 1px solid #da3633;
+        border-radius: 8px;
+        padding: 16px 20px;
+        max-width: 480px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+        .err-icon {
+          color: #f85149;
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+          flex-shrink: 0;
+        }
+
+        .err-content {
+          flex: 1;
+
+          .err-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #f0f6fc;
+            margin-bottom: 2px;
+          }
+
+          .err-desc {
+            font-size: 11.5px;
+            color: #8b949e;
+            line-height: 1.4;
+          }
+
+          .err-retry-countdown {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #e3b341;
+
+            .spin-icon {
+              font-size: 13px;
+              width: 13px;
+              height: 13px;
+              animation: spin 1.5s linear infinite;
+            }
+          }
+        }
+
+        .err-actions {
+          flex-shrink: 0;
+
+          .btn-reconnect-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #238636;
+            border: 1px solid rgba(240, 246, 252, 0.1);
+            color: #ffffff;
+            font-size: 11.5px;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+
+            mat-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+            }
+
+            &:hover {
+              background: #2ea043;
+            }
+          }
+        }
+      }
+    }
   }
 }
 

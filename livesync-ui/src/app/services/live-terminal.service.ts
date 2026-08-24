@@ -45,10 +45,15 @@ export class LiveTerminalService {
   private pendingCommands: PendingCommand[] = [];
   private pendingSyncFiles: { files: Record<string, string>; lockedFiles?: string[] } | null = null;
 
-  // Signals
+  // Signals & Error Resilience (RES-01)
   readonly terminalTabs = signal<TerminalTabMeta[]>([]);
   readonly activeTabId = signal<string>('');
   readonly terminalStatus = signal<string>('Idle');
+  readonly hasConnectionError = signal<boolean>(false);
+  readonly connectionErrorMessage = signal<string>('');
+  readonly reconnectCountdown = signal<number>(0);
+  readonly reconnectAttempts = signal<number>(0);
+  private reconnectIntervalTimer: ReturnType<typeof setInterval> | null = null;
   readonly onFileSystemChange = signal<{
     type: string;
     action: string;
@@ -370,6 +375,10 @@ export class LiveTerminalService {
 
       socket.onopen = () => {
         session.isConnected = true;
+        this.hasConnectionError.set(false);
+        this.connectionErrorMessage.set('');
+        this.reconnectAttempts.set(0);
+        this.clearReconnectTimer();
         this.updateTabsSignal();
         if (this.activeTabId() === session.id) {
           this.terminalStatus.set('Connected');
@@ -435,6 +444,9 @@ export class LiveTerminalService {
         this.updateTabsSignal();
         if (this.activeTabId() === session.id) {
           this.terminalStatus.set('Error');
+          this.hasConnectionError.set(true);
+          this.connectionErrorMessage.set('Terminal gateway connection failed. Ensure livesync-gateway is running on port 8081.');
+          this.scheduleReconnect(session);
         }
       };
 
@@ -443,12 +455,62 @@ export class LiveTerminalService {
         this.updateTabsSignal();
         if (this.activeTabId() === session.id) {
           this.terminalStatus.set('Disconnected');
+          this.hasConnectionError.set(true);
+          this.scheduleReconnect(session);
         }
       };
-    } catch {
+    } catch (err: any) {
       session.isConnected = false;
       this.updateTabsSignal();
       this.terminalStatus.set('Failed to connect');
+      this.hasConnectionError.set(true);
+      this.connectionErrorMessage.set(err?.message || 'Failed to establish WebSocket handshake with terminal service.');
+      this.scheduleReconnect(session);
+    }
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectIntervalTimer) {
+      clearInterval(this.reconnectIntervalTimer);
+      this.reconnectIntervalTimer = null;
+    }
+    this.reconnectCountdown.set(0);
+  }
+
+  private scheduleReconnect(session: TerminalSession): void {
+    this.clearReconnectTimer();
+    const attempts = this.reconnectAttempts() + 1;
+    this.reconnectAttempts.set(attempts);
+
+    // Exponential backoff: 2s, 4s, 8s, max 16s
+    const backoffSec = Math.min(16, Math.pow(2, Math.min(attempts, 4)));
+    this.reconnectCountdown.set(backoffSec);
+
+    this.reconnectIntervalTimer = setInterval(() => {
+      const remaining = this.reconnectCountdown() - 1;
+      if (remaining <= 0) {
+        this.clearReconnectTimer();
+        this.connectSession(session);
+      } else {
+        this.reconnectCountdown.set(remaining);
+      }
+    }, 1000);
+  }
+
+  reconnectActiveSession(manual: boolean = false): void {
+    this.clearReconnectTimer();
+    if (manual) {
+      this.reconnectAttempts.set(0);
+    }
+    const active = this.getActiveSession();
+    if (active) {
+      if (active.socket) {
+        try {
+          active.socket.close();
+        } catch {}
+        active.socket = null;
+      }
+      this.connectSession(active);
     }
   }
 
