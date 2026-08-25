@@ -18,7 +18,7 @@ High-performance AI code intelligence and static AST complexity analysis microse
 3. **Multi-Model Hybrid Inference Chain**:
    - **Google Antigravity / Gemini API (`streamGenerateContent`)**: Real-time SSE token generation with automatic model fallback (`gemini-3.5-flash`, `gemini-flash-latest`, `gemini-3.1-flash-lite`) and multi-turn tool calling loops.
    - **Local OpenAI-Compatible Server (`llama.cpp` / `Ollama` / `LM Studio`)**: Direct SSE chunked generation with `stream: true` and tool calling function declarations.
-   - **AST Big-O Complexity Engine with SHA-256 Memoization LRU Cache (`PERF-13`)**: Thread-safe 2,048-entry LRU cache keyed on SHA-256 code syntax hashes, delivering sub-millisecond (< 0.05ms) static Time ($\mathcal{O}(1)$, $\mathcal{O}(N)$, $\mathcal{O}(N \log N)$, $\mathcal{O}(N^2)$) and Space complexity analysis for active typing sessions.
+   - **AST Big-O Complexity Engine with SHA-256 Memoization LRU Cache (`PERF-13` / `FEAT-21`)**: Thread-safe 2,048-entry LRU cache keyed on SHA-256 code syntax hashes, delivering sub-millisecond (< 0.05ms) static Time ($\mathcal{O}(1)$, $\mathcal{O}(N)$, $\mathcal{O}(N \log N)$, $\mathcal{O}(N^2)$) and Space complexity analysis for active Python and JavaScript/TypeScript typing sessions.
    - **Zero-Cost Offline AST Fallback**: Automated structural analysis, PEP 8 / ES6 refactoring, and unit test generation fixtures when offline.
 
 4. **Air-Gapped Polyglot Mesh**:

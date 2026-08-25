@@ -271,13 +271,17 @@
           background: rgba(56, 189, 248, 0.15);
           color: #38bdf8;
         }
+        &.fastapi {
+          background: rgba(16, 185, 129, 0.15);
+          color: #10b981;
+        }
         &.js {
           background: rgba(234, 179, 8, 0.15);
           color: #eab308;
         }
-        &.go {
-          background: rgba(14, 165, 233, 0.15);
-          color: #0ea5e9;
+        &.node {
+          background: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
         }
       }
 

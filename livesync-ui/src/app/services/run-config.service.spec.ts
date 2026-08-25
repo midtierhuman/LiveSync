@@ -50,10 +50,10 @@ describe('RunConfigService', () => {
   });
 
   it('should add custom profile and select it', () => {
-    const custom = service.addCustomProfile('Run Rust Server', 'cargo run', 'custom');
+    const custom = service.addCustomProfile('Run Custom Server', 'npm run start:api', 'custom');
     expect(custom.id).toContain('custom-');
     expect(service.selectedProfileId()).toBe(custom.id);
-    expect(service.selectedProfile().name).toBe('Run Rust Server');
+    expect(service.selectedProfile().name).toBe('Run Custom Server');
   });
 
   it('should add and remove custom environment variables', () => {

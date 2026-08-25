@@ -119,13 +119,164 @@ export class Dashboard implements OnInit {
     try {
       this.isLoading.set(true);
       const created = await this.folderService.createFolder(starterName);
+
+      let title = 'main.py';
+      let content = '';
+
+      if (starterName === 'fastapi-service') {
+        title = 'main.py';
+        content = `"""
+LiveSync FastAPI Web Application
+Run with: uvicorn main:app --reload --port 8000
+"""
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional
+import uvicorn
+
+app = FastAPI(
+    title="LiveSync FastAPI Service",
+    description="High-performance async REST API powered by FastAPI",
+    version="1.0.0",
+)
+
+class Item(BaseModel):
+    id: Optional[int] = None
+    name: str
+    description: Optional[str] = None
+    price: float
+    in_stock: bool = True
+
+# In-memory database
+items_db: List[Item] = [
+    Item(id=1, name="Workspace Cloud License", description="Collaborative IDE seat", price=29.99, in_stock=True),
+    Item(id=2, name="AI Token Quota Pack", description="1M fast token budget", price=9.99, in_stock=True),
+]
+
+@app.get("/")
+def read_root():
+    return {
+        "status": "healthy",
+        "service": "LiveSync FastAPI WebAPI",
+        "docs_url": "http://localhost:8000/docs",
+    }
+
+@app.get("/api/items", response_model=List[Item])
+def get_items():
+    return items_db
+
+@app.post("/api/items", response_model=Item, status_code=201)
+def create_item(item: Item):
+    item.id = len(items_db) + 1
+    items_db.append(item)
+    return item
+
+@app.get("/api/items/{item_id}", response_model=Item)
+def get_item(item_id: int):
+    for it in items_db:
+        if it.id == item_id:
+            return it
+    raise HTTPException(status_code=404, detail="Item not found")
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+`;
+      } else if (starterName === 'node-webapi') {
+        title = 'server.js';
+        content = `/**
+ * LiveSync Node.js Web API Server
+ * Run with: node server.js
+ */
+const http = require('http');
+
+const PORT = process.env.PORT || 3000;
+
+// In-memory data store
+const users = [
+  { id: 1, name: 'Alice', role: 'Collaborator', status: 'active' },
+  { id: 2, name: 'Bob', role: 'Viewer', status: 'active' },
+];
+
+const server = http.createServer((req, res) => {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  const url = new URL(req.url, \`http://\${req.headers.host}\`);
+
+  // Routes
+  if (url.pathname === '/' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'healthy',
+      service: 'LiveSync Node.js WebAPI',
+      timestamp: new Date().toISOString(),
+      routes: ['/api/users', '/api/health']
+    }));
+    return;
+  }
+
+  if (url.pathname === '/api/health' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+    return;
+  }
+
+  if (url.pathname === '/api/users' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: users, count: users.length }));
+    return;
+  }
+
+  if (url.pathname === '/api/users' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const newUser = {
+          id: users.length + 1,
+          name: payload.name || 'New User',
+          role: payload.role || 'Member',
+          status: 'active'
+        };
+        users.push(newUser);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(newUser));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON payload' }));
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Route not found' }));
+});
+
+server.listen(PORT, () => {
+  console.log(\`🚀 LiveSync Web API listening on http://localhost:\${PORT}\`);
+});
+`;
+      } else if (starterName === 'node-service') {
+        title = 'index.js';
+        content = '// Node.js Microservice\nconsole.log("Hello from LiveSync Node.js Workspace!");\n';
+      } else {
+        title = 'main.py';
+        content = '# Python AI Sandbox\ndef main():\n    print("Hello from LiveSync AI Sandbox!")\n\nif __name__ == "__main__":\n    main()\n';
+      }
+
       await this.documentService.createDocument({
-        title: starterName === 'python-sandbox' ? 'main.py' : starterName === 'node-service' ? 'index.js' : 'main.go',
-        content: starterName === 'python-sandbox' 
-          ? '# Python AI Sandbox\ndef main():\n    print("Hello from LiveSync AI Sandbox!")\n\nif __name__ == "__main__":\n    main()\n'
-          : starterName === 'node-service'
-          ? '// Node.js Microservice\nconsole.log("Hello from LiveSync Node.js Workspace!");\n'
-          : '// Go Application\npackage main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello from LiveSync Go Workspace!")\n}\n',
+        title,
+        content,
         folderId: created.id,
       });
       await this.loadWorkspace();

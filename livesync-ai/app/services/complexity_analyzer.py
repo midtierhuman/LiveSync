@@ -15,7 +15,7 @@ class ComplexityResult(NamedTuple):
 class ComplexityAnalyzer:
     """
     Analyzes code snippets using AST parsing (Python) and structural pattern inspection
-    (JavaScript, C#) to estimate Big-O Time & Space complexity.
+    (JavaScript / TypeScript) to estimate Big-O Time & Space complexity.
     Features a high-speed SHA-256 memoization LRU cache for sub-millisecond (<0.05ms)
     recurring AST complexity evaluations (PERF-13).
     """
@@ -218,49 +218,6 @@ class ComplexityAnalyzer:
             explanation = f"Multi-level nested loops ({max_depth} levels) detected."
 
         space_comp = "O(N)" if (has_array or has_recursion) else "O(1)"
-        return ComplexityResult(
-            time_complexity=time_comp,
-            space_complexity=space_comp,
-            explanation=f"{explanation} Space complexity: {space_comp}.",
-        )
-
-    def _analyze_csharp(self, code: str) -> ComplexityResult:
-        loop_patterns = [r'\bfor\s*\(', r'\bforeach\s*\(', r'\bwhile\s*\(', r'\bdo\s*\{']
-        has_interactive_io = bool(re.search(r'\bConsole\.ReadLine\s*\(|\bConsole\.Read\s*\(', code))
-
-        max_depth = 0
-        current_depth = 0
-
-        for line in code.splitlines():
-            if any(re.search(p, line) for p in loop_patterns):
-                current_depth += 1
-                max_depth = max(max_depth, current_depth)
-            if '}' in line and current_depth > 0:
-                current_depth -= 1
-
-        has_sort = bool(re.search(r'\bArray\.Sort\b|\bList<.*>\.Sort\b|\b\.OrderBy\b', code))
-        has_collections = bool(re.search(r'\bnew\s+(List|Dictionary|HashSet|int\[\]|string\[\])\b', code))
-
-        if has_interactive_io:
-            time_comp = "N/A (Interactive I/O)"
-            explanation = "Interactive CLI loop detected. Execution runtime is driven by user input events rather than an algorithmic input size N."
-        elif has_sort:
-            time_comp = "O(N log N)"
-            explanation = "Sorting operation detected (O(N log N))."
-        elif max_depth == 0:
-            time_comp = "O(1)"
-            explanation = "Constant time O(1): linear statement block."
-        elif max_depth == 1:
-            time_comp = "O(N)"
-            explanation = "Single loop level detected (O(N))."
-        elif max_depth == 2:
-            time_comp = "O(N^2)"
-            explanation = "Nested loops detected (O(N^2))."
-        else:
-            time_comp = f"O(N^{max_depth})"
-            explanation = f"Polynomial loop hierarchy detected ({max_depth} levels)."
-
-        space_comp = "O(N)" if has_collections else "O(1)"
         return ComplexityResult(
             time_complexity=time_comp,
             space_complexity=space_comp,

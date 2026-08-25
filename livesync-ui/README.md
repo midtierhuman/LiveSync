@@ -41,7 +41,7 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
 
 8. **Status Bar Quick-Action Controls & Go-To-Line Modal (`FEAT-19`)**:
    - `Ctrl+G` / `Cmd+G` (or clicking cursor position): Go-To-Line spotlight modal navigating directly to `line:column` across arbitrary document sizes.
-   - Interactive syntax mode picker switching CodeMirror 6 language compartments on the fly across 16 supported languages.
+   - Interactive syntax mode picker switching CodeMirror 6 language compartments on the fly across streamlined Python and Node.js/JavaScript/TypeScript modes (with web companion support for Markdown, JSON, HTML, CSS).
    - Real-time line, character metrics, and indentation mode toggling (`Spaces: 2` / `Spaces: 4`).
 
 9. **Code Folding Gutter & Interactive Breadcrumb Navigation (`FEAT-20`)**:
@@ -63,6 +63,11 @@ Modern, ultra-responsive, zero-vertical-waste browser-based IDE built with **Ang
     - Comprehensive VFS path resolution recursively flattening folder hierarchies across arbitrary depths into `folderById` lookup maps.
     - Computes canonical POSIX relative paths (`docIdToPath`, `pathToDocId`) for subfolder documents, supporting nested module import resolution (e.g. `require('./test/test')`).
     - Decoupled project execution disk synchronization capturing unpersisted editor buffers across all open tabs while transmitting granular `lockedFiles` arrays to enforce OS read-only protections (`0444`) on restricted files.
+
+13. **Native FastAPI & Node.js WebAPI Execution (`FEAT-21`)**:
+    - Dedicated out-of-the-box Launch Configurations for Python FastAPI (`uvicorn main:app --reload --port 8000`, `fastapi dev main.py`) and Node.js Web APIs (`node server.js`, `npm run dev`, `npx ts-node server.ts`).
+    - One-click Dashboard Quick Starters generating full-featured FastAPI REST services with Swagger docs and Node.js WebAPI servers with CORS support.
+    - Streamlined language ecosystem focusing purely on Python and Node.js/JavaScript/TypeScript.
 
 ---
 

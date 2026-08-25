@@ -5,7 +5,7 @@ import { LiveTerminalService } from './live-terminal.service';
 import { AuthService } from './auth.service';
 import { appEndpoints } from '../app-endpoints';
 
-export type SupportedLanguage = 'node' | 'python' | 'go' | 'custom';
+export type SupportedLanguage = 'node' | 'python' | 'custom';
 
 export interface RunProfile {
   id: string;
@@ -48,32 +48,18 @@ export interface RunExecutionResult {
 
 const DEFAULT_PROFILES: RunProfile[] = [
   {
-    id: 'node-run-file',
-    name: 'Node.js: Run Active File',
-    language: 'node',
-    commandTemplate: 'node ${file}',
-    envVars: { NODE_ENV: 'development' },
+    id: 'py-fastapi',
+    name: 'FastAPI: uvicorn (Port 8000)',
+    language: 'python',
+    commandTemplate: 'uvicorn main:app --reload --port 8000',
+    envVars: { PYTHONUNBUFFERED: '1', PORT: '8000' },
   },
   {
-    id: 'node-npm-dev',
-    name: 'Node.js: npm run dev',
-    language: 'node',
-    commandTemplate: 'npm run dev',
-    envVars: { NODE_ENV: 'development' },
-  },
-  {
-    id: 'node-npm-test',
-    name: 'Node.js: npm test',
-    language: 'node',
-    commandTemplate: 'npm test',
-    envVars: { CI: 'true' },
-  },
-  {
-    id: 'ts-node-run',
-    name: 'TypeScript: npx ts-node',
-    language: 'node',
-    commandTemplate: 'npx ts-node ${file}',
-    envVars: {},
+    id: 'py-fastapi-dev',
+    name: 'FastAPI: fastapi dev',
+    language: 'python',
+    commandTemplate: 'fastapi dev main.py',
+    envVars: { PYTHONUNBUFFERED: '1' },
   },
   {
     id: 'py-run-file',
@@ -90,17 +76,38 @@ const DEFAULT_PROFILES: RunProfile[] = [
     envVars: {},
   },
   {
-    id: 'go-run-main',
-    name: 'Go: go run .',
-    language: 'go',
-    commandTemplate: 'go run .',
-    envVars: {},
+    id: 'node-webapi',
+    name: 'Node.js: Run Server (server.js / index.js)',
+    language: 'node',
+    commandTemplate: 'node ${file}',
+    envVars: { NODE_ENV: 'development', PORT: '3000' },
   },
   {
-    id: 'go-test',
-    name: 'Go: go test ./...',
-    language: 'go',
-    commandTemplate: 'go test -v ./...',
+    id: 'node-run-file',
+    name: 'Node.js: Run Active File',
+    language: 'node',
+    commandTemplate: 'node ${file}',
+    envVars: { NODE_ENV: 'development' },
+  },
+  {
+    id: 'node-npm-dev',
+    name: 'Node.js: npm run dev',
+    language: 'node',
+    commandTemplate: 'npm run dev',
+    envVars: { NODE_ENV: 'development', PORT: '3000' },
+  },
+  {
+    id: 'node-npm-test',
+    name: 'Node.js: npm test',
+    language: 'node',
+    commandTemplate: 'npm test',
+    envVars: { CI: 'true' },
+  },
+  {
+    id: 'ts-node-run',
+    name: 'TypeScript: npx ts-node',
+    language: 'node',
+    commandTemplate: 'npx ts-node ${file}',
     envVars: {},
   },
 ];

@@ -48,7 +48,6 @@ import {
   CompletionSource,
 } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
 import { json } from '@codemirror/lang-json';
@@ -196,18 +195,10 @@ export class Editor implements OnInit {
     if (lang === 'typescript' || title.endsWith('.ts') || title.endsWith('.tsx')) return 'TypeScript';
     if (lang === 'javascript' || title.endsWith('.js') || title.endsWith('.jsx') || title.endsWith('.mjs')) return 'JavaScript';
     if (lang === 'python' || title.endsWith('.py')) return 'Python';
-    if (lang === 'go' || title.endsWith('.go')) return 'Go';
     if (lang === 'json' || title.endsWith('.json')) return 'JSON';
     if (lang === 'html' || title.endsWith('.html') || title.endsWith('.htm')) return 'HTML';
     if (lang === 'css' || title.endsWith('.css') || title.endsWith('.scss')) return 'CSS';
     if (lang === 'markdown' || title.endsWith('.md')) return 'Markdown';
-    if (lang === 'rust' || title.endsWith('.rs')) return 'Rust';
-    if (lang === 'c' || lang === 'cpp' || title.endsWith('.c') || title.endsWith('.cpp') || title.endsWith('.h')) return 'C++';
-    if (lang === 'java' || title.endsWith('.java')) return 'Java';
-    if (lang === 'sql' || title.endsWith('.sql')) return 'SQL';
-    if (lang === 'yaml' || title.endsWith('.yaml') || title.endsWith('.yml')) return 'YAML';
-    if (lang === 'xml' || title.endsWith('.xml')) return 'XML';
-    if (lang === 'shell' || title.endsWith('.sh') || title.endsWith('.bash')) return 'Shell Script';
     return lang && lang !== 'plaintext' ? lang.charAt(0).toUpperCase() + lang.slice(1) : 'Plain Text';
   });
   readonly cursorPosition = signal('Ln 1, Col 1');
@@ -279,18 +270,10 @@ export class Editor implements OnInit {
     { id: 'typescript', name: 'TypeScript' },
     { id: 'javascript', name: 'JavaScript' },
     { id: 'python', name: 'Python' },
-    { id: 'go', name: 'Go' },
     { id: 'json', name: 'JSON' },
     { id: 'html', name: 'HTML' },
     { id: 'css', name: 'CSS / SCSS' },
     { id: 'markdown', name: 'Markdown' },
-    { id: 'rust', name: 'Rust' },
-    { id: 'cpp', name: 'C++' },
-    { id: 'java', name: 'Java' },
-    { id: 'sql', name: 'SQL' },
-    { id: 'yaml', name: 'YAML' },
-    { id: 'xml', name: 'XML' },
-    { id: 'shell', name: 'Shell Script' },
     { id: 'plaintext', name: 'Plain Text' },
   ];
 
@@ -979,11 +962,6 @@ export class Editor implements OnInit {
 
   private getLanguageExtension(language: string) {
     switch ((language || '').toLowerCase()) {
-      case 'java':
-        return java();
-      case 'csharp':
-      case 'cs':
-        return [];
       case 'python':
       case 'py':
         return python();
@@ -1183,33 +1161,6 @@ export class Editor implements OnInit {
     return formattedLines.join('\n').replace(/\n{3,}/g, '\n\n');
   }
 
-  private formatCSharpCode(code: string): string {
-    const lines = code.split(/\r?\n/);
-    const formattedLines: string[] = [];
-    let indentLevel = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const trimmed = lines[i].trim();
-      if (!trimmed) {
-        formattedLines.push('');
-        continue;
-      }
-
-      if (trimmed.startsWith('}') || trimmed.startsWith('})')) {
-        indentLevel = Math.max(0, indentLevel - 1);
-      }
-
-      const indent = '    '.repeat(indentLevel);
-      formattedLines.push(indent + trimmed);
-
-      if (trimmed.endsWith('{') && !trimmed.startsWith('//')) {
-        indentLevel++;
-      }
-    }
-
-    return formattedLines.join('\n').replace(/\n{3,}/g, '\n\n');
-  }
-
   async formatCode() {
     if (!this.editorView) {
       return;
@@ -1228,16 +1179,6 @@ export class Editor implements OnInit {
 
     if (lang === 'python' || lang === 'py') {
       const formatted = this.formatPythonCode(source);
-      if (formatted !== source) {
-        this.codeSignal.set(formatted);
-        this.updateEditorDocument(formatted);
-        this.scheduleDebounce(formatted);
-      }
-      return;
-    }
-
-    if (lang === 'csharp' || lang === 'cs' || lang === 'java') {
-      const formatted = this.formatCSharpCode(source);
       if (formatted !== source) {
         this.codeSignal.set(formatted);
         this.updateEditorDocument(formatted);
@@ -1583,14 +1524,6 @@ export class Editor implements OnInit {
       return 'typescript';
     }
 
-    if (loweredName.endsWith('.cs')) {
-      return 'csharp';
-    }
-
-    if (loweredName.endsWith('.java')) {
-      return 'java';
-    }
-
     if (
       loweredName.endsWith('.js') ||
       loweredName.endsWith('.mjs') ||
@@ -1623,14 +1556,6 @@ export class Editor implements OnInit {
 
     if (/\bdef\s+\w+|\bimport\s+\w+|\bfrom\s+\w+\s+import|\bprint\s*\(|\binput\s*\(|\bif\s+__name__\s*==|\bself\.\w+/i.test(trimmed)) {
       return 'python';
-    }
-
-    if (/\bpublic\s+(class|interface|enum|record)\b|\bimport\s+java\.\w+|\bSystem\.out\.print|\bpublic\s+static\s+void\s+main\b/i.test(trimmed)) {
-      return 'java';
-    }
-
-    if (/\busing\s+System\b|\bnamespace\s+\w+|\bConsole\.(Write|ReadLine)/i.test(trimmed)) {
-      return 'csharp';
     }
 
     if (/\bconst\s+|\blet\s+|\bvar\s+|\bfunction\s+|\bconsole\.(log|error|warn)|\bdocument\.|\bwindow\.|\bexport\s+(default|const|function|class)/i.test(trimmed)) {

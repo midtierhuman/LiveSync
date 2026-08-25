@@ -132,4 +132,18 @@ def test_complexity_analyzer_memoization_cache():
     assert stats2["misses"] == 1
 
 
+def test_complexity_analyzer_python_and_javascript():
+    from app.services.complexity_analyzer import complexity_analyzer
+
+    # Python linear loop
+    py_code = "for i in range(len(arr)):\n    print(i)"
+    py_res = complexity_analyzer.analyze("python", py_code)
+    assert py_res.time_complexity == "O(N)"
+
+    # JavaScript linear loop
+    js_code = "for (let i = 0; i < arr.length; i++) {\n    console.log(arr[i]);\n}"
+    js_res = complexity_analyzer.analyze("javascript", js_code)
+    assert js_res.time_complexity == "O(N)"
+
+
 

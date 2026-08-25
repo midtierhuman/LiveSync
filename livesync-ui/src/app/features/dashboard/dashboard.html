@@ -79,6 +79,20 @@
       <div class="sidebar-section">
         <div class="sidebar-heading">QUICK STARTERS</div>
         <div class="quick-starters-list">
+          <button class="starter-item" (click)="createQuickStarter('fastapi-service')">
+            <span class="starter-tag fastapi">API</span>
+            <div class="starter-meta">
+              <span class="starter-name">FastAPI Service</span>
+              <span class="starter-desc">Async REST API + Swagger docs</span>
+            </div>
+          </button>
+          <button class="starter-item" (click)="createQuickStarter('node-webapi')">
+            <span class="starter-tag node">NODE</span>
+            <div class="starter-meta">
+              <span class="starter-name">Node.js Web API</span>
+              <span class="starter-desc">REST Server + CORS ready</span>
+            </div>
+          </button>
           <button class="starter-item" (click)="createQuickStarter('python-sandbox')">
             <span class="starter-tag py">PY</span>
             <div class="starter-meta">
@@ -91,13 +105,6 @@
             <div class="starter-meta">
               <span class="starter-name">Node.js Service</span>
               <span class="starter-desc">VFS + xterm sandbox</span>
-            </div>
-          </button>
-          <button class="starter-item" (click)="createQuickStarter('go-starter')">
-            <span class="starter-tag go">GO</span>
-            <div class="starter-meta">
-              <span class="starter-name">Go Workspace</span>
-              <span class="starter-desc">Compiled CLI workspace</span>
             </div>
           </button>
         </div>
